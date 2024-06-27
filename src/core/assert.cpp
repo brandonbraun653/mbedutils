@@ -63,7 +63,7 @@ namespace mbedutils::assert
     irq::disable_interrupts();
     if( s_recursion_guard )
     {
-      s_recurse_event++;
+      s_recurse_event += 1;
       irq::enable_interrupts();
       return;
     }

@@ -27,6 +27,7 @@ namespace mbedutils::assert
   /**
    * @brief Assertion failure handler
    *
+   *
    * This function is the final endpoint for all assertion failures from
    * the mbedutils library. Note that this could be called at any time,
    * including from an ISR. Be sure to keep it as lean as possible.

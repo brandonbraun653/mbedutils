@@ -1,3 +1,17 @@
+/******************************************************************************
+ *  File Name:
+ *    nanoprintf.hpp
+ *
+ *  Description:
+ *    Interface for the nanoprintf library. This is a lightweight printf
+ *   implementation that is designed to be used in embedded systems.
+ *
+ *  2024 | Brandon Braun | brandonbraun653@protonmail.com
+ *****************************************************************************/
+
+#pragma once
+#ifndef MBEDUTILS_NANOPRINTF_HPP
+#define MBEDUTILS_NANOPRINTF_HPP
 
 /*-----------------------------------------------------------------------------
 NanoPrintf configuration for this module. For more information, see:
@@ -9,6 +23,10 @@ NanoPrintf configuration for this module. For more information, see:
 #define NANOPRINTF_USE_LARGE_FORMAT_SPECIFIERS 0
 #define NANOPRINTF_USE_BINARY_FORMAT_SPECIFIERS 0
 #define NANOPRINTF_USE_WRITEBACK_FORMAT_SPECIFIERS 0
-#define NANOPRINTF_IMPLEMENTATION
 
+/*-----------------------------------------------------------------------------
+Includes
+-----------------------------------------------------------------------------*/
 #include "nanoprintf.h"
+
+#endif  /* !MBEDUTILS_NANOPRINTF_HPP */
