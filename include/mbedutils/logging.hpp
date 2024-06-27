@@ -18,6 +18,6 @@ Includes
 #include <mbedutils/drivers/logging/logging_driver.hpp>
 #include <mbedutils/drivers/logging/logging_types.hpp>
 #include <mbedutils/drivers/logging/logging_macros.hpp>
-#include <mbedutils/drivers/logging/logging_sink_intf.hpp>
+#include <mbedutils/drivers/logging/logging_sinks.hpp>
 
 #endif /* !MBEDUTILS_LOGGING_HPP */

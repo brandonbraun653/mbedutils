@@ -82,7 +82,7 @@ namespace mbedutils::osal
     }
 
   protected:
-    osal::recursive_mutex_t mClsMutex;
+    osal::mb_recursive_mutex_t mClsMutex;
   };
 
 
@@ -92,7 +92,7 @@ namespace mbedutils::osal
   class LockGuard
   {
   public:
-    explicit LockGuard( osal::mutex_t &mutex ) : mtx( &mutex )
+    explicit LockGuard( osal::mb_mutex_t &mutex ) : mtx( &mutex )
     {
       osal::lockMutex( mtx );
     }
@@ -105,7 +105,7 @@ namespace mbedutils::osal
     LockGuard( const LockGuard & ) = delete;
 
   private:
-    osal::mutex_t *mtx;
+    osal::mb_mutex_t *mtx;
   };
 
 
@@ -115,7 +115,7 @@ namespace mbedutils::osal
   class RecursiveLockGuard
   {
   public:
-    explicit RecursiveLockGuard( osal::recursive_mutex_t &mutex ) : mtx( &mutex )
+    explicit RecursiveLockGuard( osal::mb_recursive_mutex_t &mutex ) : mtx( &mutex )
     {
       osal::lockRecursiveMutex( mtx );
     }
@@ -128,7 +128,7 @@ namespace mbedutils::osal
     RecursiveLockGuard( const RecursiveLockGuard & ) = delete;
 
   private:
-    osal::recursive_mutex_t *mtx;
+    osal::mb_recursive_mutex_t *mtx;
   };
 
 }  // namespace mbedutils::osal

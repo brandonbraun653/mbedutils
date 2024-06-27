@@ -23,6 +23,12 @@ namespace mbedutils::intf
   Enumerations
   ---------------------------------------------------------------------------*/
 
+  /**
+   * @brief Available interface drivers that are supported.
+   *
+   * Typically these are hardware peripherals like UART, SPI, etc. But it's
+   * not a strict requirement.
+   */
   enum class Driver : size_t
   {
     UART,
@@ -44,6 +50,17 @@ namespace mbedutils::intf
    * @return size_t
    */
   size_t max_drivers( const Driver driver );
+
+  /**
+   * @brief Returns the highest index available for a specific driver.
+   *
+   * For example, if your system has UART 0, 6, and 7 available for use, this
+   * function should return 7.
+   *
+   * @param driver Which driver interface to query
+   * @return size_t
+   */
+  size_t max_driver_index( const Driver driver );
 
   /**
    * @brief Checks to see if a specific driver instance exists.

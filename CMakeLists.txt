@@ -13,21 +13,58 @@ target_include_directories(${PROJECT_NAME}_headers INTERFACE
 )
 
 # --------------------------------------------------------------------------------
+# Internal header interface library. These are used for compiling the mbedutils
+# library, but are not implicitly exposed to the consumer. There may be some
+# conflicts if the project uses some of the same targets.
+# --------------------------------------------------------------------------------
+add_library(${PROJECT_NAME}_internal_headers INTERFACE)
+target_include_directories(${PROJECT_NAME}_internal_headers INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/lib/nanoprintf
+)
+
+# --------------------------------------------------------------------------------
 # Logging Library
 # --------------------------------------------------------------------------------
-file(GLOB LOGGING_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/logging/*.cpp)
-add_library(${PROJECT_NAME}_logging STATIC ${LOGGING_SOURCES})
-target_link_libraries(${PROJECT_NAME}_logging PRIVATE ${PROJECT_NAME}_headers)
+add_subdirectory(src/logging)
 
 # --------------------------------------------------------------------------------
-# Mutex Libraries
-# These provide some default implementations for common projects.
+# Interfaces Library
+# These provide some (but not all) interface definitions for common runtimes.
+# Include in your project as needed/desired.
 # --------------------------------------------------------------------------------
-add_library(${PROJECT_NAME}_mutex_stl STATIC ${CMAKE_CURRENT_SOURCE_DIR}/src/mutex/mutex_stl.cpp)
-target_link_libraries(${PROJECT_NAME}_mutex_stl PRIVATE ${PROJECT_NAME}_headers)
 
-add_library(${PROJECT_NAME}_mutex_freertos STATIC ${CMAKE_CURRENT_SOURCE_DIR}/src/mutex/mutex_freertos.cpp)
-target_link_libraries(${PROJECT_NAME}_mutex_freertos PRIVATE ${PROJECT_NAME}_headers)
+# Core Library
+file(GLOB CORE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/core/*.cpp)
+add_library(${PROJECT_NAME}_lib_core STATIC ${CORE_SOURCES})
+target_link_libraries(${PROJECT_NAME}_lib_core PRIVATE
+    ${PROJECT_NAME}_headers
+    ${PROJECT_NAME}_internal_headers
+)
 
-add_library(${PROJECT_NAME}_mutex_pico STATIC ${CMAKE_CURRENT_SOURCE_DIR}/src/mutex/mutex_pico.cpp)
-target_link_libraries(${PROJECT_NAME}_mutex_pico PRIVATE ${PROJECT_NAME}_headers)
+# STL Based Library
+file(GLOB STL_INTF_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/interfaces/stl/*.cpp)
+add_library(${PROJECT_NAME}_lib_stl STATIC ${STL_INTF_SOURCES})
+target_link_libraries(${PROJECT_NAME}_lib_stl PRIVATE
+    ${PROJECT_NAME}_headers
+    ${PROJECT_NAME}_internal_headers
+)
+
+# FreeRTOS Based Library
+file(GLOB FREERTOS_INTF_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/interfaces/freertos/*.cpp)
+add_library(${PROJECT_NAME}_lib_freertos STATIC ${FREERTOS_INTF_SOURCES})
+target_link_libraries(${PROJECT_NAME}_lib_freertos PRIVATE
+    ${PROJECT_NAME}_headers
+    ${PROJECT_NAME}_internal_headers
+)
+
+# RPI Pico Based Library
+if( PICO_SDK_PATH )
+    file(GLOB PICO_INTF_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/interfaces/pico/*.cpp)
+    add_library(${PROJECT_NAME}_lib_pico STATIC ${PICO_INTF_SOURCES})
+    target_link_libraries(${PROJECT_NAME}_lib_pico PRIVATE
+        ${PROJECT_NAME}_headers
+        ${PROJECT_NAME}_internal_headers
+        pico_sync_headers
+    )
+endif()
+

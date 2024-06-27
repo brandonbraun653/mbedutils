@@ -54,12 +54,13 @@ namespace mbedutils::logging
    */
   enum class ErrCode : size_t
   {
-    ERR_SUCCESS,
+    ERR_OK,
     ERR_IGNORE,
     ERR_FAIL,
     ERR_FAIL_MSG_TOO_LONG,
     ERR_FAIL_BAD_SINK,
     ERR_FAIL_BAD_ARG,
+    ERR_FAIL_ISR_CONTEXT,
     ERR_NO_MEM,
     ERR_LOCKED,
     ERR_FULL,
@@ -85,18 +86,6 @@ namespace mbedutils::logging
 
     LVL_MIN = LVL_TRACE,
     LVL_MAX = LVL_FATAL
-  };
-
-  /**
-   * @brief Output logger sink types
-   */
-  enum class IOType : size_t
-  {
-    CONSOLE_SINK,
-    FILE_SINK,
-    JLINK_SINK,
-    SERIAL_SINK,
-    VGDB_SINK
   };
 
 }  // namespace mbedutils::logging

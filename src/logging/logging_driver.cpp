@@ -11,25 +11,13 @@
 /*-----------------------------------------------------------------------------
 Includes
 -----------------------------------------------------------------------------*/
+#include <cstdarg>
 #include <mbedutils/config.hpp>
+#include <mbedutils/drivers/nanoprintf.hpp>
+#include <mbedutils/interfaces/irq_intf.hpp>
+#include <mbedutils/interfaces/time_intf.hpp>
 #include <mbedutils/logging.hpp>
 #include <mbedutils/osal.hpp>
-
-/*-----------------------------------------------------------------------------
-Configuration Options
------------------------------------------------------------------------------*/
-
-#if !defined( MBEDUTILS_LOGGING_MAX_SINKS )
-#define MBEDUTILS_LOGGING_MAX_SINKS ( 4 )
-#endif
-
-#if !defined( MBEDUTILS_LOGGING_DEFAULT_LOCK_TIMEOUT )
-#define MBEDUTILS_LOGGING_DEFAULT_LOCK_TIMEOUT ( 100 )
-#endif
-
-#if !defined( MBEDUTILS_LOGGING_BUFFER_SIZE )
-#define MBEDUTILS_LOGGING_BUFFER_SIZE ( 512 )
-#endif
 
 namespace mbedutils::logging
 {
@@ -44,12 +32,12 @@ namespace mbedutils::logging
   Static Data
   ---------------------------------------------------------------------------*/
 
-  static Level                     s_log_level;   /**< Current global log level */
-  static SinkHandle_rPtr           s_root_sink;   /**< User assigned root sink */
-  static LogBuffer                 s_log_buffer;  /**< Formatting buffer for logs */
-  static SinkRegistry              s_sink_reg;    /**< Registry of all user logging sinks */
-  static osal::recursive_mutex_t   s_driver_lock; /**< Lock for changing driver state */
-  static osal::recursive_mutex_t   s_format_lock; /**< Lock for accessing the log buffer */
+  static Level                      s_log_level;   /**< Current global log level */
+  static SinkHandle_rPtr            s_root_sink;   /**< User assigned root sink */
+  static LogBuffer                  s_log_buffer;  /**< Formatting buffer for logs */
+  static SinkRegistry               s_sink_reg;    /**< Registry of all user logging sinks */
+  static osal::mb_recursive_mutex_t s_driver_lock; /**< Lock for changing driver state */
+  static osal::mb_recursive_mutex_t s_format_lock; /**< Lock for accessing the log buffer */
 
   /*---------------------------------------------------------------------------
   Private Functions
@@ -77,11 +65,11 @@ namespace mbedutils::logging
     s_log_buffer.fill( 0 );
     s_sink_reg.fill( nullptr );
 
-    osal::createRecursiveMutex( &s_driver_lock );
+    osal::buildRecursiveMutexStrategy( s_driver_lock );
     assert( s_driver_lock != nullptr );
     osal::initializeRecursiveMutex( s_driver_lock );
 
-    osal::createRecursiveMutex( &s_format_lock );
+    osal::buildRecursiveMutexStrategy( s_format_lock );
     assert( s_format_lock != nullptr );
     osal::initializeRecursiveMutex( s_format_lock );
   }
@@ -93,7 +81,7 @@ namespace mbedutils::logging
     s_log_level = level;
     osal::unlockRecursiveMutex( s_driver_lock );
 
-    return ErrCode::ERR_SUCCESS;
+    return ErrCode::ERR_OK;
   }
 
 
@@ -104,7 +92,7 @@ namespace mbedutils::logging
     size_t nullIndex        = invalidIndex;         /* First index that doesn't have a sink registered */
     bool   sinkIsRegistered = false;                /* Indicates if the sink we are registering already exists */
     bool   registryIsFull   = true;                 /* Is the registry full of sinks? */
-    auto   result           = ErrCode::ERR_SUCCESS; /* Function return code */
+    auto   result           = ErrCode::ERR_OK; /* Function return code */
 
     if( osal::tryLockForRecursiveMutex( s_driver_lock, MBEDUTILS_LOGGING_DEFAULT_LOCK_TIMEOUT ) )
     {
@@ -125,7 +113,7 @@ namespace mbedutils::logging
         {
           sinkIsRegistered = true;
           registryIsFull   = false;
-          result           = ErrCode::ERR_SUCCESS;
+          result           = ErrCode::ERR_OK;
           break;
         }
       }
@@ -139,7 +127,7 @@ namespace mbedutils::logging
         {
           result = ErrCode::ERR_FULL;
         }
-        else if( sink->open() != ErrCode::ERR_SUCCESS )
+        else if( sink->open() != ErrCode::ERR_OK )
         {
           result = ErrCode::ERR_FAIL;
         }
@@ -167,7 +155,7 @@ namespace mbedutils::logging
       {
         s_sink_reg[ index ]->close();
         s_sink_reg[ index ] = nullptr;
-        result              = ErrCode::ERR_SUCCESS;
+        result              = ErrCode::ERR_OK;
       }
       else if( sink == nullptr )
       {
@@ -180,7 +168,7 @@ namespace mbedutils::logging
           }
         }
 
-        result = ErrCode::ERR_SUCCESS;
+        result = ErrCode::ERR_OK;
       }
 
       osal::unlockRecursiveMutex( s_driver_lock );
@@ -197,7 +185,7 @@ namespace mbedutils::logging
     if( osal::tryLockForRecursiveMutex( s_driver_lock, MBEDUTILS_LOGGING_DEFAULT_LOCK_TIMEOUT ) )
     {
       s_root_sink = sink;
-      result      = ErrCode::ERR_SUCCESS;
+      result      = ErrCode::ERR_OK;
 
       osal::unlockRecursiveMutex( s_driver_lock );
     }
@@ -218,14 +206,14 @@ namespace mbedutils::logging
     /*-------------------------------------------------------------------------
     Input boundary checking
     -------------------------------------------------------------------------*/
-    Chimera::Thread::TimedLockGuard x( s_driver_lock );
-    if( !x.try_lock_for( MBEDUTILS_LOGGING_DEFAULT_LOCK_TIMEOUT ) )
+    if( ( level < s_log_level ) || !message || !length )
+    {
+      return ErrCode::ERR_FAIL_BAD_ARG;
+    }
+
+    if( !osal::tryLockForRecursiveMutex( s_driver_lock, MBEDUTILS_LOGGING_DEFAULT_LOCK_TIMEOUT ) )
     {
       return ErrCode::ERR_LOCKED;
-    }
-    else if( ( level < s_log_level ) || !message || !length )
-    {
-      return ErrCode::ERR_FAIL;
     }
 
     /*-------------------------------------------------------------------------
@@ -236,11 +224,14 @@ namespace mbedutils::logging
     {
       if( s_sink_reg[ i ] && ( s_sink_reg[ i ]->logLevel >= s_log_level ) )
       {
-        s_sink_reg[ i ]->log( level, message, length );
+        s_sink_reg[ i ]->lock();
+        s_sink_reg[ i ]->insert( level, message, length );
+        s_sink_reg[ i ]->unlock();
       }
     }
 
-    return ErrCode::ERR_SUCCESS;
+    osal::unlockRecursiveMutex( s_driver_lock );
+    return ErrCode::ERR_OK;
   }
 
 
@@ -251,7 +242,19 @@ namespace mbedutils::logging
     -------------------------------------------------------------------------*/
     if( ( lvl < s_log_level ) || !file || !fmt )
     {
-      return ErrCode::ERR_FAIL;
+      return ErrCode::ERR_FAIL_BAD_ARG;
+    }
+
+    /*-------------------------------------------------------------------------
+    We can't be in an ISR context when logging due to synchronizing access
+    with mutexes. If ISR logging becomes a requirement, a separate format
+    buffer and queueing mechanism would be needed + some periodic processing
+    to pull the queued messages and log them to the actual sinks in a non-ISR
+    context.
+    -------------------------------------------------------------------------*/
+    if( mbedutils::irq::in_isr() )
+    {
+      return ErrCode::ERR_FAIL_ISR_CONTEXT;
     }
 
     /*-------------------------------------------------------------------------
@@ -291,58 +294,64 @@ namespace mbedutils::logging
     /*-------------------------------------------------------------------------
     Format the message header
     -------------------------------------------------------------------------*/
-    // TODO: Add assertion for detecting that we're not in an ISR
-    Chimera::Thread::LockGuard _lock( s_format_lock );
-
-    s_log_buffer.fill( 0 );
-    npf_snprintf( s_log_buffer, s_log_buffer.max_size(), "%u | %s:%u | %s | ", Chimera::millis(), file, line, str_level.data() );
-
-    /*-------------------------------------------------------------------------
-    Format the user message
-    -------------------------------------------------------------------------*/
-    const size_t offset = strlen( s_log_buffer.data() );
-
-    va_list argptr;
-    va_start( argptr, fmt );
-    npf_vsnprintf( s_log_buffer.data() + offset, s_log_buffer.max_size() - offset, fmt, argptr );
-    va_end( argptr );
-
-    /*-------------------------------------------------------------------------
-    Ensure the message terminates with a carriage return and newline
-    -------------------------------------------------------------------------*/
-    const size_t msg_len = strlen( s_log_buffer.data() );
-
-    bool ends_with_crlf = false;
-    if( ( msg_len >= 2 ) && ( msg_len < s_log_buffer.max_size() ) )
+    ErrCode error = ErrCode::ERR_OK;
+    osal::lockRecursiveMutex( s_driver_lock );
     {
-      if( s_log_buffer[ msg_len - 2 ] == '\r' && s_log_buffer[ msg_len - 1 ] == '\n' )
-      {
-        ends_with_crlf = true;
-      }
-      else if( s_log_buffer[ msg_len - 2 ] == '\n' && s_log_buffer[ msg_len - 1 ] == '\r' )
-      {
-        ends_with_crlf = true;
-      }
-    }
+      s_log_buffer.fill( 0 );
+      npf_snprintf( s_log_buffer.data(), s_log_buffer.max_size(),
+                    "%u | %s:%u | %s | ",
+                    time::millis(), file, line, str_level.data() );
 
-    if( !ends_with_crlf )
-    {
-      if( msg_len < s_log_buffer.max_size() - 2 )
-      {
-        s_log_buffer[ msg_len ]     = '\r';
-        s_log_buffer[ msg_len + 1 ] = '\n';
-      }
-      else
-      {
-        s_log_buffer[ s_log_buffer.max_size() - 2 ] = '\r';
-        s_log_buffer[ s_log_buffer.max_size() - 1 ] = '\n';
-      }
-    }
+      /*-----------------------------------------------------------------------
+      Format the user message
+      -----------------------------------------------------------------------*/
+      const size_t offset = strlen( s_log_buffer.data() );
 
-    /*-------------------------------------------------------------------------
-    Log through the standard method
-    -------------------------------------------------------------------------*/
-    return log( lvl, s_log_buffer.data(), strlen( s_log_buffer.data() ) );
+      va_list argptr;
+      va_start( argptr, fmt );
+      npf_vsnprintf( s_log_buffer.data() + offset, s_log_buffer.max_size() - offset, fmt, argptr );
+      va_end( argptr );
+
+      /*-----------------------------------------------------------------------
+      Ensure the message terminates with a carriage return and newline
+      -----------------------------------------------------------------------*/
+      const size_t msg_len = strlen( s_log_buffer.data() );
+
+      bool ends_with_crlf = false;
+      if( ( msg_len >= 2 ) && ( msg_len < s_log_buffer.max_size() ) )
+      {
+        if( s_log_buffer[ msg_len - 2 ] == '\r' && s_log_buffer[ msg_len - 1 ] == '\n' )
+        {
+          ends_with_crlf = true;
+        }
+        else if( s_log_buffer[ msg_len - 2 ] == '\n' && s_log_buffer[ msg_len - 1 ] == '\r' )
+        {
+          ends_with_crlf = true;
+        }
+      }
+
+      if( !ends_with_crlf )
+      {
+        if( msg_len < s_log_buffer.max_size() - 2 )
+        {
+          s_log_buffer[ msg_len ]     = '\r';
+          s_log_buffer[ msg_len + 1 ] = '\n';
+        }
+        else
+        {
+          s_log_buffer[ s_log_buffer.max_size() - 2 ] = '\r';
+          s_log_buffer[ s_log_buffer.max_size() - 1 ] = '\n';
+        }
+      }
+
+      /*-----------------------------------------------------------------------
+      Log through the standard method
+      -----------------------------------------------------------------------*/
+      error = log( lvl, s_log_buffer.data(), strlen( s_log_buffer.data() ) );
+    }
+    osal::unlockRecursiveMutex( s_driver_lock );
+
+    return error;
   }
 
 
