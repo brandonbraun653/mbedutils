@@ -23,23 +23,17 @@ target_include_directories(${PROJECT_NAME}_internal_headers INTERFACE
 )
 
 # --------------------------------------------------------------------------------
-# Logging Library
+# Sub-Libraries
 # --------------------------------------------------------------------------------
+add_subdirectory(src/core)
 add_subdirectory(src/logging)
+add_subdirectory(src/hardware)
 
 # --------------------------------------------------------------------------------
 # Interfaces Library
 # These provide some (but not all) interface definitions for common runtimes.
 # Include in your project as needed/desired.
 # --------------------------------------------------------------------------------
-
-# Core Library
-file(GLOB CORE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/core/*.cpp)
-add_library(${PROJECT_NAME}_lib_core STATIC ${CORE_SOURCES})
-target_link_libraries(${PROJECT_NAME}_lib_core PRIVATE
-    ${PROJECT_NAME}_headers
-    ${PROJECT_NAME}_internal_headers
-)
 
 # STL Based Library
 file(GLOB STL_INTF_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/interfaces/stl/*.cpp)

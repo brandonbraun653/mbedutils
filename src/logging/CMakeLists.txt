@@ -1,4 +1,3 @@
-
 # Core logging driver
 add_library(${PROJECT_NAME}_logging STATIC logging_driver.cpp)
 target_link_libraries(${PROJECT_NAME}_logging PRIVATE
