@@ -19,7 +19,7 @@ Includes
 -----------------------------------------------------------------------------*/
 #include <mbedutils/drivers/logging/logging_types.hpp>
 
-namespace mbedutils::logging
+namespace mb::logging
 {
   /*---------------------------------------------------------------------------
   Public Functions
@@ -100,6 +100,6 @@ namespace mbedutils::logging
    */
   ErrCode flog( const Level lvl, const char *const file, const size_t line, const char *fmt, ... );
 
-}  // namespace mbedutils::Logging
+}  // namespace mb::Logging
 
 #endif  /* !MBEDUTILS_LOGGING_DRIVER_HPP */

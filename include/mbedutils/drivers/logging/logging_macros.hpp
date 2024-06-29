@@ -25,11 +25,11 @@ Macros
 #define LOG( level, fmt, ... )                                                      \
   do                                                                                \
   {                                                                                 \
-    mbedutils::logging::log( level, __SHORT_FILE__, __LINE__, fmt, ##__VA_ARGS__ ); \
+    mb::logging::log( level, __SHORT_FILE__, __LINE__, fmt, ##__VA_ARGS__ ); \
   } while( 0 )
 
 #define LOG_TRACE( str, ... ) \
-  mbedutils::logging::flog( mbedutils::logging::Level::LVL_TRACE, __SHORT_FILE__, __LINE__, str, ##__VA_ARGS__ )
+  mb::logging::flog( mb::logging::Level::LVL_TRACE, __SHORT_FILE__, __LINE__, str, ##__VA_ARGS__ )
 #define LOG_TRACE_IF( predicate, str, ... ) \
   if( ( predicate ) )                       \
   {                                         \
@@ -38,7 +38,7 @@ Macros
 
 
 #define LOG_DEBUG( str, ... ) \
-  mbedutils::logging::flog( mbedutils::logging::Level::LVL_DEBUG, __SHORT_FILE__, __LINE__, str, ##__VA_ARGS__ )
+  mb::logging::flog( mb::logging::Level::LVL_DEBUG, __SHORT_FILE__, __LINE__, str, ##__VA_ARGS__ )
 #define LOG_DEBUG_IF( predicate, str, ... ) \
   if( ( predicate ) )                       \
   {                                         \
@@ -47,7 +47,7 @@ Macros
 
 
 #define LOG_INFO( str, ... ) \
-  mbedutils::logging::flog( mbedutils::logging::Level::LVL_INFO, __SHORT_FILE__, __LINE__, str, ##__VA_ARGS__ )
+  mb::logging::flog( mb::logging::Level::LVL_INFO, __SHORT_FILE__, __LINE__, str, ##__VA_ARGS__ )
 #define LOG_INFO_IF( predicate, str, ... ) \
   if( ( predicate ) )                      \
   {                                        \
@@ -56,7 +56,7 @@ Macros
 
 
 #define LOG_WARN( str, ... ) \
-  mbedutils::logging::flog( mbedutils::logging::Level::LVL_WARN, __SHORT_FILE__, __LINE__, str, ##__VA_ARGS__ )
+  mb::logging::flog( mb::logging::Level::LVL_WARN, __SHORT_FILE__, __LINE__, str, ##__VA_ARGS__ )
 #define LOG_WARN_IF( predicate, str, ... ) \
   if( ( predicate ) )                      \
   {                                        \
@@ -65,7 +65,7 @@ Macros
 
 
 #define LOG_ERROR( str, ... ) \
-  mbedutils::logging::flog( mbedutils::logging::Level::LVL_ERROR, __SHORT_FILE__, __LINE__, str, ##__VA_ARGS__ )
+  mb::logging::flog( mb::logging::Level::LVL_ERROR, __SHORT_FILE__, __LINE__, str, ##__VA_ARGS__ )
 #define LOG_ERROR_IF( predicate, str, ... ) \
   if( ( predicate ) )                       \
   {                                         \
@@ -74,7 +74,7 @@ Macros
 
 
 #define LOG_FATAL( str, ... ) \
-  mbedutils::logging::flog( mbedutils::logging::Level::LVL_FATAL, __SHORT_FILE__, __LINE__, str, ##__VA_ARGS__ )
+  mb::logging::flog( mb::logging::Level::LVL_FATAL, __SHORT_FILE__, __LINE__, str, ##__VA_ARGS__ )
 #define LOG_FATAL_IF( predicate, str, ... ) \
   if( ( predicate ) )                       \
   {                                         \

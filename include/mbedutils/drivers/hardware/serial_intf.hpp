@@ -19,7 +19,7 @@ Includes
 #include <cstdint>
 #include <etl/bip_buffer_spsc_atomic.h>
 
-namespace mbedutils::hw::serial
+namespace mb::hw::serial
 {
   /*---------------------------------------------------------------------------
   Aliases
@@ -76,6 +76,6 @@ namespace mbedutils::hw::serial
     virtual int read( void *const buffer, const size_t length, const size_t timeout ) = 0;
   };
 
-}  // namespace mbedutils::hw::serial
+}  // namespace mb::hw::serial
 
 #endif  /* !MBEDUTILS_SERIAL_INTF_HPP */

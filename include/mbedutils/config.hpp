@@ -3,7 +3,7 @@
  *    config.hpp
  *
  *  Description:
- *    Master configuration file for the mbedutils library.
+ *    Master configuration file for the mb library.
  *
  *  2024 | Brandon Braun | brandonbraun653@protonmail.com
  *****************************************************************************/

@@ -19,7 +19,7 @@ Includes
 #include <mbedutils/logging.hpp>
 #include <mbedutils/osal.hpp>
 
-namespace mbedutils::logging
+namespace mb::logging
 {
   /*---------------------------------------------------------------------------
   Aliases
@@ -252,7 +252,7 @@ namespace mbedutils::logging
     to pull the queued messages and log them to the actual sinks in a non-ISR
     context.
     -------------------------------------------------------------------------*/
-    if( mbedutils::irq::in_isr() )
+    if( mb::irq::in_isr() )
     {
       return ErrCode::ERR_FAIL_ISR_CONTEXT;
     }
@@ -384,4 +384,4 @@ namespace mbedutils::logging
     return index;
   }
 
-}    // namespace mbedutils::logging
+}    // namespace mb::logging

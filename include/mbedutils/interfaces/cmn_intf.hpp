@@ -17,7 +17,7 @@ Includes
 -----------------------------------------------------------------------------*/
 #include <cstddef>
 
-namespace mbedutils::intf
+namespace mb::intf
 {
   /*---------------------------------------------------------------------------
   Enumerations
@@ -71,6 +71,6 @@ namespace mbedutils::intf
    */
   bool is_driver_available( const Driver driver, const size_t channel );
 
-}  // namespace mbedutils::intf
+}  // namespace mb::intf
 
 #endif  /* !MBEDUTILS_CMN_INTF_HPP */

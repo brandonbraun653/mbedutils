@@ -20,7 +20,7 @@ Includes
 #include <string>
 
 
-namespace mbedutils::logging
+namespace mb::logging
 {
   /*---------------------------------------------------------------------------
   ConsoleSink
@@ -175,4 +175,4 @@ namespace mbedutils::logging
     osal::RecursiveLockGuard lock( this->mClsMutex );
     mFile.assign( file.begin(), file.end() );
   }
-}  // namespace mbedutils::logging
+}  // namespace mb::logging

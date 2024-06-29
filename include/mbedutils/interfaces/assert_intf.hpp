@@ -18,7 +18,7 @@ Includes
 #include <cstdint>
 #include <etl/string.h>
 
-namespace mbedutils::assert
+namespace mb::assert
 {
   /*---------------------------------------------------------------------------
   Public Functions
@@ -29,7 +29,7 @@ namespace mbedutils::assert
    *
    *
    * This function is the final endpoint for all assertion failures from
-   * the mbedutils library. Note that this could be called at any time,
+   * the mb library. Note that this could be called at any time,
    * including from an ISR. Be sure to keep it as lean as possible.
    *
    * @param halt Should the system halt/restart? This indicates a critical error.
@@ -37,6 +37,6 @@ namespace mbedutils::assert
    */
   void on_assert_fail( const bool halt, const etl::string_view &msg );
 
-}  // namespace mbedutils::assert
+}  // namespace mb::assert
 
 #endif  /* !MBEDUTILS_ASSERT_INTF_HPP */

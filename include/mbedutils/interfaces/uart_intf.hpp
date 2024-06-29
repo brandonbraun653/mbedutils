@@ -19,7 +19,7 @@ Includes
 #include <cstddef>
 #include <cstdint>
 
-namespace mbedutils::intf::uart
+namespace mb::intf::uart
 {
   /*---------------------------------------------------------------------------
   Public Functions
@@ -73,6 +73,6 @@ namespace mbedutils::intf::uart
    */
   size_t rx_available( const size_t channel );
 
-}    // namespace mbedutils::intf::uart
+}    // namespace mb::intf::uart
 
 #endif /* !MBEDUTILS_UART_INTF_HPP */

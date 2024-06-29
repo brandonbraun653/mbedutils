@@ -3,7 +3,7 @@
  *    assert.hpp
  *
  *  Description:
- *    Assertion interface for the mbedutils library
+ *    Assertion interface for the mb library
  *
  *  2024 | Brandon Braun | brandonbraun653@protonmail.com
  *****************************************************************************/
@@ -17,6 +17,7 @@ Includes
 -----------------------------------------------------------------------------*/
 #include <cstddef>
 #include <cstdint>
+#include <mbedutils/interfaces/util_intf.hpp>
 
 /*-----------------------------------------------------------------------------
 Macros
@@ -29,8 +30,16 @@ Macros
  * @param fmt Format string for the assertion message
  * @param ... Arguments to the format string
  */
-#define mbed_assert( expr, fmt, ... ) \
-  mbedutils::assert::format_and_log_assert_failure( ( expr ), true, __SHORT_FILE__, __LINE__, fmt, ##__VA_ARGS__ )
+#define mbed_assert_msg( expr, fmt, ... ) \
+  ::mb::assert::format_and_log_assert_failure( ( expr ), true, __SHORT_FILE__, __LINE__, fmt, ##__VA_ARGS__ )
+
+/**
+ * @brief Throw an assertion failure if the predicate is false.
+ *
+ * @param expr Predicate to check. Halts system if false.
+ */
+#define mbed_assert( expr ) \
+  ::mb::assert::format_and_log_assert_failure( ( expr ), true, __SHORT_FILE__, __LINE__, nullptr )
 
 /**
  * @brief Throw an assertion failure and immediately halt the system.
@@ -38,8 +47,14 @@ Macros
  * @param fmt Format string for the assertion message
  * @param ... Arguments to the format string
  */
-#define mbed_assert_always( fmt, ... ) \
-  mbedutils::assert::format_and_log_assert_failure( true, true, __SHORT_FILE__, __LINE__, fmt, ##__VA_ARGS__ )
+#define mbed_assert_always_msg( fmt, ... ) \
+  ::mb::assert::format_and_log_assert_failure( true, true, __SHORT_FILE__, __LINE__, fmt, ##__VA_ARGS__ )
+
+/**
+ * @brief Throw an assertion failure and immediately halt the system.
+ */
+#define mbed_assert_always() \
+  ::mb::assert::format_and_log_assert_failure( true, true, __SHORT_FILE__, __LINE__, nullptr )
 
 /**
  * @brief Throws an assertion if the predicate is false, then continues normal operation.
@@ -48,10 +63,16 @@ Macros
  * @param fmt Format string for the assertion message
  * @param ... Arguments to the format string
  */
-#define mbed_assert_continue( expr, fmt, ... ) \
-  mbedutils::assert::format_and_log_assert_failure( ( expr ), false, __SHORT_FILE__, __LINE__, fmt, ##__VA_ARGS__ )
+#define mbed_assert_continue_msg( expr, fmt, ... ) \
+  ::mb::assert::format_and_log_assert_failure( ( expr ), false, __SHORT_FILE__, __LINE__, fmt, ##__VA_ARGS__ )
 
-namespace mbedutils::assert
+/**
+ * @brief Throws an assertion if the predicate is false, then continues normal operation.
+ */
+#define mbed_assert_continue( expr ) \
+  ::mb::assert::format_and_log_assert_failure( ( expr ), false, __SHORT_FILE__, __LINE__, nullptr )
+
+namespace mb::assert
 {
   /*---------------------------------------------------------------------------
   Public Functions
@@ -91,6 +112,6 @@ namespace mbedutils::assert
    */
   void format_and_log_assert_failure( const bool predicate, const bool halt, const char *const file, const int line,
                                       const char *fmt, ... );
-}    // namespace mbedutils::assert
+}    // namespace mb::assert
 
 #endif /* !MBEDUTILS_ASSERT_HPP */

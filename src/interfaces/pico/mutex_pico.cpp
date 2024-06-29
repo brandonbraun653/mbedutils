@@ -16,7 +16,7 @@ Includes
 #include <mbedutils/interfaces/mutex_intf.hpp>
 #include <pico/sync.h>
 
-namespace mbedutils::osal
+namespace mb::osal
 {
   /*---------------------------------------------------------------------------
   Static Data
@@ -141,4 +141,4 @@ namespace mbedutils::osal
       recursive_mutex_exit( static_cast<recursive_mutex_t *>( mutex ) );
     }
   }
-}    // namespace mbedutils::osal
+}    // namespace mb::osal

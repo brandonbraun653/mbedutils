@@ -17,7 +17,7 @@ Includes
 -----------------------------------------------------------------------------*/
 #include <cstdint>
 
-namespace mbedutils::irq
+namespace mb::irq
 {
   /*---------------------------------------------------------------------------
   Public Functions
@@ -40,6 +40,6 @@ namespace mbedutils::irq
    */
   void enable_interrupts();
 
-}  // namespace mbedutils::irq
+}  // namespace mb::irq
 
 #endif  /* !MBEDUTILS_IRQ_INTF_HPP */

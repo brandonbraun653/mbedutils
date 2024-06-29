@@ -13,7 +13,7 @@ Includes
 -----------------------------------------------------------------------------*/
 #include <mbedutils/drivers/hardware/buffered_uart.hpp>
 
-namespace mbedutils::hw::uart
+namespace mb::hw::uart
 {
   /*---------------------------------------------------------------------------
   Classes
@@ -24,7 +24,7 @@ namespace mbedutils::hw::uart
   }
 
 
-  int BufferedUART::configure( const ::mbedutils::hw::serial::Config &config )
+  int BufferedUART::configure( const ::mb::hw::serial::Config &config )
   {
     return 0;
   }
@@ -38,4 +38,4 @@ namespace mbedutils::hw::uart
   {
     return 0;
   }
-}  // namespace mbedutils::hw::uart
+}  // namespace mb::hw::uart

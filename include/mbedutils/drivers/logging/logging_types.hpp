@@ -18,7 +18,7 @@ Includes
 #include <cstdint>
 #include <etl/array.h>
 
-namespace mbedutils::logging
+namespace mb::logging
 {
   /*---------------------------------------------------------------------------
   Forward Declarations
@@ -88,6 +88,6 @@ namespace mbedutils::logging
     LVL_MAX = LVL_FATAL
   };
 
-}  // namespace mbedutils::logging
+}  // namespace mb::logging
 
 #endif  /* !MBEDUTILS_LOGGING_TYPES_HPP */

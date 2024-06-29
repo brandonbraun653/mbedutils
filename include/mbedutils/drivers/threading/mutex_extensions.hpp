@@ -18,7 +18,7 @@ Includes
 #include <cstddef>
 #include <mbedutils/interfaces/mutex_intf.hpp>
 
-namespace mbedutils::osal
+namespace mb::osal
 {
   /**
    *  @brief A generic lock interface that can be attached to objects that need locking
@@ -58,7 +58,7 @@ namespace mbedutils::osal
    * @brief CRTP interface to add lock functionality to a class.
    *
    * This will require "friend-ing" this class:
-   * friend ::mbedutils::osal::Lockable<MyInheritingClass>;
+   * friend ::mb::osal::Lockable<MyInheritingClass>;
    *
    * @tparam T  Base class needing a lock interface
    */
@@ -131,6 +131,6 @@ namespace mbedutils::osal
     osal::mb_recursive_mutex_t *mtx;
   };
 
-}  // namespace mbedutils::osal
+}  // namespace mb::osal
 
 #endif  /* !MBEDUTILS_MUTEX_EXTENSIONS_HPP */

@@ -3,7 +3,7 @@
  *    assert.cpp
  *
  *  Description:
- *    Assertion driver implementation for the mbedutils library
+ *    Assertion driver implementation for the mb library
  *
  *  2024 | Brandon Braun | brandonbraun653@protonmail.com
  *****************************************************************************/
@@ -20,7 +20,7 @@ Includes
 #include <mbedutils/interfaces/irq_intf.hpp>
 #include <mbedutils/interfaces/time_intf.hpp>
 
-namespace mbedutils::assert
+namespace mb::assert
 {
   /*---------------------------------------------------------------------------
   Static Data
@@ -106,4 +106,4 @@ namespace mbedutils::assert
     -------------------------------------------------------------------------*/
     s_recursion_guard = false;
   }
-}    // namespace mbedutils::assert
+}    // namespace mb::assert

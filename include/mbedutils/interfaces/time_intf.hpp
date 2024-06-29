@@ -17,7 +17,7 @@ Includes
 -----------------------------------------------------------------------------*/
 #include <cstddef>
 
-namespace mbedutils::time
+namespace mb::time
 {
   /*---------------------------------------------------------------------------
   Public Functions
@@ -37,6 +37,6 @@ namespace mbedutils::time
    */
   size_t micros();
 
-}  // namespace mbedutils::time
+}  // namespace mb::time
 
 #endif  /* !MBEDUTILS_TIME_HPP */

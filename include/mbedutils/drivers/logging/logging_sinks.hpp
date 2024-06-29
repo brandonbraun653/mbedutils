@@ -21,7 +21,7 @@ Includes
 #include <mbedutils/drivers/logging/logging_types.hpp>
 #include <mbedutils/drivers/threading/mutex_extensions.hpp>
 
-namespace mbedutils::logging
+namespace mb::logging
 {
   /*---------------------------------------------------------------------------
   Classes
@@ -126,7 +126,7 @@ namespace mbedutils::logging
   };
 
   /**
-   * @brief Log messages to a serial channel using the mbedutils UART driver.
+   * @brief Log messages to a serial channel using the mb UART driver.
    *
    * This is intended for use in a bare-metal environment where the typical
    * logging mechanism is some kind of serial interface.
@@ -151,6 +151,6 @@ namespace mbedutils::logging
   private:
     size_t mChannel;
   };
-}  // namespace mbedutils::logging
+}  // namespace mb::logging
 
 #endif  /* !MBEDUTILS_LOGGING_SINK_INTERFACE_HPP */

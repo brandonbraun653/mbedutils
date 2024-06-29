@@ -4,7 +4,7 @@
  *
  *  Description:
  *    Sink driver implementations that are meant to run on some kind of bare
- *    metal target through consumption of the mbedutils interfaces. May still
+ *    metal target through consumption of the mb interfaces. May still
  *    work in a hosted environment, but that is not the primary target.
  *
  *  2024 | Brandon Braun | brandonbraun653@protonmail.com
@@ -18,7 +18,7 @@ Includes
 #include <mbedutils/interfaces/cmn_intf.hpp>
 #include <mbedutils/interfaces/uart_intf.hpp>
 
-namespace mbedutils::logging
+namespace mb::logging
 {
   /*---------------------------------------------------------------------------
   UART Sink
@@ -69,10 +69,10 @@ namespace mbedutils::logging
 
   void UARTSink::assignChannel( const size_t channel )
   {
-    mbed_assert( intf::is_driver_available( mbedutils::intf::Driver::UART, channel ),
-                 "Invalid UART channel assignment");
+    mbed_assert_msg( intf::is_driver_available( mb::intf::Driver::UART, channel ),
+                     "Invalid UART channel assignment");
 
     mChannel = channel;
   }
 
-}  // namespace mbedutils::logging
+}  // namespace mb::logging

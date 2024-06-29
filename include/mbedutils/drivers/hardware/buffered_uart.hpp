@@ -19,7 +19,7 @@ Includes
 -----------------------------------------------------------------------------*/
 #include <mbedutils/drivers/hardware/serial_intf.hpp>
 
-namespace mbedutils::hw::uart
+namespace mb::hw::uart
 {
   /*---------------------------------------------------------------------------
   Classes
@@ -42,11 +42,11 @@ namespace mbedutils::hw::uart
      * @param config Desired operating parameters
      * @return int Zero on success, negative on error
      */
-    int configure( const ::mbedutils::hw::serial::Config &config );
+    int configure( const ::mb::hw::serial::Config &config );
 
   private:
-    ::mbedutils::hw::serial::Config mConfig;
+    ::mb::hw::serial::Config mConfig;
   };
-}  // namespace mbedutils::hw::uart
+}  // namespace mb::hw::uart
 
 #endif  /* !MBEDUTILS_HARDWARE_BUFFERED_UART_HPP */

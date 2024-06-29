@@ -18,7 +18,7 @@ Includes
 #include <cstdint>
 #include <mbedutils/config.hpp>
 
-namespace mbedutils::osal
+namespace mb::osal
 {
   /*---------------------------------------------------------------------------
   Aliases
@@ -191,6 +191,6 @@ namespace mbedutils::osal
    * @param mutex The recursive mutex to unlock
    */
   void unlockRecursiveMutex( mb_recursive_mutex_t mutex );
-}    // namespace mbedutils::osal
+}    // namespace mb::osal
 
 #endif /* !MBEDUTILS_MUTEX_INTF_HPP */
