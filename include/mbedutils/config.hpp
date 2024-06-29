@@ -80,4 +80,11 @@ OSAL Library Configuration
 #define MBEDUTILS_OSAL_RECURSIVE_MUTEX_POOL_SIZE ( 0 )
 #endif
 
+#if !defined( MBEDUTILS_OSAL_SEMAPHORE_POOL_SIZE )
+/**
+ * @brief Number of semaphores to preallocate in the pool
+ */
+#define MBEDUTILS_OSAL_SEMAPHORE_POOL_SIZE ( 0 )
+#endif
+
 #endif  /* !MBEDUTILS_CONFIG_HPP */

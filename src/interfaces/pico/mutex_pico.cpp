@@ -3,7 +3,7 @@
  *    mutex_pico.cpp
  *
  *  Description:
- *    Raspberry Pi Pico specific implementation of the mutex interface
+ *    RPI Pico SDK implementation of the mutex interface
  *
  *  2024 | Brandon Braun | brandonbraun653@protonmail.com
  *****************************************************************************/
@@ -12,6 +12,8 @@
 Includes
 -----------------------------------------------------------------------------*/
 #include <etl/array.h>
+#include <limits>
+#include <mbedutils/assert.hpp>
 #include <mbedutils/config.hpp>
 #include <mbedutils/interfaces/mutex_intf.hpp>
 #include <pico/sync.h>
@@ -24,121 +26,184 @@ namespace mb::osal
 
 #if MBEDUTILS_OSAL_MUTEX_POOL_SIZE > 0
   using mt_array = etl::array<mutex_t, MBEDUTILS_OSAL_MUTEX_POOL_SIZE>;
-  static mt_array s_mutex_pool;
-  static size_t   s_mutex_pool_index = 0;
+  static mt_array           s_mutex_pool;
+  static size_t             s_mutex_pool_index;
+  static critical_section_t s_mutex_pool_cs;
 #endif    // MBEDUTILS_OSAL_MUTEX_POOL_SIZE > 0
 
 #if MBEDUTILS_OSAL_RECURSIVE_MUTEX_POOL_SIZE > 0
   using rmt_array = etl::array<recursive_mutex_t, MBEDUTILS_OSAL_RECURSIVE_MUTEX_POOL_SIZE>;
-  static rmt_array s_recursive_mutex_pool;
-  static size_t    s_recursive_mutex_pool_index = 0;
+  static rmt_array          s_r_mutex_pool;
+  static size_t             s_r_mtx_pool_idx;
+  static critical_section_t s_r_mtx_pool_cs;
 #endif    // MBEDUTILS_OSAL_RECURSIVE_MUTEX_POOL_SIZE > 0
 
   /*---------------------------------------------------------------------------
   Public Functions
   ---------------------------------------------------------------------------*/
 
-  void initialize()
+  void initMutexDriver()
   {
-    /*-------------------------------------------------------------------------
-    Initialize the mutex pool if it's being used
-    -------------------------------------------------------------------------*/
 #if MBEDUTILS_OSAL_MUTEX_POOL_SIZE > 0
     s_mutex_pool_index = 0;
-    for( auto &mutex : s_mutex_pool )
-    {
-      mutex_init( &mutex );
-    }
+    critical_section_init( &s_mutex_pool_cs );
 #endif    // MBEDUTILS_OSAL_MUTEX_POOL_SIZE > 0
 
-    /*-------------------------------------------------------------------------
-    Initialize the recursive mutex pool if it's being used
-    -------------------------------------------------------------------------*/
 #if MBEDUTILS_OSAL_RECURSIVE_MUTEX_POOL_SIZE > 0
-    s_recursive_mutex_pool_index = 0;
-    for( auto &mutex : s_recursive_mutex_pool )
-    {
-      recursive_mutex_init( &mutex );
-    }
+    s_r_mtx_pool_idx = 0;
+    critical_section_init( &s_r_mtx_pool_cs );
 #endif    // MBEDUTILS_OSAL_RECURSIVE_MUTEX_POOL_SIZE > 0
   }
 
 
-  void createRecursiveMutex( mb_recursive_mutex_t &mutex )
+  bool createMutex( mb_mutex_t &mutex )
   {
-    if( mutex == nullptr )
+    mbed_dbg_assert( mutex == nullptr );
+    auto tmp = new mutex_t();
+    if( tmp == nullptr )
     {
-      mutex = static_cast<mb_recursive_mutex_t>( new recursive_mutex_t() );
+      mbed_assert_continue_msg( false, "Failed to allocate mutex" );
+      return false;
     }
+
+    mutex_init( tmp );
+    mutex = reinterpret_cast<mb_mutex_t>( tmp );
+    return true;
+  }
+
+
+  void destroyMutex( mb_mutex_t &mutex )
+  {
+    mbed_dbg_assert( mutex != nullptr );
+    delete static_cast<mutex_t *>( mutex );
+    mutex = nullptr;
+  }
+
+
+  bool allocateMutex( mb_mutex_t &mutex )
+  {
+    bool allocated = false;
+    mbed_dbg_assert( mutex == nullptr );
+
+#if MBEDUTILS_OSAL_MUTEX_POOL_SIZE > 0
+    critical_section_enter_blocking( &s_mutex_pool_cs );
+    {
+      if( s_mutex_pool_index < s_mutex_pool.size() )
+      {
+        mutex_init( &s_mutex_pool[ s_mutex_pool_index ] );
+        mutex = reinterpret_cast<mb_mutex_t>( &s_mutex_pool[ s_mutex_pool_index ] );
+        s_mutex_pool_index++;
+        allocated = true;
+      }
+    }
+    critical_section_exit( &s_mutex_pool_cs );
+#endif    // MBEDUTILS_OSAL_MUTEX_POOL_SIZE > 0
+
+    return allocated;
+  }
+
+
+  void lockMutex( mb_mutex_t mutex )
+  {
+    mbed_dbg_assert( mutex != nullptr );
+    mutex_enter_blocking( static_cast<mutex_t *>( mutex ) );
+  }
+
+
+  bool tryLockMutex( mb_mutex_t mutex )
+  {
+    mbed_dbg_assert( mutex != nullptr );
+    return mutex_try_enter( static_cast<mutex_t *>( mutex ), nullptr );
+  }
+
+
+  bool tryLockMutex( mb_mutex_t mutex, const size_t timeout )
+  {
+    mbed_dbg_assert( mutex != nullptr );
+    mbed_dbg_assert( timeout < std::numeric_limits<uint32_t>::max() );
+    return mutex_enter_timeout_ms( static_cast<mutex_t *>( mutex ), static_cast<uint32_t>( timeout ) );
+  }
+
+
+  void unlockMutex( mb_mutex_t mutex )
+  {
+    mbed_dbg_assert( mutex != nullptr );
+    mutex_exit( static_cast<mutex_t *>( mutex ) );
+  }
+
+
+  bool createRecursiveMutex( mb_recursive_mutex_t &mutex )
+  {
+    mbed_dbg_assert( mutex == nullptr );
+    auto tmp = new recursive_mutex_t();
+    if( tmp == nullptr )
+    {
+      mbed_assert_continue_msg( false, "Failed to allocate recursive mutex" );
+      return false;
+    }
+
+    recursive_mutex_init( tmp );
+    mutex = reinterpret_cast<mb_recursive_mutex_t>( tmp );
+    return true;
   }
 
 
   void destroyRecursiveMutex( mb_recursive_mutex_t &mutex )
   {
-    if( mutex != nullptr )
-    {
-      delete static_cast<recursive_mutex_t *>( mutex );
-      mutex = nullptr;
-    }
+    mbed_dbg_assert( mutex != nullptr );
+    delete static_cast<recursive_mutex_t *>( mutex );
+    mutex = nullptr;
   }
 
 
-  void allocateRecursiveMutex( mb_recursive_mutex_t &mutex )
+  bool allocateRecursiveMutex( mb_recursive_mutex_t &mutex )
   {
+    bool allocated = false;
+    mbed_dbg_assert( mutex == nullptr );
+
 #if MBEDUTILS_OSAL_RECURSIVE_MUTEX_POOL_SIZE > 0
-    if( s_recursive_mutex_pool_index < MBEDUTILS_OSAL_RECURSIVE_MUTEX_POOL_SIZE )
+    critical_section_enter_blocking( &s_r_mtx_pool_cs );
     {
-      mutex = &s_recursive_mutex_pool[ s_recursive_mutex_pool_index++ ];
+      if( s_r_mtx_pool_idx < s_r_mutex_pool.size() )
+      {
+        recursive_mutex_init( &s_r_mutex_pool[ s_r_mtx_pool_idx ] );
+        mutex = reinterpret_cast<mb_recursive_mutex_t>( &s_r_mutex_pool[ s_r_mtx_pool_idx ] );
+        s_r_mtx_pool_idx++;
+        allocated = true;
+      }
     }
+    critical_section_exit( &s_r_mtx_pool_cs );
 #endif    // MBEDUTILS_OSAL_RECURSIVE_MUTEX_POOL_SIZE > 0
-  }
 
-
-  void initializeRecursiveMutex( mb_recursive_mutex_t mutex )
-  {
-    if( mutex != nullptr )
-    {
-      recursive_mutex_init( static_cast<recursive_mutex_t *>( mutex ) );
-    }
+    return allocated;
   }
 
 
   void lockRecursiveMutex( mb_recursive_mutex_t mutex )
   {
-    if( mutex != nullptr )
-    {
-      recursive_mutex_enter_blocking( static_cast<recursive_mutex_t *>( mutex ) );
-    }
+    mbed_dbg_assert( mutex != nullptr );
+    recursive_mutex_enter_blocking( static_cast<recursive_mutex_t *>( mutex ) );
   }
 
 
   bool tryLockRecursiveMutex( mb_recursive_mutex_t mutex )
   {
-    if( mutex != nullptr )
-    {
-      return recursive_mutex_try_enter( static_cast<recursive_mutex_t *>( mutex ), nullptr );
-    }
-
-    return false;
+    mbed_dbg_assert( mutex != nullptr );
+    return recursive_mutex_try_enter( static_cast<recursive_mutex_t *>( mutex ), nullptr );
   }
 
 
-  bool tryLockForRecursiveMutex( mb_recursive_mutex_t mutex, const uint32_t timeout )
+  bool tryLockRecursiveMutex( mb_recursive_mutex_t mutex, const size_t timeout )
   {
-    if( mutex != nullptr )
-    {
-      return recursive_mutex_enter_timeout_ms( static_cast<recursive_mutex_t *>( mutex ), timeout );
-    }
-
-    return false;
+    mbed_dbg_assert( mutex != nullptr );
+    mbed_dbg_assert( timeout < std::numeric_limits<uint32_t>::max() );
+    return recursive_mutex_enter_timeout_ms( static_cast<recursive_mutex_t *>( mutex ), static_cast<uint32_t>( timeout ) );
   }
 
 
   void unlockRecursiveMutex( mb_recursive_mutex_t mutex )
   {
-    if( mutex != nullptr )
-    {
-      recursive_mutex_exit( static_cast<recursive_mutex_t *>( mutex ) );
-    }
+    mbed_dbg_assert( mutex != nullptr );
+    recursive_mutex_exit( static_cast<recursive_mutex_t *>( mutex ) );
   }
 }    // namespace mb::osal

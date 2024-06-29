@@ -27,6 +27,14 @@ Macros
  * @brief Throw an assertion failure if the predicate is false.
  *
  * @param expr Predicate to check. Halts system if false.
+ */
+#define mbed_assert( expr ) \
+  ::mb::assert::format_and_log_assert_failure( ( expr ), true, __SHORT_FILE__, __LINE__, nullptr )
+
+/**
+ * @brief Throw an assertion failure if the predicate is false.
+ *
+ * @param expr Predicate to check. Halts system if false.
  * @param fmt Format string for the assertion message
  * @param ... Arguments to the format string
  */
@@ -34,12 +42,10 @@ Macros
   ::mb::assert::format_and_log_assert_failure( ( expr ), true, __SHORT_FILE__, __LINE__, fmt, ##__VA_ARGS__ )
 
 /**
- * @brief Throw an assertion failure if the predicate is false.
- *
- * @param expr Predicate to check. Halts system if false.
+ * @brief Throw an assertion failure and immediately halt the system.
  */
-#define mbed_assert( expr ) \
-  ::mb::assert::format_and_log_assert_failure( ( expr ), true, __SHORT_FILE__, __LINE__, nullptr )
+#define mbed_assert_always() \
+  ::mb::assert::format_and_log_assert_failure( true, true, __SHORT_FILE__, __LINE__, nullptr )
 
 /**
  * @brief Throw an assertion failure and immediately halt the system.
@@ -49,12 +55,6 @@ Macros
  */
 #define mbed_assert_always_msg( fmt, ... ) \
   ::mb::assert::format_and_log_assert_failure( true, true, __SHORT_FILE__, __LINE__, fmt, ##__VA_ARGS__ )
-
-/**
- * @brief Throw an assertion failure and immediately halt the system.
- */
-#define mbed_assert_always() \
-  ::mb::assert::format_and_log_assert_failure( true, true, __SHORT_FILE__, __LINE__, nullptr )
 
 /**
  * @brief Throws an assertion if the predicate is false, then continues normal operation.
@@ -71,6 +71,38 @@ Macros
  */
 #define mbed_assert_continue( expr ) \
   ::mb::assert::format_and_log_assert_failure( ( expr ), false, __SHORT_FILE__, __LINE__, nullptr )
+
+
+#if !defined( DEBUG )
+
+#define mbed_dbg_assert( expr ) ( void )0
+#define mbed_dbg_assert_msg( expr, fmt, ... ) ( void )0
+#define mbed_dbg_assert_always() ( void )0
+#define mbed_dbg_assert_always_msg( fmt, ... ) ( void )0
+#define mbed_dbg_assert_continue_msg( expr, fmt, ... ) ( void )0
+#define mbed_dbg_assert_continue( expr ) ( void )0
+
+#else /* DEBUG */
+
+#define mbed_dbg_assert( expr ) \
+  ::mb::assert::format_and_log_assert_failure( ( expr ), true, __SHORT_FILE__, __LINE__, nullptr )
+
+#define mbed_dbg_assert_msg( expr, fmt, ... ) \
+  ::mb::assert::format_and_log_assert_failure( ( expr ), true, __SHORT_FILE__, __LINE__, fmt, ##__VA_ARGS__ )
+
+#define mbed_dbg_assert_always() \
+  ::mb::assert::format_and_log_assert_failure( true, true, __SHORT_FILE__, __LINE__, nullptr )
+
+#define mbed_dbg_assert_always_msg( fmt, ... ) \
+  ::mb::assert::format_and_log_assert_failure( true, true, __SHORT_FILE__, __LINE__, fmt, ##__VA_ARGS__ )
+
+#define mbed_dbg_assert_continue_msg( expr, fmt, ... ) \
+  ::mb::assert::format_and_log_assert_failure( ( expr ), false, __SHORT_FILE__, __LINE__, fmt, ##__VA_ARGS__ )
+
+#define mbed_dbg_assert_continue( expr ) \
+  ::mb::assert::format_and_log_assert_failure( ( expr ), false, __SHORT_FILE__, __LINE__, nullptr )
+
+#endif  /* !DEBUG */
 
 namespace mb::assert
 {

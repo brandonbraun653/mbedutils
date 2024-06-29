@@ -21,7 +21,7 @@ Includes
 #include <cstddef>
 #include <etl/span.h>
 #include <etl/bip_buffer_spsc_atomic.h>
-#include <mbedutils/drivers/threading/mutex_extensions.hpp>
+#include <mbedutils/drivers/threading/extensions.hpp>
 
 namespace mb::hw::serial
 {
@@ -43,9 +43,9 @@ namespace mb::hw::serial
    */
   struct Config
   {
-    size_t      channel;  /**< Hardware channel to interface with */
-    BipBuffer * rxBuffer; /**< Receive buffer for the HW */
-    BipBuffer * txBuffer; /**< Transmit buffer for the HW */
+    size_t     channel;  /**< Hardware channel to interface with */
+    BipBuffer *rxBuffer; /**< Receive buffer for the HW */
+    BipBuffer *txBuffer; /**< Transmit buffer for the HW */
   };
 
   /*---------------------------------------------------------------------------
@@ -55,7 +55,7 @@ namespace mb::hw::serial
   /**
    * @brief Very basic interface that all serial data links use
    */
-  class ISerial : public virtual mb::osal::LockableInterface
+  class ISerial : public virtual mb::osal::LockableInterface, public virtual mb::osal::AsyncIOInterface
   {
   public:
     virtual ~ISerial() = default;
@@ -92,10 +92,10 @@ namespace mb::hw::serial
    * buffered interface for sending and receiving data over a serial link. The driver
    * assumes that the underlying hardware is configured and ready to go.
    *
-   * If you need thread safety, be sure to take advantage of the Lockable
-   * interface as the driver is not thread safe by default.
+   * If you need thread safety, be sure to take advantage of the Lockable interface as
+   * the driver is not thread safe by default.
    */
-  class SerialDriver : public ISerial, public mb::osal::Lockable<SerialDriver>
+  class SerialDriver : public ISerial, public mb::osal::Lockable<SerialDriver>, public mb::osal::AsyncIO<SerialDriver>
   {
   public:
     SerialDriver();
@@ -116,6 +116,7 @@ namespace mb::hw::serial
 
   private:
     friend class ::mb::osal::Lockable<SerialDriver>;
+    friend class ::mb::osal::AsyncIO<SerialDriver>;
 
     /**
      * @brief State machine states for the UART operation
@@ -148,6 +149,6 @@ namespace mb::hw::serial
     TransferControl          mTXControl;
     TransferControl          mRXControl;
   };
-}  // namespace mb::hw::serial
+}    // namespace mb::hw::serial
 
-#endif  /* !MBEDUTILS_HARDWARE_SERIAL_HPP */
+#endif /* !MBEDUTILS_HARDWARE_SERIAL_HPP */

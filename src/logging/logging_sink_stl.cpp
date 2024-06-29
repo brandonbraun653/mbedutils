@@ -86,7 +86,7 @@ namespace mb::logging
 
   ErrCode STLFileSink::open()
   {
-    osal::RecursiveLockGuard lock( this->mClsMutex );
+    osal::RecursiveLockGuard lock( this->mLockableMutex );
 
     /*-------------------------------------------------------------------------
     Check to see if someone has configured the filename yet
@@ -118,7 +118,7 @@ namespace mb::logging
 
   ErrCode STLFileSink::close()
   {
-    osal::RecursiveLockGuard lock( this->mClsMutex );
+    osal::RecursiveLockGuard lock( this->mLockableMutex );
 
     if ( mFileHandle >= 0 )
     {
@@ -132,7 +132,7 @@ namespace mb::logging
 
   ErrCode STLFileSink::flush()
   {
-    osal::RecursiveLockGuard lock( this->mClsMutex );
+    osal::RecursiveLockGuard lock( this->mLockableMutex );
 
     if ( mFileHandle >= 0 )
     {
@@ -145,7 +145,7 @@ namespace mb::logging
 
   ErrCode STLFileSink::insert( const Level level, const void *const message, const size_t length )
   {
-    osal::RecursiveLockGuard lock( this->mClsMutex );
+    osal::RecursiveLockGuard lock( this->mLockableMutex );
 
     /*-------------------------------------------------------------------------
     Check to see if we should even write
@@ -172,7 +172,7 @@ namespace mb::logging
 
   void STLFileSink::setFile( const etl::string_view &file )
   {
-    osal::RecursiveLockGuard lock( this->mClsMutex );
+    osal::RecursiveLockGuard lock( this->mLockableMutex );
     mFile.assign( file.begin(), file.end() );
   }
 }  // namespace mb::logging

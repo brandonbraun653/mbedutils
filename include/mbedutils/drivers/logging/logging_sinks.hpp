@@ -19,7 +19,7 @@ Includes
 #include <cstdint>
 #include <etl/string.h>
 #include <mbedutils/drivers/logging/logging_types.hpp>
-#include <mbedutils/drivers/threading/mutex_extensions.hpp>
+#include <mbedutils/drivers/threading/extensions.hpp>
 
 namespace mb::logging
 {

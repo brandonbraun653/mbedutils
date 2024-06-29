@@ -12,6 +12,7 @@
 Includes
 -----------------------------------------------------------------------------*/
 #include <cstdarg>
+#include <mbedutils/assert.hpp>
 #include <mbedutils/config.hpp>
 #include <mbedutils/drivers/nanoprintf.hpp>
 #include <mbedutils/interfaces/irq_intf.hpp>
@@ -66,12 +67,10 @@ namespace mb::logging
     s_sink_reg.fill( nullptr );
 
     osal::buildRecursiveMutexStrategy( s_driver_lock );
-    assert( s_driver_lock != nullptr );
-    osal::initializeRecursiveMutex( s_driver_lock );
+    mbed_assert( s_driver_lock != nullptr );
 
     osal::buildRecursiveMutexStrategy( s_format_lock );
-    assert( s_format_lock != nullptr );
-    osal::initializeRecursiveMutex( s_format_lock );
+    mbed_assert( s_format_lock != nullptr );
   }
 
 
@@ -94,7 +93,7 @@ namespace mb::logging
     bool   registryIsFull   = true;                 /* Is the registry full of sinks? */
     auto   result           = ErrCode::ERR_OK; /* Function return code */
 
-    if( osal::tryLockForRecursiveMutex( s_driver_lock, MBEDUTILS_LOGGING_DEFAULT_LOCK_TIMEOUT ) )
+    if( osal::tryLockRecursiveMutex( s_driver_lock, MBEDUTILS_LOGGING_DEFAULT_LOCK_TIMEOUT ) )
     {
       /*-----------------------------------------------------------------------
       Check if the sink already is registered + an empty slot to insert at.
@@ -148,7 +147,7 @@ namespace mb::logging
   {
     ErrCode result = ErrCode::ERR_LOCKED;
 
-    if( osal::tryLockForRecursiveMutex( s_driver_lock, MBEDUTILS_LOGGING_DEFAULT_LOCK_TIMEOUT ) )
+    if( osal::tryLockRecursiveMutex( s_driver_lock, MBEDUTILS_LOGGING_DEFAULT_LOCK_TIMEOUT ) )
     {
       auto index = get_sink_offset_idx( sink );
       if( index < s_sink_reg.size() )
@@ -182,7 +181,7 @@ namespace mb::logging
   {
     ErrCode result = ErrCode::ERR_LOCKED;
 
-    if( osal::tryLockForRecursiveMutex( s_driver_lock, MBEDUTILS_LOGGING_DEFAULT_LOCK_TIMEOUT ) )
+    if( osal::tryLockRecursiveMutex( s_driver_lock, MBEDUTILS_LOGGING_DEFAULT_LOCK_TIMEOUT ) )
     {
       s_root_sink = sink;
       result      = ErrCode::ERR_OK;
@@ -211,7 +210,7 @@ namespace mb::logging
       return ErrCode::ERR_FAIL_BAD_ARG;
     }
 
-    if( !osal::tryLockForRecursiveMutex( s_driver_lock, MBEDUTILS_LOGGING_DEFAULT_LOCK_TIMEOUT ) )
+    if( !osal::tryLockRecursiveMutex( s_driver_lock, MBEDUTILS_LOGGING_DEFAULT_LOCK_TIMEOUT ) )
     {
       return ErrCode::ERR_LOCKED;
     }
