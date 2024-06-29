@@ -23,7 +23,7 @@ Includes
 #include <etl/delegate.h>
 #include <mbedutils/config.hpp>
 
-namespace mb::intf::serial
+namespace mb::hw::serial::intf
 {
   /*---------------------------------------------------------------------------
   Aliases

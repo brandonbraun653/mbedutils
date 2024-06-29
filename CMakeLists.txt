@@ -58,6 +58,7 @@ if( PICO_SDK_PATH )
     target_link_libraries(${PROJECT_NAME}_lib_pico PRIVATE
         ${PROJECT_NAME}_headers
         ${PROJECT_NAME}_internal_headers
+        hardware_uart_headers
         pico_sync_headers
     )
 endif()

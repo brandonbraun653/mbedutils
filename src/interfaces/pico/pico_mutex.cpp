@@ -1,6 +1,6 @@
 /******************************************************************************
  *  File Name:
- *    mutex_pico.cpp
+ *    pico_mutex.cpp
  *
  *  Description:
  *    RPI Pico SDK implementation of the mutex interface

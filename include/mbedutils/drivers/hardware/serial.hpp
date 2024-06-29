@@ -88,7 +88,7 @@ namespace mb::hw::serial
    * @brief A buffered serial driver that can be used to send and receive data.
    * @note This consumes the given serial channel and never releases it until the destructor is called.
    *
-   * This driver couples with the mb::intf::serial functions to provide an asynchronous
+   * This driver couples with the mb::hw::serial::intf functions to provide an asynchronous
    * buffered interface for sending and receiving data over a serial link. The driver
    * assumes that the underlying hardware is configured and ready to go.
    *

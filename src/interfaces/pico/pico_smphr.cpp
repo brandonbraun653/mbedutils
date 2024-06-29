@@ -1,6 +1,6 @@
 /******************************************************************************
  *  File Name:
- *    smphr_pico.cpp
+ *    pico_smphr.cpp
  *
  *  Description:
  *    RPI Pico SDK implementation of the semaphore interface

@@ -30,7 +30,7 @@ namespace mb::hw::serial
   {
     if( mIsConfigured )
     {
-      mb::intf::serial::unlock( mConfig.channel );
+      mb::hw::serial::intf::unlock( mConfig.channel );
     }
   }
 
@@ -61,7 +61,7 @@ namespace mb::hw::serial
     /*-------------------------------------------------------------------------
     Take ownership of the UART channel
     -------------------------------------------------------------------------*/
-    if( !mb::intf::serial::lock( config.channel, 100 ) )
+    if( !mb::hw::serial::intf::lock( config.channel, 100 ) )
     {
       mbed_assert_continue_msg( false, "Failed to lock UART channel %d", config.channel );
       return -1;
@@ -70,6 +70,7 @@ namespace mb::hw::serial
     /*-------------------------------------------------------------------------
     Initialize the internal state
     -------------------------------------------------------------------------*/
+    /* User specified data */
     mConfig = config;
     if( mConfig.rxBuffer )
     {
@@ -81,6 +82,7 @@ namespace mb::hw::serial
       mConfig.txBuffer->clear();
     }
 
+    /* Transfer controllers */
     mTXControl.state     = State::READY;
     mTXControl.remaining = 0;
     mTXControl.expected  = 0;
@@ -90,6 +92,9 @@ namespace mb::hw::serial
     mRXControl.remaining = 0;
     mRXControl.expected  = 0;
     mRXControl.buffer    = {};
+
+    /* Asynchronous Notification Engine */
+    this->initAIO();
 
     mIsConfigured = true;
     return 0;
