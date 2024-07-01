@@ -71,27 +71,27 @@ namespace mb::hw::serial::intf
   void unlock( const size_t channel );
 
   /**
-   * @brief Asynchronously writes data to the specified UART channel.
-   * @warning Implementations can be called from an ISR context.
-   *
-   * Implementation Notes:
-   *  - The write should only proceed if the hardware is immediately ready to
-   *    begin transmition. If the hardware is not ready, the function should
-   *    return immediately with a negative value.
-   *
-   *  - Data must be contiguous in memory up to the length specified,
-   *    as the backing implementation may be based on DMA or other
-   *    hardware accelerated methods.
-   *
-   *  - Once the transmission is complete, the callback registered with
-   *    on_tx_complete should be invoked so that any more data can be sent.
-   *
-   * @param channel Channel to write data to
-   * @param data    Data to write. Must be at least "length" bytes long.
-   * @param length  Number of bytes to write
-   * @return int    Number of bytes actually written. Negative on error.
-   */
-  int async_write( const size_t channel, const void *data, const size_t length );
+ * @brief Asynchronously writes data to the specified UART channel.
+ *
+ * @warning Implementations can be called from an ISR context.
+ *
+ * @details
+ * Implementation Notes:
+ * -# The write should only proceed if the hardware is immediately ready to
+ *    begin transmission. If the hardware is not ready, the function should
+ *    return immediately with a negative value.
+ * -# Data must be contiguous in memory up to the length specified,
+ *    as the backing implementation may be based on DMA or other
+ *    hardware accelerated methods.
+ * -# Once the transmission is complete, the callback registered with
+ *    on_tx_complete should be invoked so that any more data can be sent.
+ *
+ * @param channel Channel to write data to
+ * @param data Data to write. Must be at least "length" bytes long.
+ * @param length Number of bytes to write
+ * @return int Number of bytes actually written. Negative on error.
+ */
+  int write_async( const size_t channel, const void *data, const size_t length );
 
   /**
    * @brief Register a function to be invoked when the last TX completes.
@@ -111,9 +111,10 @@ namespace mb::hw::serial::intf
    * This is useful for aborting a TX operation that is in progress if for some reason
    * the consuming driver gets stuck and needs to be reset.
    *
+   * @note Does not return until the abort is complete.
    * @param channel Which channel to reset
    */
-  void abort_write( const size_t channel );
+  void write_abort( const size_t channel );
 
   /**
    * @brief Asynchronously reads data from the specified UART channel.
@@ -135,7 +136,7 @@ namespace mb::hw::serial::intf
    * @param timeout How long to wait for the read to complete (ms)
    * @return int    Number of bytes actually read. Negative on error.
    */
-  int async_read( const size_t channel, void *data, const size_t length, const size_t timeout );
+  int read_async( const size_t channel, void *data, const size_t length, const size_t timeout );
 
   /**
    * @brief Register a function to be invoked when the last RX completes.
@@ -157,7 +158,7 @@ namespace mb::hw::serial::intf
    *
    * @param channel Which channel to reset
    */
-  void abort_read( const size_t channel );
+  void read_abort( const size_t channel );
 
 }    // namespace mb::intf::uart
 

@@ -46,7 +46,7 @@ namespace mb::assert
   }
 
 
-  void format_and_log_assert_failure( const bool predicate, const bool halt, const char *file, const int line, const char *fmt,
+  bool format_and_log_assert_failure( const bool predicate, const bool halt, const char *file, const int line, const char *fmt,
                                       ... )
   {
     /*-------------------------------------------------------------------------
@@ -54,7 +54,7 @@ namespace mb::assert
     -------------------------------------------------------------------------*/
     if( predicate )
     {
-      return;
+      return predicate;
     }
 
     /*-------------------------------------------------------------------------
@@ -63,9 +63,9 @@ namespace mb::assert
     irq::disable_interrupts();
     if( s_recursion_guard )
     {
-      s_recurse_event += 1;
+      s_recurse_event = s_recurse_event + 1u;
       irq::enable_interrupts();
-      return;
+      return predicate;
     }
 
     s_recursion_guard = true;
@@ -86,15 +86,9 @@ namespace mb::assert
     {
       va_list args;
       va_start( args, fmt );
-      npf_vsnprintf( fmt_buffer.data(), fmt_buffer.size(), fmt, args );
+      npf_vsnprintf( fmt_buffer.data() + bytes_written, fmt_buffer.size(), fmt, args );
       va_end( args );
     }
-
-    /*-------------------------------------------------------------------------
-    Ensure the string is always null terminated. This technically is done in
-    the npf_vsnprintf function, but should that change for some reason...
-    -------------------------------------------------------------------------*/
-    fmt_buffer.back() = '\0';
 
     /*-------------------------------------------------------------------------
     Call the interface defined function to handle the failure
@@ -105,5 +99,7 @@ namespace mb::assert
     Unlock now that we're past all points that could throw another assertion
     -------------------------------------------------------------------------*/
     s_recursion_guard = false;
+
+    return predicate;
   }
 }    // namespace mb::assert

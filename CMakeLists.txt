@@ -58,6 +58,9 @@ if( PICO_SDK_PATH )
     target_link_libraries(${PROJECT_NAME}_lib_pico PRIVATE
         ${PROJECT_NAME}_headers
         ${PROJECT_NAME}_internal_headers
+
+        # These targets are defined in the pico-sdk CMake files after importing.
+        hardware_dma_headers
         hardware_uart_headers
         pico_sync_headers
     )

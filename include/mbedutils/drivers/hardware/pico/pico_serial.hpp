@@ -32,11 +32,26 @@ namespace mb::hw::serial::pico
     uart_inst_t  *uart;        /**< UART peripheral instance */
     uart_parity_t parity;      /**< Parity setting */
     uint          baudrate;    /**< Baud rate to operate at */
+    uint          data_bits;   /**< Number of data bits */
+    uint          stop_bits;   /**< Number of stop bits */
     uint          tx_pin;      /**< TX pin number */
     uint          rx_pin;      /**< RX pin number */
-    uint          dma_channel; /**< DMA channel to use for TX/RX */
-    bool          dma_enabled; /**< Use DMA if true, else use interrupts */
     size_t        usr_channel; /**< User's logical channel to identify as */
+
+    /**
+     * @brief Reset the configuration to an empty state
+     */
+    void reset()
+    {
+      uart        = nullptr;
+      parity      = UART_PARITY_NONE;
+      baudrate    = 9600;
+      data_bits   = 8;
+      stop_bits   = 1;
+      tx_pin      = 0;
+      rx_pin      = 0;
+      usr_channel = 0;
+    }
   };
 
   /*---------------------------------------------------------------------------
