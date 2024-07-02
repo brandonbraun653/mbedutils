@@ -22,7 +22,9 @@ Includes
 #include <mbedutils/interfaces/util_intf.hpp>
 #include "hardware/dma.h"
 #include "hardware/gpio.h"
+#include "hardware/timer.h"
 #include "hardware/uart.h"
+#include "pico/time.h"
 
 namespace mb::hw::serial
 {
@@ -45,14 +47,16 @@ namespace mb::hw::serial
     uart_inst_t             *hw;                       /**< Pico SDK UART peripheral instance */
     mb::osal::mb_mutex_t     mutex;                    /**< Mutex for locking device access */
     size_t                   usr_channel;              /**< User logical channel, not instance index */
-    size_t                   tx_bytes;                 /**< Number of bytes left to transmit */
-    size_t                   rx_bytes;                 /**< Number of bytes left to receive */
+    size_t                   tx_bytes;                 /**< Number of bytes expected to transmit */
+    size_t                   rx_bytes;                 /**< Number of bytes expected to receive */
+    int                      rx_actual;
     int                      dma_rx_channel;           /**< System dma channel for RX-ing */
     int                      dma_tx_channel;           /**< System dma channel for TX-ing */
     intf::RXCompleteCallback usr_rx_complete_callback; /**< RX completion callback */
     intf::TXCompleteCallback usr_tx_complete_callback; /**< TX completion callback */
     volatile bool            tx_in_progress;           /**< Flag to indicate if a TX operation is in progress */
     volatile bool            rx_in_progress;           /**< Flag to indicate if an RX operation is in progress */
+    volatile alarm_id_t      rx_alarm;                 /**< RX timeout alarm ID */
 
     void reset()
     {
@@ -61,6 +65,7 @@ namespace mb::hw::serial
       usr_channel              = 0;
       tx_bytes                 = 0;
       rx_bytes                 = 0;
+      rx_actual                = -1;
       dma_rx_channel           = -1;
       dma_tx_channel           = -1;
       usr_rx_complete_callback = {};
@@ -90,8 +95,10 @@ namespace mb::hw::serial
   static void          irq_handler_uart_0();
   static void          irq_handler_uart_1();
   static void          irq_handler_uart_x( uart_inst_t *uart );
-  static void          dma_tx_complete();
-  static void          dma_rx_complete();
+  static void          isr_dma_tx_complete();
+  static void          isr_dma_rx_complete();
+
+  static int64_t uart_0_rx_alarm_cb( alarm_id_t id, void *user_data );
 
   /*---------------------------------------------------------------------------
   Public Functions
@@ -148,12 +155,12 @@ namespace mb::hw::serial
     irq_set_enabled( get_uart_irq( s_cb[ hw_idx ].hw ), true );
 
     /*-------------------------------------------------------------------------
-    Configure DMA handlers
+    Configure DMA handlers. We'll map TX to IRQ 0 and RX to IRQ 1.
     -------------------------------------------------------------------------*/
-    irq_add_shared_handler( DMA_IRQ_0, dma_tx_complete, PICO_SHARED_IRQ_HANDLER_DEFAULT_ORDER_PRIORITY );
+    irq_add_shared_handler( DMA_IRQ_0, isr_dma_tx_complete, PICO_SHARED_IRQ_HANDLER_DEFAULT_ORDER_PRIORITY );
     irq_set_enabled( DMA_IRQ_0, true );
 
-    irq_add_shared_handler( DMA_IRQ_1, dma_rx_complete, PICO_SHARED_IRQ_HANDLER_DEFAULT_ORDER_PRIORITY );
+    irq_add_shared_handler( DMA_IRQ_1, isr_dma_rx_complete, PICO_SHARED_IRQ_HANDLER_DEFAULT_ORDER_PRIORITY );
     irq_set_enabled( DMA_IRQ_1, true );
 
     /*-------------------------------------------------------------------------
@@ -161,7 +168,7 @@ namespace mb::hw::serial
     -------------------------------------------------------------------------*/
     const uint actual_baud = uart_init( config.uart, config.baudrate );
     const float pct_error = ( ( float )actual_baud - ( float )config.baudrate ) / ( float )config.baudrate;
-    mbed_assert_continue_msg( pct_error < 0.03f, "UART %d baud rate error > 3%. Exp: %d, Act: %d",
+    mbed_assert_continue_msg( pct_error <= 0.03f, "UART %d baud rate error > 3%. Exp: %d, Act: %d",
                               config.usr_channel, config.baudrate, actual_baud );
 
     /* Enable the FIFO so we can catch when the transfer is complete */
@@ -176,9 +183,15 @@ namespace mb::hw::serial
     /* Disable FIFO threshold IRQs initially */
     uart_set_irq_enables( config.uart, false, false );
 
-    /* Set fifo trigger levels to 1/4 full/empty */
-    uart_get_hw( config.uart )->ifls =
-        ( UARTx_FIFO_THR_8B << UART_UARTIFLS_RXIFLSEL_LSB ) | ( UARTx_FIFO_THR_8B << UART_UARTIFLS_TXIFLSEL_LSB );
+    /* Set tx fifo trigger levels to 1/2 full */
+    uart_get_hw( config.uart )->ifls = UARTx_FIFO_THR_16B << UART_UARTIFLS_TXIFLSEL_LSB;
+
+    /* DMA is really efficient on RP2040. The RX idle timeout won't fire
+       if the FIFO empties before the timeout window elapses. Try and keep
+       the FIFO as full as possible while shortening the timeout. Below the
+       threshold, the DMA performs single character requests, effectively
+       slowing it down. */
+    uart_get_hw( config.uart )->ifls |= UARTx_FIFO_THR_8B << UART_UARTIFLS_RXIFLSEL_LSB;
 
     /* Enable DMA requests: RX, TX */
     uart_get_hw( config.uart )->dmacr = UART_UARTDMACR_RXDMAE_BITS | UART_UARTDMACR_TXDMAE_BITS;
@@ -192,8 +205,14 @@ namespace mb::hw::serial
     /*-------------------------------------------------------------------------
     Configure the rest of the control block
     -------------------------------------------------------------------------*/
-    s_cb[ hw_idx ].hw          = config.uart;
-    s_cb[ hw_idx ].usr_channel = config.usr_channel;
+    s_cb[ hw_idx ].hw                       = config.uart;
+    s_cb[ hw_idx ].usr_channel              = config.usr_channel;
+    s_cb[ hw_idx ].tx_bytes                 = 0;
+    s_cb[ hw_idx ].rx_bytes                 = 0;
+    s_cb[ hw_idx ].tx_in_progress           = false;
+    s_cb[ hw_idx ].rx_in_progress           = false;
+    s_cb[ hw_idx ].usr_rx_complete_callback = {};
+    s_cb[ hw_idx ].usr_tx_complete_callback = {};
 
     mb::osal::unlockMutex( s_cb[ hw_idx ].mutex );
   }
@@ -223,12 +242,19 @@ namespace mb::hw::serial
 
   int intf::write_async( const size_t channel, const void *data, const size_t length )
   {
-    auto cb = get_cb( channel );
+    /*-------------------------------------------------------------------------
+    Input Sanitization
+    -------------------------------------------------------------------------*/
+    if( !data || !length || ( s_driver_initialized != mb::DRIVER_INITIALIZED_KEY ) )
+    {
+      return -1;
+    }
 
     /*-------------------------------------------------------------------------
     Hopefully we have some DMA channels left. Only acquire right now since we
     just now learned we need it.
     -------------------------------------------------------------------------*/
+    auto cb = get_cb( channel );
     if( cb->dma_tx_channel < 0 )
     {
       cb->dma_tx_channel = dma_claim_unused_channel( true );
@@ -248,7 +274,7 @@ namespace mb::hw::serial
     -------------------------------------------------------------------------*/
     if( cb->tx_in_progress || dma_channel_is_busy( cb->dma_tx_channel ) || !uart_is_writable( cb->hw ) )
     {
-      mbed_assert_continue_msg( !mb::irq::in_isr(), "Failed to send %d bytes on channel %d", cb->usr_channel, length );
+      mbed_assert_continue_msg( !mb::irq::in_isr(), "Failed to send %d bytes on channel %d", length, cb->usr_channel );
       return -1;
     }
 
@@ -288,10 +314,6 @@ namespace mb::hw::serial
 
   void intf::write_abort( const size_t channel )
   {
-    /*-------------------------------------------------------------------------
-    We're not using DMA TX interrupts, so we can just abort the channel without
-    worrying about the spurrious behavior described in the SDK documentation.
-    -------------------------------------------------------------------------*/
     auto cb = get_cb( channel );
     if( !cb->tx_in_progress )
     {
@@ -301,19 +323,29 @@ namespace mb::hw::serial
     cb->tx_in_progress = false;
     if( cb->dma_tx_channel >= 0 )
     {
+      dma_channel_set_irq0_enabled( cb->dma_tx_channel, false );
       dma_channel_abort( cb->dma_tx_channel );
+      dma_channel_acknowledge_irq0( cb->dma_tx_channel );
+      dma_channel_set_irq0_enabled( cb->dma_tx_channel, true );
     }
   }
 
 
   int intf::read_async( const size_t channel, void *data, const size_t length, const size_t timeout )
   {
-    auto cb = get_cb( channel );
+    /*-------------------------------------------------------------------------
+    Input Sanitization
+    -------------------------------------------------------------------------*/
+    if( !data || !length || !timeout || ( s_driver_initialized != mb::DRIVER_INITIALIZED_KEY ) )
+    {
+      return -1;
+    }
 
     /*-------------------------------------------------------------------------
     Hopefully we have some DMA channels left. Only acquire right now since we
     just now learned we need it.
     -------------------------------------------------------------------------*/
+    auto cb = get_cb( channel );
     if( cb->dma_rx_channel < 0 )
     {
       cb->dma_rx_channel = dma_claim_unused_channel( true );
@@ -326,6 +358,51 @@ namespace mb::hw::serial
       dma_channel_cleanup( cb->dma_rx_channel );
     }
 
+    /*-------------------------------------------------------------------------
+    Ensure the driver is ready for immediate RX
+    -------------------------------------------------------------------------*/
+    if( cb->rx_in_progress || dma_channel_is_busy( cb->dma_rx_channel ) )
+    {
+      mbed_assert_continue_msg( !mb::irq::in_isr(), "Failed to start reading channel %d", cb->usr_channel );
+      return -1;
+    }
+
+    /*-------------------------------------------------------------------------
+    Configure the DMA channel for RX
+    -------------------------------------------------------------------------*/
+    auto dma_cfg = dma_channel_get_default_config( cb->dma_rx_channel );
+
+    channel_config_set_transfer_data_size( &dma_cfg, DMA_SIZE_8 );
+    channel_config_set_read_increment( &dma_cfg, false );
+    channel_config_set_write_increment( &dma_cfg, true );
+    channel_config_set_dreq( &dma_cfg, uart_get_dreq( cb->hw, false ) );
+    dma_channel_configure( cb->dma_rx_channel, &dma_cfg, data, &uart_get_hw( cb->hw )->dr, length, false );
+
+    dma_channel_set_irq1_enabled( cb->dma_rx_channel, true );
+
+    /*-------------------------------------------------------------------------
+    Set up a timer to expire if we don't receive all the bytes in time
+    -------------------------------------------------------------------------*/
+    cb->rx_alarm = add_alarm_in_ms( timeout, uart_0_rx_alarm_cb, cb, true );
+    if( cb->rx_alarm < 0 )
+    {
+      return -1;
+    }
+
+    /*-------------------------------------------------------------------------
+    Update the control block with the new transfer information
+    -------------------------------------------------------------------------*/
+    cb->rx_bytes       = length;
+    cb->rx_actual      = -1;
+    cb->rx_in_progress = true;
+
+    /*-------------------------------------------------------------------------
+    Start the transfer
+    -------------------------------------------------------------------------*/
+    dma_start_channel_mask( 1u << cb->dma_rx_channel );
+
+    return length;
+
 
     // Several ways to exit a "read" transfer:
     // 1. The DMA channel completes the transfer b/c all bytes received. Need to mask idle event. Idle timeout comes AFTER dma
@@ -337,28 +414,33 @@ namespace mb::hw::serial
     //      - This can be weird cause we may have received 0 bytes, in-progress of receiving, or in the middle of timing out.
     // 5. DMA RX buffer is smaller than the number of bytes being sent...can't really handle that at this level. Have to pray that
     //    the user can empty that buffer and start a new RX transfer before the UART RX fifo fills up.
-
-
-
-    // Hmmm. Is there a way I can register a callback for just the channel?
-    //
-
-    // dma_channel_set_irq0_enabled( cb->dma_tx_channel, true );
-    // irq_set_exclusive_handler(DMA_IRQ_0, dma_handler);
-    // irq_set_enabled(DMA_IRQ_0, true);
-
-    return -1;
   }
 
 
   void intf::on_rx_complete( const size_t channel, intf::RXCompleteCallback callback )
   {
+    get_cb( channel )->usr_rx_complete_callback = callback;
   }
 
 
   void intf::read_abort( const size_t channel )
   {
-    // Be wary about the spurrious behavior here.
+    auto cb = get_cb( channel );
+    if( !cb->rx_in_progress )
+    {
+      return;
+    }
+
+    if( cb->dma_rx_channel >= 0 )
+    {
+      /*-----------------------------------------------------------------------
+      Don't ACK the irq here like we do with the TX half. We actually want the
+      DMA RX half to fire and invoke the user's callback with what we RX'd.
+      -----------------------------------------------------------------------*/
+      dma_channel_set_irq1_enabled( cb->dma_rx_channel, false );
+      dma_channel_abort( cb->dma_rx_channel );
+      dma_channel_set_irq1_enabled( cb->dma_rx_channel, true );
+    }
   }
 
 
@@ -451,6 +533,10 @@ namespace mb::hw::serial
     const uint32_t status  = uart_get_hw( uart )->ris;
     ControlBlock  *cb      = get_cb( uart );
 
+    const bool tx_event         = ( enabled & UART_UARTIMSC_TXIM_BITS ) && ( status & UART_UARTRIS_TXRIS_BITS );
+    const bool rx_event         = ( enabled & UART_UARTIMSC_RXIM_BITS ) && ( status & UART_UARTRIS_RXRIS_BITS );
+    const bool rx_timeout_event = ( enabled & UART_UARTIMSC_RTIM_BITS ) && ( status & UART_UARTRIS_RTRIS_BITS );
+
     /*-------------------------------------------------------------------------
     At a minimum ACK all events, then process them if we've actually got a
     transfer in progress.
@@ -465,7 +551,7 @@ namespace mb::hw::serial
     /*-------------------------------------------------------------------------
     Handle Transmit Complete: Occurs when the FIFO falls below the threshold.
     -------------------------------------------------------------------------*/
-    if( ( enabled & UART_UARTIMSC_TXIM_BITS ) && ( status & UART_UARTMIS_TXMIS_BITS ) )
+    if( cb->tx_in_progress && tx_event )
     {
       /*-------------------------------------------------------------------------
       Disable the TX interrupt to prevent re-entry. This will be re-enabled
@@ -478,36 +564,49 @@ namespace mb::hw::serial
       {
         cb->usr_tx_complete_callback( cb->usr_channel, cb->tx_bytes );
       }
+
+      // TODO: Handle TX errors
     }
 
     /*-------------------------------------------------------------------------
     Handle Receive Events
     -------------------------------------------------------------------------*/
-    if( 1 /* Mask of receive events */ )
+    if( cb->rx_in_progress && ( rx_event || rx_timeout_event ) )
     {
-      // We know here that there was an idle timeout or the FIFO is full. Neither
-      // of those indicate a complete transfer. We need to wait for the DMA to
-      // finish the transfer before we can call the user's callback.
+      /*-----------------------------------------------------------------------
+      If we've received the first character, disable the "has data" event and
+      enable the RX timeout event.
+      -----------------------------------------------------------------------*/
+      // if( rx_event )
+      // {
+      //   uart_get_hw( cb->hw )->imsc &= ~( 1u << UART_UARTIMSC_RXIM_LSB );
+      //   uart_get_hw( cb->hw )->imsc |= 1u << UART_UARTIMSC_RTIM_LSB;
+      // }
 
-      // DMA may have already completed in case of idle timeout, so set RX
-      // in progress to false here.
+      /*-----------------------------------------------------------------------
+      RX timeout event fired. Two main scenarios happening here:
+        - DMA RX transfer is complete and we nominally timed out. (Not likely)
+        - DMA RX transfer is still in progress and we timed out. (More likely)
+      -----------------------------------------------------------------------*/
+      // if( rx_timeout_event )
+      // {
+      //   // Disable the RX timeout event
+      //   uart_get_hw( cb->hw )->imsc &= ~( 1u << UART_UARTIMSC_RTIM_LSB );
 
-      // Can I trigger the abort/complete DMA transfer from here? Would certainly
-      // simplify chaining the events together...DMA always needs to clean up. Only
-      // valid in the case that the DMA is not already complete.
+      //   // Abort the DMA transfer. If we've RX'd all requested bytes, this
+      //   // will end up being a no-op.
+      //   intf::read_abort( cb->usr_channel );
+      // }
+
+      // TODO: Handle RX errors
     }
-
-    /*-------------------------------------------------------------------------
-    Handle Errors
-    -------------------------------------------------------------------------*/
-    if( 1 /* Mask of error events */ ) {}
   }
 
 
   /**
    * @brief Handle the DMA TX completion event
    */
-  static void dma_tx_complete()
+  static void isr_dma_tx_complete()
   {
     /*-------------------------------------------------------------------------
     Check all UART peripherals for a TX completion event rather than each DMA
@@ -538,8 +637,83 @@ namespace mb::hw::serial
   }
 
 
-  static void dma_rx_complete()
+  /**
+   * @brief Handle the DMA RX completion event
+   */
+  static void isr_dma_rx_complete()
   {
+    /*-------------------------------------------------------------------------
+    Check all UART peripherals for a RX completion event rather than each DMA
+    channel. There are far fewer UARTs.
+    -------------------------------------------------------------------------*/
+    for( auto &cb : s_cb )
+    {
+      /*-----------------------------------------------------------------------
+      Guard against interrupts we clearly did not generate.
+      -----------------------------------------------------------------------*/
+      if( ( cb.dma_rx_channel < 0 ) || ( cb.dma_rx_channel >= ( int )NUM_DMA_CHANNELS ) )
+      {
+        continue;
+      }
+
+      /*-----------------------------------------------------------------------
+      Check if the DMA channel is the one that completed. Assuming so, call the
+      user's RX completion callback with the number of bytes received. This ISR
+      is the termination point for the RX operation.
+      -----------------------------------------------------------------------*/
+      if( dma_channel_get_irq1_status( cb.dma_rx_channel ) )
+      {
+        dma_channel_acknowledge_irq1( cb.dma_rx_channel );
+        if( !cb.rx_in_progress )
+        {
+          continue;
+        }
+
+        /*-----------------------------------------------------------------------
+        Compute actual number of bytes received. If the DMA transfer completed
+        nominally, this will be the expected number of bytes. If the RX timed
+        out, this will be the number of bytes actually received.
+        -----------------------------------------------------------------------*/
+        size_t actual_bytes = static_cast<size_t>( cb.rx_actual );
+
+        if( cb.rx_actual < 0 )
+        {
+          cancel_alarm( cb.rx_alarm );
+          actual_bytes = cb.rx_bytes;
+        }
+
+        /*-----------------------------------------------------------------------
+        Invoke the user callback
+        -----------------------------------------------------------------------*/
+        cb.rx_in_progress = false;
+        if( cb.usr_rx_complete_callback )
+        {
+          cb.usr_rx_complete_callback( cb.usr_channel, actual_bytes );
+        }
+      }
+    }
   }
 
+
+  /**
+   * @brief Timeout alarm for when the RX transfer takes too long.
+   *
+   * @param id Unused
+   * @param user_data Control block for the UART peripheral
+   * @return int64_t
+   */
+  static int64_t uart_0_rx_alarm_cb( alarm_id_t id, void *user_data )
+  {
+    ControlBlock *cb = static_cast<ControlBlock *>( user_data );
+    if( !cb->rx_in_progress )
+    {
+      return 0;
+    }
+
+    cb->rx_actual = cb->rx_bytes - dma_channel_hw_addr( cb->dma_rx_channel )->transfer_count;
+    intf::read_abort( cb->dma_rx_channel );
+
+    // Don't repeate the alarm
+    return 0;
+  }
 }    // namespace mb::hw::serial
