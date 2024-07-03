@@ -19,6 +19,7 @@ Includes
 #include <mbedutils/interfaces/irq_intf.hpp>
 #include <mbedutils/interfaces/mutex_intf.hpp>
 #include <mbedutils/interfaces/serial_intf.hpp>
+#include <mbedutils/interfaces/time_intf.hpp>
 #include <mbedutils/interfaces/util_intf.hpp>
 #include "hardware/dma.h"
 #include "hardware/gpio.h"
@@ -48,8 +49,9 @@ namespace mb::hw::serial
     mb::osal::mb_mutex_t     mutex;                    /**< Mutex for locking device access */
     size_t                   usr_channel;              /**< User logical channel, not instance index */
     size_t                   tx_bytes;                 /**< Number of bytes expected to transmit */
-    size_t                   rx_bytes;                 /**< Number of bytes expected to receive */
-    int                      rx_actual;
+    size_t                   rx_expected;                 /**< Number of bytes expected to receive */
+    size_t                   rx_actual;
+    size_t rx_fifo_threshold; /**< RX FIFO threshold */
     uint8_t *     rx_buffer;               /**< User buffer for RX-ing */
     int                      dma_rx_channel;           /**< System dma channel for RX-ing */
     int                      dma_tx_channel;           /**< System dma channel for TX-ing */
@@ -57,8 +59,9 @@ namespace mb::hw::serial
     intf::TXCompleteCallback usr_tx_complete_callback; /**< TX completion callback */
     volatile bool            tx_in_progress;           /**< Flag to indicate if a TX operation is in progress */
     volatile bool            rx_in_progress;           /**< Flag to indicate if an RX operation is in progress */
-    volatile bool            rx_complete;              /**< Flag to indicate if the RX operation is complete */
     volatile alarm_id_t      rx_alarm;                 /**< RX timeout alarm ID */
+    size_t                   rx_active_tick; /**< RX timeout in milliseconds */
+    size_t rx_inactive_timeout; /**< RX timeout in milliseconds */
 
     void reset()
     {
@@ -66,8 +69,9 @@ namespace mb::hw::serial
       mutex                    = nullptr;
       usr_channel              = 0;
       tx_bytes                 = 0;
-      rx_bytes                 = 0;
-      rx_actual                = -1;
+      rx_expected                 = 0;
+      rx_fifo_threshold        = 0;
+      rx_actual                = 0;
       dma_rx_channel           = -1;
       dma_tx_channel           = -1;
       usr_rx_complete_callback = {};
@@ -98,11 +102,11 @@ namespace mb::hw::serial
   static void          irq_handler_uart_1();
   static void          irq_handler_uart_x( uart_inst_t *uart );
   static void          isr_dma_tx_complete();
-  static void          isr_dma_rx_complete();
 
-  static int64_t uart_0_rx_alarm_cb( alarm_id_t id, void *user_data );
+  static int64_t rx_alarm_cb( alarm_id_t id, void *user_data );
 
-  static void rx_flush_fifo( ControlBlock *cb, bool use_dma );
+  static bool flush_rx_fifo_to_user_buffer( ControlBlock *cb, bool use_dma );
+  static void terminate_rx_operation( ControlBlock *cb, bool invoke_callback );
 
   /*---------------------------------------------------------------------------
   Public Functions
@@ -164,9 +168,6 @@ namespace mb::hw::serial
     irq_add_shared_handler( DMA_IRQ_0, isr_dma_tx_complete, PICO_SHARED_IRQ_HANDLER_DEFAULT_ORDER_PRIORITY );
     irq_set_enabled( DMA_IRQ_0, true );
 
-    irq_add_shared_handler( DMA_IRQ_1, isr_dma_rx_complete, PICO_SHARED_IRQ_HANDLER_DEFAULT_ORDER_PRIORITY );
-    irq_set_enabled( DMA_IRQ_1, true );
-
     /*-------------------------------------------------------------------------
     Configure the UART peripheral
     -------------------------------------------------------------------------*/
@@ -187,18 +188,23 @@ namespace mb::hw::serial
     /* Disable FIFO threshold IRQs initially */
     uart_set_irq_enables( config.uart, false, false );
 
-    /* Set tx fifo trigger levels to 1/2 full */
+    /* Set tx fifo trigger levels */
     uart_get_hw( config.uart )->ifls = UARTx_FIFO_THR_16B << UART_UARTIFLS_TXIFLSEL_LSB;
+    uart_get_hw( config.uart )->ifls |= UARTx_FIFO_THR_16B << UART_UARTIFLS_RXIFLSEL_LSB;
 
-    /* DMA is really efficient on RP2040. The RX idle timeout won't fire
-       if the FIFO empties before the timeout window elapses. Try and keep
-       the FIFO as full as possible while shortening the timeout. Below the
-       threshold, the DMA performs single character requests, effectively
-       slowing it down. */
-    uart_get_hw( config.uart )->ifls |= UARTx_FIFO_THR_24B << UART_UARTIFLS_RXIFLSEL_LSB;
+    s_cb[ hw_idx ].rx_fifo_threshold = 16;
 
     /* Enable DMA requests: RX, TX */
     uart_get_hw( config.uart )->dmacr = UART_UARTDMACR_RXDMAE_BITS | UART_UARTDMACR_TXDMAE_BITS;
+
+    /* Flush the RX fifo */
+    while( uart_is_readable( config.uart ) )
+    {
+      uart_getc( config.uart );
+    }
+
+    /* Clear all possible interrupt states from configuration */
+    uart_get_hw( config.uart )->icr = 0xFFFF;
 
     /*-------------------------------------------------------------------------
     Configure the TX and RX pins
@@ -212,7 +218,7 @@ namespace mb::hw::serial
     s_cb[ hw_idx ].hw                       = config.uart;
     s_cb[ hw_idx ].usr_channel              = config.usr_channel;
     s_cb[ hw_idx ].tx_bytes                 = 0;
-    s_cb[ hw_idx ].rx_bytes                 = 0;
+    s_cb[ hw_idx ].rx_expected                 = 0;
     s_cb[ hw_idx ].tx_in_progress           = false;
     s_cb[ hw_idx ].rx_in_progress           = false;
     s_cb[ hw_idx ].usr_rx_complete_callback = {};
@@ -372,55 +378,40 @@ namespace mb::hw::serial
     }
 
     /*-------------------------------------------------------------------------
-    Configure the DMA channel for RX
-    -------------------------------------------------------------------------*/
-    // auto dma_cfg = dma_channel_get_default_config( cb->dma_rx_channel );
-
-    // channel_config_set_transfer_data_size( &dma_cfg, DMA_SIZE_8 );
-    // channel_config_set_read_increment( &dma_cfg, false );
-    // channel_config_set_write_increment( &dma_cfg, true );
-    // channel_config_set_dreq( &dma_cfg, uart_get_dreq( cb->hw, false ) );
-    // dma_channel_configure( cb->dma_rx_channel, &dma_cfg, data, &uart_get_hw( cb->hw )->dr, length, false );
-
-    // dma_channel_set_irq1_enabled( cb->dma_rx_channel, true );
-
-    /*-------------------------------------------------------------------------
     Set up a timer to expire if we don't receive all the bytes in time
     -------------------------------------------------------------------------*/
-    // cb->rx_alarm = add_alarm_in_ms( timeout, uart_0_rx_alarm_cb, cb, true );
-    // if( cb->rx_alarm < 0 )
-    // {
-    //   return -1;
-    // }
+    cb->rx_alarm = add_alarm_in_ms( timeout, rx_alarm_cb, cb, true );
+    if( cb->rx_alarm < 0 )
+    {
+      return -1;
+    }
 
     /*-------------------------------------------------------------------------
     Update the control block with the new transfer information
     -------------------------------------------------------------------------*/
-    cb->rx_buffer      = reinterpret_cast<uint8_t*>( data );
-    cb->rx_bytes       = length;
-    cb->rx_actual      = 0;
-    cb->rx_in_progress = true;
-    cb->rx_complete    = false;
+    cb->rx_buffer           = reinterpret_cast<uint8_t *>( data );
+    cb->rx_expected         = length;
+    cb->rx_actual           = 0;
+    cb->rx_in_progress      = true;
+    cb->rx_active_tick      = mb::time::millis();
+    cb->rx_inactive_timeout = timeout;
 
     /*-------------------------------------------------------------------------
-    Start listening for data.
+    Read as many bytes from the FIFO that we can before listening for more
     -------------------------------------------------------------------------*/
-    // dma_start_channel_mask( 1u << cb->dma_rx_channel );
+    if( flush_rx_fifo_to_user_buffer( cb, false ) )
+    {
+      terminate_rx_operation( cb, false );
+      return length;
+    }
+
+    /*-------------------------------------------------------------------------
+    Start listening for data. This will fire an interrupt when the RX FIFO
+    hits the threshold or the line idle timeout occurs with data in the FIFO.
+    -------------------------------------------------------------------------*/
     uart_get_hw( cb->hw )->imsc = ( 1u << UART_UARTIMSC_RXIM_LSB ) | ( 1u << UART_UARTIMSC_RTIM_LSB );
 
     return 0;
-
-
-    // Several ways to exit a "read" transfer:
-    // 1. The DMA channel completes the transfer b/c all bytes received. Need to mask idle event. Idle timeout comes AFTER dma
-    // complete.
-    // 2. Idle timeout isr fires and we have not received all bytes. Need to abort the DMA transfer. Need to invoke user
-    // callback with what we got.
-    // 3. User calls read_abort() and we need to stop the DMA channel and clean up. Callback invoked with what we got.
-    // 4. System timeout expires and we have not received all bytes. Need to invoke user callback with what we got.
-    //      - This can be weird cause we may have received 0 bytes, in-progress of receiving, or in the middle of timing out.
-    // 5. DMA RX buffer is smaller than the number of bytes being sent...can't really handle that at this level. Have to pray that
-    //    the user can empty that buffer and start a new RX transfer before the UART RX fifo fills up.
   }
 
 
@@ -438,16 +429,8 @@ namespace mb::hw::serial
       return;
     }
 
-    if( cb->dma_rx_channel >= 0 )
-    {
-      /*-----------------------------------------------------------------------
-      Don't ACK the irq here like we do with the TX half. We actually want the
-      DMA RX half to fire and invoke the user's callback with what we RX'd.
-      -----------------------------------------------------------------------*/
-      dma_channel_set_irq1_enabled( cb->dma_rx_channel, false );
-      dma_channel_abort( cb->dma_rx_channel );
-      dma_channel_set_irq1_enabled( cb->dma_rx_channel, true );
-    }
+    dma_channel_wait_for_finish_blocking( cb->dma_rx_channel );
+    terminate_rx_operation( cb, true );
   }
 
 
@@ -576,16 +559,21 @@ namespace mb::hw::serial
     }
 
     /*-------------------------------------------------------------------------
-    Handle Receive Events
+    Handle receive events. No data moves unless the RX fifo hits its threshold
+    or the RX timeout occurs while data is present in the FIFO.
     -------------------------------------------------------------------------*/
-    if( cb->rx_in_progress && ( rx_event || rx_timeout_event ) )
+    if( cb->rx_in_progress && ( rx_event || rx_timeout_event ) && uart_is_readable( cb->hw ) )
     {
+      cb->rx_active_tick = mb::time::millis();
+
       /*-----------------------------------------------------------------------
-      Filled the fifo. Flush it with DMA.
+      Filled the fifo. Flush it with DMA. If the flush resulted in filling
+      the buffer, wait for DMA to finish, then terminate the operation.
       -----------------------------------------------------------------------*/
-      if( rx_event )
+      if( rx_event && flush_rx_fifo_to_user_buffer( cb, true ) )
       {
-        rx_flush_fifo( cb, true );
+        dma_channel_wait_for_finish_blocking( cb->dma_rx_channel );
+        terminate_rx_operation( cb, true );
       }
 
       /*-----------------------------------------------------------------------
@@ -593,12 +581,8 @@ namespace mb::hw::serial
       -----------------------------------------------------------------------*/
       if( rx_timeout_event )
       {
-        cancel_alarm( cb->rx_alarm );
-        uart_get_hw( cb->hw )->imsc &= ~( ( 1u << UART_UARTIMSC_RXIM_LSB ) | ( 1u << UART_UARTIMSC_RTIM_LSB ) );
-        cb->rx_in_progress = false;
-
-        // We don't know how much data is in the fifo, so flush without dma.
-        rx_flush_fifo( cb, false );
+        flush_rx_fifo_to_user_buffer( cb, false );
+        terminate_rx_operation( cb, true );
       }
 
       // TODO: Handle RX errors
@@ -641,129 +625,118 @@ namespace mb::hw::serial
 
 
   /**
-   * @brief Handle the DMA RX completion event
-   */
-  static void isr_dma_rx_complete()
-  {
-    /*-------------------------------------------------------------------------
-    Check all UART peripherals for a RX completion event rather than each DMA
-    channel. There are far fewer UARTs.
-    -------------------------------------------------------------------------*/
-    for( auto &cb : s_cb )
-    {
-      /*-----------------------------------------------------------------------
-      Guard against interrupts we clearly did not generate.
-      -----------------------------------------------------------------------*/
-      if( ( cb.dma_rx_channel < 0 ) || ( cb.dma_rx_channel >= ( int )NUM_DMA_CHANNELS ) )
-      {
-        continue;
-      }
-
-      /*-----------------------------------------------------------------------
-      Check if the DMA channel is the one that completed. Assuming so, call the
-      user's RX completion callback with the number of bytes received. This ISR
-      is the termination point for the RX operation.
-      -----------------------------------------------------------------------*/
-      if( dma_channel_get_irq1_status( cb.dma_rx_channel ) )
-      {
-        dma_channel_acknowledge_irq1( cb.dma_rx_channel );
-        if( !cb.rx_in_progress )
-        {
-          continue;
-        }
-
-
-        /*-----------------------------------------------------------------------
-        Compute actual number of bytes received. If the DMA transfer completed
-        nominally, this will be the expected number of bytes. If the RX timed
-        out, this will be the number of bytes actually received.
-        -----------------------------------------------------------------------*/
-        size_t actual_bytes = static_cast<size_t>( cb.rx_actual );
-
-        if( cb.rx_actual < 0 )
-        {
-          cancel_alarm( cb.rx_alarm );
-          actual_bytes = cb.rx_bytes;
-        }
-
-        /*-----------------------------------------------------------------------
-        Invoke the user callback
-        -----------------------------------------------------------------------*/
-        cb.rx_in_progress = false;
-        if( cb.usr_rx_complete_callback )
-        {
-          cb.usr_rx_complete_callback( cb.usr_channel, actual_bytes );
-        }
-      }
-    }
-  }
-
-
-  /**
    * @brief Timeout alarm for when the RX transfer takes too long.
    *
-   * @param id Unused
+   * @param id Alarm identifier from registration
    * @param user_data Control block for the UART peripheral
    * @return int64_t
    */
-  static int64_t uart_0_rx_alarm_cb( alarm_id_t id, void *user_data )
+  static int64_t rx_alarm_cb( alarm_id_t id, void *user_data )
   {
+    /*-------------------------------------------------------------------------
+    Don't reschedule the alarm if the RX operation has been terminated.
+    -------------------------------------------------------------------------*/
     ControlBlock *cb = static_cast<ControlBlock *>( user_data );
-    if( !cb->rx_in_progress )
+    if( !cb->rx_in_progress || ( id != cb->rx_alarm ) )
     {
       return 0;
     }
 
-    cb->rx_actual = cb->rx_bytes - dma_channel_hw_addr( cb->dma_rx_channel )->transfer_count;
-    dma_channel_abort( cb->dma_rx_channel );
+    /*-------------------------------------------------------------------------
+    There's been some RX activity? Reschedule a new timeout window.
+    -------------------------------------------------------------------------*/
+    if( ( mb::time::millis() - cb->rx_active_tick ) < cb->rx_inactive_timeout )
+    {
+      return cb->rx_inactive_timeout;
+    }
 
-    // Don't repeate the alarm
+    /*-------------------------------------------------------------------------
+    Otherwise, we've timed out, likely without receiving any data.
+    -------------------------------------------------------------------------*/
+    flush_rx_fifo_to_user_buffer( cb, false );
+    terminate_rx_operation( cb, true );
     return 0;
   }
 
 
-  static void rx_flush_fifo( ControlBlock *cb, bool use_dma )
+  /**
+   * @brief Flush data to the user buffer from the RX FIFO
+   *
+   * @param cb      Control block for the UART peripheral
+   * @param use_dma Should we use DMA to read the RX FIFO?
+   * @return bool   True if the buffer was filled, false otherwise
+   */
+  static bool flush_rx_fifo_to_user_buffer( ControlBlock *cb, bool use_dma )
   {
     /*-------------------------------------------------------------------------
     Wait for DMA to finish. It's possible we got here because the RX FIFO
     hit the threshold and we're trying to flush it, THEN a timeout occurred in
     the middle of the flush. We need to allow the DMA to empty the FIFO to the
-    appropriate level before we start pulling bytes out.
+    appropriate level before we start pulling bytes out manually.
     -------------------------------------------------------------------------*/
     dma_channel_wait_for_finish_blocking( cb->dma_rx_channel );
 
-    /*-------------------------------------------------------------------------
-    Compute the maximum number of bytes we can read into the user buffer
-    -------------------------------------------------------------------------*/
     if( use_dma )
     {
-      constexpr uint8_t fifo_size     = 28;
-      uint8_t          *write_address = cb->rx_buffer + cb->rx_actual;
-      size_t            bytes_to_read = cb->rx_bytes - cb->rx_actual;
-      size_t            write_length  = bytes_to_read > fifo_size ? fifo_size : bytes_to_read;
+      /*-----------------------------------------------------------------------
+      DMA is the most efficient way to read the RX FIFO. Read as much as we can
+      into the user buffer, but don't exceed the threshold. We need to leave at
+      least one byte in the FIFO to accurately detect a line idle event.
+      -----------------------------------------------------------------------*/
+      uint8_t *write_address = cb->rx_buffer + cb->rx_actual;
+      size_t   write_length  = cb->rx_expected - cb->rx_actual;
 
+      if( write_length > cb->rx_fifo_threshold )
+      {
+        write_length = cb->rx_fifo_threshold - 1;
+      }
+
+      mbed_dbg_assert( ( write_address + write_length ) <= ( cb->rx_buffer + cb->rx_expected ) );
+      cb->rx_actual += write_length;
+
+      /*-----------------------------------------------------------------------
+      Configure the DMA channel to read the RX FIFO
+      -----------------------------------------------------------------------*/
       auto dma_cfg = dma_channel_get_default_config( cb->dma_rx_channel );
       channel_config_set_transfer_data_size( &dma_cfg, DMA_SIZE_8 );
       channel_config_set_read_increment( &dma_cfg, false );
       channel_config_set_write_increment( &dma_cfg, true );
       channel_config_set_dreq( &dma_cfg, uart_get_dreq( cb->hw, false ) );
-      dma_channel_set_irq1_enabled( cb->dma_rx_channel, true );
-      dma_channel_configure( cb->dma_rx_channel, &dma_cfg, write_address, &uart_get_hw( cb->hw )->dr, write_length, true );
+      channel_config_set_irq_quiet( &dma_cfg, true );
 
-      cb->rx_actual += write_length;
+      dma_channel_configure( cb->dma_rx_channel, &dma_cfg, write_address, &uart_get_hw( cb->hw )->dr, write_length, true );
     }
     else
     {
-      // Read the RX FIFO until it's empty
-      while( uart_is_readable( cb->hw ) && ( cb->rx_actual < cb->rx_bytes ) )
+      /*-----------------------------------------------------------------------
+      Manually read the RX FIFO. This is less efficient than DMA, but is
+      sufficient when a timeout occurs and we don't know the state of the FIFO.
+      -----------------------------------------------------------------------*/
+      while( uart_is_readable( cb->hw ) && ( cb->rx_actual < cb->rx_expected ) )
       {
         cb->rx_buffer[ cb->rx_actual++ ] = ( uint8_t )uart_get_hw( cb->hw )->dr;
       }
     }
 
-    /*-------------------------------------------------------------------------
-    Decide transfer completion status
-    -------------------------------------------------------------------------*/
-    either here or dma.
+    mbed_dbg_assert( cb->rx_actual <= cb->rx_expected );
+    return cb->rx_actual == cb->rx_expected;
+  }
+
+  /**
+   * @brief Terminate the RX operation and invoke the user's RX completion callback
+   *
+   * @param cb             Control block for the UART peripheral
+   * @param invoke_callback If true, the user's RX completion callback will be invoked
+   */
+  void terminate_rx_operation( ControlBlock *cb, bool invoke_callback )
+  {
+    cancel_alarm( cb->rx_alarm );
+    cb->rx_in_progress = false;
+    uart_get_hw( cb->hw )->imsc &= ~( ( 1u << UART_UARTIMSC_RXIM_LSB ) | ( 1u << UART_UARTIMSC_RTIM_LSB ) );
+
+    if( invoke_callback && cb->usr_rx_complete_callback )
+    {
+      cb->usr_rx_complete_callback( cb->usr_channel, cb->rx_actual );
+    }
   }
 }    // namespace mb::hw::serial

@@ -133,8 +133,8 @@ namespace mb::hw::serial::intf
    * @param channel Channel to read data from
    * @param data    Where to read data into. Must be at least "length" bytes long
    * @param length  Number of bytes to read.
-   * @param timeout How long to wait for the read to complete (ms)
-   * @return int    Number of bytes actually read. Negative on error.
+   * @param timeout Maximum amount of time RX can be inactive before returning (ms)
+   * @return int    Zero for waiting on data. Negative on error. Positive for all bytes immediately available.
    */
   int read_async( const size_t channel, void *data, const size_t length, const size_t timeout );
 
