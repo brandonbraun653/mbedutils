@@ -72,6 +72,13 @@ namespace mb::osal
   bool allocateSemahpore( mb_smphr_t &s, const size_t maxCount, const size_t initialCount );
 
   /**
+   * @brief Deallocates the semaphore object back into the pool.
+   *
+   * @param s The semaphore to deallocate
+   */
+  void deallocateSemaphore( mb_smphr_t &s );
+
+  /**
    * @brief Builds a new semaphore object based on the configuration settings.
    *
    * @param s            The semaphore to build
@@ -86,6 +93,20 @@ namespace mb::osal
 #else
     static_assert( MBEDUTILS_OSAL_SEMAPHORE_POOL_SIZE > 0, "Smphr pool size must be greater than 0" );
     return allocateSmphr( s, maxCount, initialCount);
+#endif
+  }
+
+  /**
+   * @brief Destroys a semaphore object based on the configuration settings.
+   *
+   * @param s The semaphore to destroy
+   */
+  static inline void destroySmphrStrategy( mb_smphr_t &s )
+  {
+#if MBEDUTILS_OSAL_USE_DYNAMIC_ALLOCATION
+    destroySmphr( s );
+#else
+    deallocateSemaphore( s );
 #endif
   }
 

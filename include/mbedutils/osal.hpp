@@ -17,7 +17,6 @@ Includes
 -----------------------------------------------------------------------------*/
 #include <mbedutils/interfaces/mutex_intf.hpp>
 #include <mbedutils/interfaces/smphr_intf.hpp>
-#include <mbedutils/drivers/threading/extensions.hpp>
 
 namespace mb::osal
 {

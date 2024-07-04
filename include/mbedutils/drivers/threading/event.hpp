@@ -25,14 +25,16 @@ namespace mb::thread
 
   enum Event : size_t
   {
-    EVENT_INVALID,           /**< Special case used for initialization */
-    EVENT_READ_COMPLETE,     /**< A read was completed */
-    EVENT_WRITE_COMPLETE,    /**< A write was completed */
-    EVENT_TXFR_COMPLETE,     /**< A transfer of some sort completed (bi-directional) */
-    EVENT_SYSTEM_ERROR,      /**< Catch all error case */
-    EVENT_DATA_AVAILABLE,    /**< Some kind of data is ready for processing */
-    EVENT_ACK,               /**< Acknowledgement event */
-    EVENT_NACK,              /**< Not-Acknowledged event */
+    EVENT_INVALID,            /**< Special case used for initialization */
+    EVENT_READ_COMPLETE,      /**< A read was completed */
+    EVENT_READ_BUFFER_EMPTY,  /**< The read buffer has been emptied */
+    EVENT_WRITE_COMPLETE,     /**< A write was completed */
+    EVENT_WRITE_BUFFER_EMPTY, /**< The write buffer has been emptied */
+    EVENT_TXFR_COMPLETE,      /**< A transfer of some sort completed (bi-directional) */
+    EVENT_SYSTEM_ERROR,       /**< Catch all error case */
+    EVENT_DATA_AVAILABLE,     /**< Some kind of data is ready for processing */
+    EVENT_ACK,                /**< Acknowledgement event */
+    EVENT_NACK,               /**< Not-Acknowledged event */
 
     EVENT_NUM_OPTIONS,
     EVENT_UNKNOWN

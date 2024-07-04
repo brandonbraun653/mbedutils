@@ -21,7 +21,9 @@ Includes
 #include <cstddef>
 #include <etl/span.h>
 #include <etl/bip_buffer_spsc_atomic.h>
-#include <mbedutils/drivers/threading/extensions.hpp>
+#include <etl/delegate.h>
+#include <mbedutils/drivers/threading/lock.hpp>
+#include <mbedutils/drivers/threading/asyncio.hpp>
 
 namespace mb::hw::serial
 {
@@ -33,6 +35,11 @@ namespace mb::hw::serial
    * @brief Bipartite buffer, suitable for DMA hardware transactions
    */
   using BipBuffer = etl::ibip_buffer_spsc_atomic<uint8_t>;
+
+  /**
+   * @brief Generic callback for when a serial operation completes
+   */
+  using CompletionCallback = etl::delegate<void()>;
 
   /*---------------------------------------------------------------------------
   Structures
@@ -49,13 +56,13 @@ namespace mb::hw::serial
   };
 
   /*---------------------------------------------------------------------------
-  Classes
+  Interfaces
   ---------------------------------------------------------------------------*/
 
   /**
    * @brief Very basic interface that all serial data links use
    */
-  class ISerial : public virtual mb::osal::LockableInterface, public virtual mb::osal::AsyncIOInterface
+  class ISerial : public virtual mb::thread::LockableInterface, public virtual mb::thread::AsyncIOInterface
   {
   public:
     virtual ~ISerial() = default;
@@ -65,10 +72,9 @@ namespace mb::hw::serial
      *
      * @param buffer  Buffer to write
      * @param length  Number of bytes to write from the buffer
-     * @param timeout Total time the transaction may take to occur in milliseconds
      * @return int    Number of bytes actually written, negative on error
      */
-    virtual int write( const void *const buffer, const size_t length, const size_t timeout ) = 0;
+    virtual int write( const void *const buffer, const size_t length ) = 0;
 
     /**
      * @brief Read a number of bytes from the wire
@@ -81,30 +87,60 @@ namespace mb::hw::serial
      * @return int    Number of bytes actually read, negative on error
      */
     virtual int read( void *const buffer, const size_t length, const size_t timeout ) = 0;
+
+    /**
+     * @brief Determines how many bytes are available to read
+     *
+     * @return size_t  Number of bytes available
+     */
+    virtual size_t readable() = 0;
+
+    /**
+     * @brief Registers a callback to be invoked when a write operation completes
+     * @warning This may be invoked from an ISR.
+     *
+     * @param callback  Callback to invoke
+     */
+    virtual void onWriteComplete( CompletionCallback callback ) = 0;
+
+    /**
+     * @brief Registers a callback to be invoked when a read operation completes
+     * @warning This may be invoked from an ISR.
+     *
+     * @param callback  Callback to invoke
+     */
+    virtual void onReadComplete( CompletionCallback callback ) = 0;
   };
 
 
+  /*---------------------------------------------------------------------------
+  Classes
+  ---------------------------------------------------------------------------*/
+
   /**
    * @brief A buffered serial driver that can be used to send and receive data.
-   * @note This consumes the given serial channel and never releases it until the destructor is called.
    *
-   * This driver couples with the mb::hw::serial::intf functions to provide an asynchronous
-   * buffered interface for sending and receiving data over a serial link. The driver
-   * assumes that the underlying hardware is configured and ready to go.
+   * This driver couples with the serial::intf functions to provide an
+   * asynchronous buffered interface for sending and receiving data over a
+   * serial link. All hardware configuration must be handled by user code.
    *
-   * If you need thread safety, be sure to take advantage of the Lockable interface as
-   * the driver is not thread safe by default.
+   * This class is thread and ISR safe, assuming the underlying hardware driver
+   * is written properly.
    */
-  class SerialDriver : public ISerial, public mb::osal::Lockable<SerialDriver>, public mb::osal::AsyncIO<SerialDriver>
+  class SerialDriver : public ISerial, public mb::thread::Lockable<SerialDriver>, public mb::thread::AsyncIO<SerialDriver, 2>
   {
   public:
     SerialDriver();
     ~SerialDriver();
-    int write( const void *const buffer, const size_t length, const size_t timeout ) final override;
-    int read( void *const buffer, const size_t length, const size_t timeout ) final override;
+    int    write( const void *const buffer, const size_t length ) final override;
+    int    read( void *const buffer, const size_t length, const size_t timeout ) final override;
+    size_t readable() final override;
+    void   onWriteComplete( CompletionCallback callback ) final override;
+    void   onReadComplete( CompletionCallback callback ) final override;
 
     /**
      * @brief Prepares the serial interface for operation.
+     * @warning Assumes exclusive ownership of the serial channel until close() is called.
      *
      * This does not configure the real HW (that's left up to the user), but
      * rather prepares the internal buffers and other resources for operation.
@@ -112,42 +148,36 @@ namespace mb::hw::serial
      * @param config Desired operating parameters
      * @return int Zero on success, negative on error
      */
-    int configure( const ::mb::hw::serial::Config &config );
-
-  private:
-    friend class ::mb::osal::Lockable<SerialDriver>;
-    friend class ::mb::osal::AsyncIO<SerialDriver>;
+    int open( const ::mb::hw::serial::Config &config );
 
     /**
-     * @brief State machine states for the UART operation
+     * @brief Closes the serial interface, preventing further operation.
+     *
+     * Must call open() again before using.
      */
-    enum class State : size_t
-    {
-      READY,
-      IN_PROGRESS,
-      ABORTED,
-      COMPLETE
-    };
+    void close();
+
+  private:
+    friend class ::mb::thread::Lockable<SerialDriver>;
+    friend class ::mb::thread::AsyncIO<SerialDriver>;
 
     /**
      * @brief Control block for managing the transfer state
-     *
-     * This is used to keep track of the current state of the transfer operation
-     * and how many bytes are left to transmit/recieve. The definitions change
-     * slightly depending on if the operation is a read or write.
      */
     struct TransferControl
     {
-      State              state;     /**< Current transfer state */
-      size_t             remaining; /**< Number of bytes left to transfer */
-      size_t             expected;  /**< Number of bytes expected to transmit/recieve */
-      etl::span<uint8_t> buffer;    /**< Data buffer to transfer into/outof */
+      bool               in_progress; /**< Current transfer state */
+      etl::span<uint8_t> buffer;      /**< Data buffer to transfer into/outof */
+      CompletionCallback callback;    /**< Callback to invoke when the transfer completes */
     };
 
     bool                     mIsConfigured;
     ::mb::hw::serial::Config mConfig;
     TransferControl          mTXControl;
     TransferControl          mRXControl;
+
+    void on_tx_complete_callback( const size_t channel, const size_t num_bytes );
+    void on_rx_complete_callback( const size_t channel, const size_t num_bytes );
   };
 }    // namespace mb::hw::serial
 

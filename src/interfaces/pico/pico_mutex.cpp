@@ -103,6 +103,14 @@ namespace mb::osal
   }
 
 
+  void deallocateMutex( mb_mutex_t &mutex )
+  {
+    // TODO: Implement when/if needed. Likely need to change to a pool allocator.
+    mbed_dbg_assert( s != nullptr );
+    mbed_assert_always();
+  }
+
+
   void lockMutex( mb_mutex_t mutex )
   {
     mbed_dbg_assert( mutex != nullptr );

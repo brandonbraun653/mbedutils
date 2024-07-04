@@ -1,30 +1,38 @@
 /******************************************************************************
  *  File Name:
- *    extensions.hpp
+ *    asyncio.hpp
  *
  *  Description:
- *    Extension methods for wrapping mutex based functionality
+ *    Asynchronous IO interface for handling non-blocking IO operations.
  *
  *  2024 | Brandon Braun | brandonbraun653@protonmail.com
  *****************************************************************************/
 
 #pragma once
-#ifndef MBEDUTILS_MUTEX_EXTENSIONS_HPP
-#define MBEDUTILS_MUTEX_EXTENSIONS_HPP
+#ifndef MBEDUTILS_THREADING_ASYNCIO_HPP
+#define MBEDUTILS_THREADING_ASYNCIO_HPP
 
 /*-----------------------------------------------------------------------------
 Includes
 -----------------------------------------------------------------------------*/
+#include <cstdint>
 #include <cstddef>
+#include <etl/delegate.h>
+#include <etl/vector.h>
 #include <mbedutils/assert.hpp>
 #include <mbedutils/drivers/threading/event.hpp>
-#include <mbedutils/interfaces/mutex_intf.hpp>
-#include <mbedutils/interfaces/smphr_intf.hpp>
+#include <mbedutils/interfaces/irq_intf.hpp>
 #include <mbedutils/interfaces/time_intf.hpp>
 #include <mbedutils/interfaces/util_intf.hpp>
 
-namespace mb::osal
+namespace mb::thread
 {
+  /*---------------------------------------------------------------------------
+  Aliases
+  ---------------------------------------------------------------------------*/
+
+  using AIOCallback = etl::delegate<void()>;
+
   /*---------------------------------------------------------------------------
   Interfaces
   ---------------------------------------------------------------------------*/
@@ -44,11 +52,11 @@ namespace mb::osal
     /**
      * @brief Wait on an event, or timeout.
      *
-     * Asynchronously waits for the given event to occur before the function
-     * will return. The is accomplished by blocking the current thread.
+     * Waits for the given event to occur before the function will return. This
+     * is accomplished by blocking the current thread until the event is signaled.
      *
-     * @param event       The event upon which to be triggered
-     * @param timeout     How long to wait for the event to occur
+     * @param event   The event upon which to be triggered
+     * @param timeout How long to wait for the event to occur
      * @return mb::ErrorCode
      */
     virtual mb::ErrorCode await( const mb::thread::Event event, const size_t timeout ) = 0;
@@ -57,13 +65,11 @@ namespace mb::osal
      * @brief Block on a specific signal and await an event, or timeout.
      *
      * A more explicit version of await that allows selecting the threading
-     * primitive on which to block. This could be useful if multiple owners
-     * might unblock a process or if the event generator is nested several
-     * calls deep in the stack.
+     * primitive on which to block.
      *
-     * @param event       The event upon which to be triggered
-     * @param notifier    Semaphore to be given to upon the event occurrence
-     * @param timeout     How long to wait for the event to occur
+     * @param event     The event upon which to be triggered
+     * @param notifier  Semaphore to be given to upon the event occurrence
+     * @param timeout   How long to wait for the event to occur
      * @return mb::ErrorCode
      */
     virtual mb::ErrorCode await( const mb::thread::Event event, mb::osal::mb_smphr_t &notifier, const size_t timeout ) = 0;
@@ -71,164 +77,93 @@ namespace mb::osal
     /**
      * @brief Signal that a particular event has occurred
      *
-     * @param trigger   Which event occurred
+     * @param event Which event occurred
      * @return void
      */
-    virtual void signalAIO( const mb::thread::Event trigger ) = 0;
+    virtual void signalAIO( const mb::thread::Event event ) = 0;
 
     /**
      * @brief Signal that a particular event has occurred, but from an ISR safe context
      *
-     * @param trigger   Which event occurred
+     * @param event Which event occurred
      * @return void
      */
-    virtual void signalAIOFromISR( const mb::thread::Event trigger ) = 0;
-  };
-
-  /**
-   *  @brief A generic lock interface that can be attached to objects that need locking
-   */
-  class LockableInterface
-  {
-  public:
-    virtual ~LockableInterface() = default;
+    virtual void signalAIOFromISR( const mb::thread::Event event ) = 0;
 
     /**
-     * @brief Reserve the inheriting object, blocking if not immediately successful.
+     * @brief Register a callback to be invoked when an event occurs.
      *
-     * @warning This function can only run from unprivileged code. Do **not** execute in an ISR.
-     * @return void
-     */
-    virtual void lock() = 0;
-
-    /**
-     * @brief Tries to lock the resource without blocking
+     * This is useful when you want an action to happen for that event, but don't want to
+     * block another thread waiting for the event signaling.
      *
-     * @return bool True if the lock was acquired, false otherwise
+     * @param event    Event to register the callback for
+     * @param callback Callback to invoke
+     * @param from_isr True if the callback should be invoked from an ISR context, false from user context
      */
-    virtual bool try_lock() = 0;
-
-    /**
-     * @brief Tries to lock the resource for the given amount of time
-     *
-     * @param timeout     How long to wait to acquire the lock in milliseconds
-     * @return bool
-     */
-    virtual bool try_lock_for( const size_t timeout ) = 0;
-
-    /**
-     * @brief Release the inheriting object, assuming current thread has ownership
-     *
-     * @warning This function can only run from unprivileged code. Do **not** execute in an ISR.
-     * @return void
-     */
-    virtual void unlock() = 0;
-  };
-
-
-  /**
-   * @brief CRTP interface to add lock functionality to a class.
-   *
-   * This will require "friend-ing" this class:
-   * friend ::mb::osal::Lockable<MyInheritingClass>;
-   *
-   * @tparam T  Base class needing a lock interface
-   */
-  template<class T>
-  class Lockable : public virtual LockableInterface
-  {
-  public:
-    void lock() final override
-    {
-      osal::lockRecursiveMutex( static_cast<T *>( this )->mLockableMutex );
-    }
-
-    bool try_lock() final override
-    {
-      return osal::tryLockRecursiveMutex( static_cast<T *>( this )->mLockableMutex );
-    }
-
-    bool try_lock_for( const size_t timeout ) final override
-    {
-      return osal::tryLockRecursiveMutex( static_cast<T *>( this )->mLockableMutex, timeout );
-    }
-
-    void unlock() final override
-    {
-      osal::unlockRecursiveMutex( static_cast<T *>( this )->mLockableMutex );
-    }
-
-  protected:
-    osal::mb_recursive_mutex_t mLockableMutex;
-  };
-
-
-  /**
-   * @brief Analog to the std::lock_guard
-   */
-  class LockGuard
-  {
-  public:
-    explicit LockGuard( osal::mb_mutex_t &mutex ) : mtx( mutex )
-    {
-      osal::lockMutex( mtx );
-    }
-
-    ~LockGuard()
-    {
-      osal::unlockMutex( mtx );
-    }
-
-    LockGuard( const LockGuard & ) = delete;
-
-  private:
-    osal::mb_mutex_t mtx;
-  };
-
-
-  /**
-   * @brief Analog to the std::lock_guard
-   */
-  class RecursiveLockGuard
-  {
-  public:
-    explicit RecursiveLockGuard( osal::mb_recursive_mutex_t &mutex ) : mtx( mutex )
-    {
-      osal::lockRecursiveMutex( mtx );
-    }
-
-    ~RecursiveLockGuard()
-    {
-      osal::unlockRecursiveMutex( mtx );
-    }
-
-    RecursiveLockGuard( const RecursiveLockGuard & ) = delete;
-
-  private:
-    osal::mb_recursive_mutex_t mtx;
+    virtual void registerAIO( const mb::thread::Event event, const AIOCallback &callback, const bool from_isr ) = 0;
   };
 
   /**
-   * @brief CRTP interface to add AsyncIO notification functionality to a class
-   * @tparam T  Base class being extended
+   * @brief CRTP interface to add SPSC AsyncIO notification functionality to a class
+   * @tparam T      Base class being extended
+   * @tparam CBSize Number of callbacks to support
    */
-  template<class T>
+  template<class T, const size_t CBSize = 1>
   class AsyncIO : public virtual AsyncIOInterface
   {
+  private:
+    struct CallbackData
+    {
+      bool              isr_ctx;  /**< If true, safe to call from an ISR context */
+      mb::thread::Event event;    /**< Event bound to the callback */
+      AIOCallback       callback; /**< Callback to invoke */
+    };
+
+    size_t                            mAIOInitialized; /**< Indicates if the class is initialized */
+    mb::thread::Event                 mAIOEvent;       /**< Which event was triggered by the class */
+    osal::mb_smphr_t                  mAIOSignal;      /**< Lightweight semaphore to block on */
+    osal::mb_mutex_t                  mAIOMutex;       /**< Exclusive lock for waiters */
+    etl::vector<CallbackData, CBSize> mAIOCallbacks;   /**< Registered callbacks */
+
+    /**
+     * @brief Invokes a registered callback for an event
+     *
+     * @param event    Which event occurred
+     * @param from_isr True if calling from an ISR, false otherwise
+     */
+    void invoke_aio_callback( const mb::thread::Event event, const bool from_isr )
+    {
+      for( auto &cb : mAIOCallbacks )
+      {
+        if( ( cb.event == event ) && ( cb.isr_ctx == from_isr ) && cb.callback )
+        {
+          cb.callback();
+          break;
+        }
+      }
+    }
+
   public:
     AsyncIO() :
-        mAIOAllowedEvents( 0xFFFFFFFF ), mAIOInitialized( ~DRIVER_INITIALIZED_KEY ), mAIOEvent( mb::thread::EVENT_UNKNOWN )
+        mAIOInitialized( ~DRIVER_INITIALIZED_KEY ), mAIOEvent( mb::thread::EVENT_UNKNOWN ), mAIOSignal( nullptr ),
+        mAIOMutex( nullptr ), mAIOCallbacks( {} ), mAIOAllowedEvents( 0xFFFFFFFF )
     {
     }
 
     ~AsyncIO()
     {
+      if( mAIOInitialized == DRIVER_INITIALIZED_KEY )
+      {
+        osal::destroySmphrStrategy( mAIOSignal );
+        osal::destroyMutexStrategy( mAIOMutex );
+      }
     }
 
 
     mb::ErrorCode await( const mb::thread::Event event, const size_t timeout ) final override
     {
-      mbed_assert( mAIOInitialized == DRIVER_INITIALIZED_KEY );
+      mbed_dbg_assert( mAIOInitialized == DRIVER_INITIALIZED_KEY );
+      mbed_dbg_assert( !mb::irq::in_isr() );
 
       /*-----------------------------------------------------------------------
       Check for event support
@@ -249,9 +184,10 @@ namespace mb::osal
         1. High level timeout to ensure no infinite loops.
         2. More fine-grained timeout to accurately block in "tryAcquireSmphr()"
       -----------------------------------------------------------------------*/
-      size_t startTime         = time::millis();
-      size_t lastWake          = startTime;
-      size_t waitTimeRemaining = timeout;
+      ErrorCode result            = ErrorCode::ERR_TIMEOUT;
+      size_t    startTime         = time::millis();
+      size_t    lastWake          = startTime;
+      size_t    waitTimeRemaining = timeout;
 
       while( ( time::millis() - startTime ) < timeout )
       {
@@ -262,11 +198,14 @@ namespace mb::osal
         ---------------------------------------------------------------------*/
         if( mAIOEvent == mb::thread::EVENT_SYSTEM_ERROR )
         {
-          return ErrorCode::ERR_FAIL;
+          result = ErrorCode::ERR_FAIL;
+          break;
         }
         else if( mAIOEvent == event )
         {
-          return ErrorCode::ERR_OK;
+          result = ErrorCode::ERR_OK;
+          invoke_aio_callback( event, false );
+          break;
         }
 
         /*---------------------------------------------------------------------
@@ -275,7 +214,8 @@ namespace mb::osal
         size_t timeElapsed = time::millis() - lastWake;
         if( timeElapsed >= waitTimeRemaining )
         {
-          return ErrorCode::ERR_TIMEOUT;
+          result = ErrorCode::ERR_TIMEOUT;
+          break;
         }
 
         /*---------------------------------------------------------------------
@@ -285,13 +225,13 @@ namespace mb::osal
         waitTimeRemaining -= timeElapsed;
       }
 
-      return ErrorCode::ERR_OK;
+      return result;
     }
 
 
     mb::ErrorCode await( const mb::thread::Event event, mb::osal::mb_smphr_t &notifier, const size_t timeout ) final override
     {
-      mbed_assert( mAIOInitialized == DRIVER_INITIALIZED_KEY );
+      mbed_dbg_assert( mAIOInitialized == DRIVER_INITIALIZED_KEY );
 
       /*-----------------------------------------------------------------------
       Block on the internal semaphore, then notify the user when appropriate
@@ -306,21 +246,55 @@ namespace mb::osal
     }
 
 
-    void signalAIO( const mb::thread::Event trigger ) final override
+    void signalAIO( const mb::thread::Event event ) final override
     {
-      mbed_assert( mAIOInitialized == DRIVER_INITIALIZED_KEY );
+      mbed_dbg_assert( mAIOInitialized == DRIVER_INITIALIZED_KEY );
 
-      mAIOEvent = trigger;
+      mAIOEvent = event;
       osal::releaseSmphr( mAIOSignal );
     }
 
 
-    void signalAIOFromISR( const mb::thread::Event trigger ) final override
+    void signalAIOFromISR( const mb::thread::Event event ) final override
     {
-      mbed_assert( mAIOInitialized == DRIVER_INITIALIZED_KEY );
+      mbed_dbg_assert( mAIOInitialized == DRIVER_INITIALIZED_KEY );
 
-      mAIOEvent = trigger;
+      mAIOEvent = event;
       osal::releaseSmphrFromISR( mAIOSignal );
+      invoke_aio_callback( event, mb::irq::in_isr() );
+    }
+
+
+    void registerAIO( const mb::thread::Event event, const AIOCallback &callback, const bool from_isr ) final override
+    {
+      mbed_dbg_assert( mAIOInitialized == DRIVER_INITIALIZED_KEY );
+
+      LockGuard _lck( mAIOMutex );
+
+      /*-----------------------------------------------------------------------
+      Search for a replacement location first
+      -----------------------------------------------------------------------*/
+      for( auto &cb : mAIOCallbacks )
+      {
+        if( cb.event == event )
+        {
+          cb.callback = callback;
+          cb.isr_ctx  = from_isr;
+          return;
+        }
+      }
+
+      /*-----------------------------------------------------------------------
+      Nothing found. Add a new element if we can.
+      -----------------------------------------------------------------------*/
+      if( !mAIOCallbacks.full() )
+      {
+        mAIOCallbacks.push_back( { from_isr, event, callback } );
+      }
+      else
+      {
+        mbed_dbg_assert_continue_always();
+      }
     }
 
   protected:
@@ -335,9 +309,6 @@ namespace mb::osal
 
     /**
      * @brief Initialize the AsyncIO runtime
-     *
-     * This ensures the semaphore is at a known state that will block on first attempt
-     * to wait for an event. Only call this method during the inheriting class init sequence.
      */
     void initAIO()
     {
@@ -349,10 +320,15 @@ namespace mb::osal
       /*-------------------------------------------------------------------------
       Initialize the synchronization primitives
       -------------------------------------------------------------------------*/
-      mbed_assert( ::mb::osal::buildSmphrStrategy( mAIOSignal, 1, 0 ) );
+      mbed_assert( ::mb::osal::buildSmphrStrategy( mAIOSignal, 1, 1 ) );
       mbed_assert( ::mb::osal::buildMutexStrategy( mAIOMutex ) );
+
+      /*-----------------------------------------------------------------------
+      Initialize member data
+      -----------------------------------------------------------------------*/
       mAIOEvent       = mb::thread::EVENT_UNKNOWN;
       mAIOInitialized = DRIVER_INITIALIZED_KEY;
+      mAIOCallbacks.clear();
 
       /*-----------------------------------------------------------------------
       Ensure the semaphore is in a known state. This allows the first waiter
@@ -364,21 +340,14 @@ namespace mb::osal
     /**
      * @brief Resets the AIO signals back to a non-triggered state
      */
-    void resetAIO()
+    void resetAIOSignals()
     {
       mbed_assert( mAIOInitialized == DRIVER_INITIALIZED_KEY );
 
       mAIOEvent = mb::thread::EVENT_UNKNOWN;
       osal::tryAcquireSmphr( mAIOSignal );
     }
-
-  private:
-    size_t            mAIOInitialized; /**< Indicates if the class is initialized */
-    mb::thread::Event mAIOEvent;       /**< Which event was triggered by the class */
-    osal::mb_smphr_t  mAIOSignal;      /**< Lightweight semaphore to block on */
-    osal::mb_mutex_t  mAIOMutex;       /**< Exclusive lock for waiters */
   };
+}  // namespace mb::osal
 
-}    // namespace mb::osal
-
-#endif /* !MBEDUTILS_MUTEX_EXTENSIONS_HPP */
+#endif  /* !MBEDUTILS_THREADING_ASYNCIO_HPP */

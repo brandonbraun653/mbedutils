@@ -17,6 +17,7 @@
 Includes
 -----------------------------------------------------------------------------*/
 #include <cstdint>
+#include <cstddef>
 
 /*-----------------------------------------------------------------------------
 Create the __SHORT_FILE__ macro, which returns the file name instead of the
@@ -78,7 +79,7 @@ namespace mb
 
   enum ErrorCode : err_t
   {
-    ERR_OK    = 0,     /**< No error occurred */
+    ERR_OK      = 0,     /**< No error occurred */
     ERR_GENERIC = -1000, /**< Generic error when nothing else fits */
     ERR_UNKNOWN,         /**< Unknown error, usually for parsing */
     ERR_FAIL,            /**< Operation did not complete nominally */

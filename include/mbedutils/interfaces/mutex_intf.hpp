@@ -66,6 +66,13 @@ namespace mb::osal
   bool allocateMutex( mb_mutex_t &mutex );
 
   /**
+   * @brief Deallocates a mutex back to the pool
+   *
+   * @param mutex Mutex to deallocate
+   */
+  void deallocateMutex( mb_mutex_t &mutex );
+
+  /**
    * @brief Builds a new mutex object based on the configuration settings.
    *
    * @param mutex Where to put the mutex object
@@ -78,6 +85,20 @@ namespace mb::osal
 #else
     static_assert( MBEDUTILS_OSAL_MUTEX_POOL_SIZE > 0, "Mutex pool size must be greater than 0" );
     return allocateMutex( mutex );
+#endif
+  }
+
+  /**
+   * @brief Destroys a mutex object based on the configuration settings.
+   *
+   * @param mutex Mutex to destroy
+   */
+  static inline void destroyMutexStrategy( mb_mutex_t &mutex )
+  {
+#if MBEDUTILS_OSAL_USE_DYNAMIC_ALLOCATION
+    destroyMutex( mutex );
+#else
+    deallocateMutex( mutex );
 #endif
   }
 

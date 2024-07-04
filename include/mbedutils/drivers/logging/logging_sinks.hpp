@@ -19,7 +19,7 @@ Includes
 #include <cstdint>
 #include <etl/string.h>
 #include <mbedutils/drivers/logging/logging_types.hpp>
-#include <mbedutils/drivers/threading/extensions.hpp>
+#include <mbedutils/drivers/threading/lock.hpp>
 
 namespace mb::logging
 {
@@ -35,7 +35,7 @@ namespace mb::logging
    * operations for registered sinks, but any direct consumers of a sink
    * will need to manually acquire exclusive access.
    */
-  class SinkInterface : public osal::Lockable<SinkInterface>
+  class SinkInterface : public thread::Lockable<SinkInterface>
   {
   public:
     bool  enabled;  /**< Is this sink enabled?  */
@@ -81,7 +81,7 @@ namespace mb::logging
     virtual ErrCode insert( const Level level, const void *const message, const size_t length ) = 0;
 
   protected:
-    friend osal::Lockable<SinkInterface>;
+    friend thread::Lockable<SinkInterface>;
   };
 
   /**

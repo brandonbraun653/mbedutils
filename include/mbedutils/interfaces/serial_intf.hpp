@@ -71,26 +71,53 @@ namespace mb::hw::serial::intf
   void unlock( const size_t channel );
 
   /**
- * @brief Asynchronously writes data to the specified UART channel.
- *
- * @warning Implementations can be called from an ISR context.
- *
- * @details
- * Implementation Notes:
- * -# The write should only proceed if the hardware is immediately ready to
- *    begin transmission. If the hardware is not ready, the function should
- *    return immediately with a negative value.
- * -# Data must be contiguous in memory up to the length specified,
- *    as the backing implementation may be based on DMA or other
- *    hardware accelerated methods.
- * -# Once the transmission is complete, the callback registered with
- *    on_tx_complete should be invoked so that any more data can be sent.
- *
- * @param channel Channel to write data to
- * @param data Data to write. Must be at least "length" bytes long.
- * @param length Number of bytes to write
- * @return int Number of bytes actually written. Negative on error.
- */
+   * @brief Flushes the TX and RX interfaces, bringing back to an idle state.
+   *
+   * Upon completion, calls to write_async and read_async should be able to
+   * proceed as normal.
+   *
+   * @param channel Channel to flush
+   */
+  void flush( const size_t channel );
+
+  /**
+   * @brief Disables interrupt signaling for the channel.
+   *
+   * This is intended to help provide a focused critical section for
+   * consuming driver operations that need to be atomic.
+   *
+   * @param channel Which channel to disable interrupts for
+   */
+  void disable_interrupts( const size_t channel );
+
+  /**
+   * @brief Re-enables interrupt signaling for the channel.
+   *
+   * @param channel Which channel to enable interrupts for
+   */
+  void enable_interrupts( const size_t channel );
+
+  /**
+   * @brief Asynchronously writes data to the specified UART channel.
+   *
+   * @warning Implementations can be called from an ISR context.
+   *
+   * @details
+   * Implementation Notes:
+   * -# The write should only proceed if the hardware is immediately ready to
+   *    begin transmission. If the hardware is not ready, the function should
+   *    return immediately with a negative value.
+   * -# Data must be contiguous in memory up to the length specified,
+   *    as the backing implementation may be based on DMA or other
+   *    hardware accelerated methods.
+   * -# Once the transmission is complete, the callback registered with
+   *    on_tx_complete should be invoked so that any more data can be sent.
+   *
+   * @param channel Channel to write data to
+   * @param data Data to write. Must be at least "length" bytes long.
+   * @param length Number of bytes to write
+   * @return int Number of bytes actually written. Negative on error.
+   */
   int write_async( const size_t channel, const void *data, const size_t length );
 
   /**
@@ -160,6 +187,6 @@ namespace mb::hw::serial::intf
    */
   void read_abort( const size_t channel );
 
-}    // namespace mb::intf::uart
+}    // namespace mb::hw::serial::intf
 
 #endif /* !MBEDUTILS_SERIAL_INTF_HPP */

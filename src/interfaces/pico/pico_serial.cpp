@@ -13,6 +13,11 @@
 /*-----------------------------------------------------------------------------
 Includes
 -----------------------------------------------------------------------------*/
+#include "hardware/dma.h"
+#include "hardware/gpio.h"
+#include "hardware/timer.h"
+#include "hardware/uart.h"
+#include "pico/time.h"
 #include <etl/array.h>
 #include <mbedutils/assert.hpp>
 #include <mbedutils/drivers/hardware/pico/pico_serial.hpp>
@@ -21,11 +26,6 @@ Includes
 #include <mbedutils/interfaces/serial_intf.hpp>
 #include <mbedutils/interfaces/time_intf.hpp>
 #include <mbedutils/interfaces/util_intf.hpp>
-#include "hardware/dma.h"
-#include "hardware/gpio.h"
-#include "hardware/timer.h"
-#include "hardware/uart.h"
-#include "pico/time.h"
 
 namespace mb::hw::serial
 {
@@ -47,11 +47,12 @@ namespace mb::hw::serial
   {
     uart_inst_t             *hw;                       /**< Pico SDK UART peripheral instance */
     mb::osal::mb_mutex_t     mutex;                    /**< Mutex for locking device access */
-    size_t                   tx_expected;              /**< Number of bytes expected to transmit */
+    volatile uint32_t        uart_irq_mask;            /**< Saved interrupt state for enable/disable functions */
+    size_t                   tx_expect;                /**< Number of bytes expected to transmit */
     volatile bool            tx_in_progress;           /**< Flag to indicate if a TX operation is in progress */
     volatile bool            rx_in_progress;           /**< Flag to indicate if an RX operation is in progress */
     volatile alarm_id_t      rx_alarm_id;              /**< RX timeout alarm ID */
-    size_t                   rx_expected;              /**< Number of bytes expected to receive */
+    size_t                   rx_expect;                /**< Number of bytes expected to receive */
     volatile size_t          rx_actual;                /**< Actual number of bytes received */
     size_t                   rx_fifo_threshold;        /**< RX FIFO threshold */
     volatile size_t          rx_active_tick;           /**< Last time (ms) when RX activity occurred */
@@ -73,15 +74,16 @@ namespace mb::hw::serial
       rx_actual                = 0;
       rx_alarm_id              = -1;
       rx_buffer                = nullptr;
-      rx_expected              = 0;
+      rx_expect                = 0;
       rx_fifo_threshold        = 0;
       rx_in_progress           = false;
       rx_inactive_timeout      = 0;
-      tx_expected              = 0;
+      tx_expect                = 0;
       tx_in_progress           = false;
       usr_channel              = 0;
       usr_rx_complete_callback = {};
       usr_tx_complete_callback = {};
+      uart_irq_mask            = 0;
     }
   };
 
@@ -93,24 +95,24 @@ namespace mb::hw::serial
    * @brief Hardware state information for each UART peripheral
    */
   static etl::array<ControlBlock, NUM_UARTS> s_cb;
-  static size_t                              s_driver_initialized;
+
+  /**
+   * @brief Global initialization state lock
+   */
+  static size_t s_driver_initialized;
 
   /*---------------------------------------------------------------------------
   Private Function Declarations
   ---------------------------------------------------------------------------*/
 
   static ControlBlock *get_cb( const size_t channel );
-  static ControlBlock *get_cb( uart_inst_t *uart );
-  static int           get_uart_irq( uart_inst_t *uart );
-  static void          irq_handler_uart_0();
-  static void          irq_handler_uart_1();
-  static void          irq_handler_uart_x( uart_inst_t *uart );
+  static void          isr_uart_0();
+  static void          isr_uart_1();
+  static void          isr_uart_x( uart_inst_t *uart );
   static void          isr_dma_tx_complete();
-
-  static int64_t rx_alarm_cb( alarm_id_t id, void *user_data );
-
-  static bool flush_rx_fifo_to_user_buffer( ControlBlock *cb, bool use_dma );
-  static void terminate_rx_operation( ControlBlock *cb, bool invoke_callback );
+  static int64_t       rx_alarm_cb( alarm_id_t id, void *user_data );
+  static bool          flush_rx_fifo_to_user_buffer( ControlBlock *cb, bool use_dma );
+  static void          terminate_rx_operation( ControlBlock *cb, bool invoke_callback );
 
   /*---------------------------------------------------------------------------
   Public Functions
@@ -161,10 +163,11 @@ namespace mb::hw::serial
     /*-------------------------------------------------------------------------
     Enable system level interrupts
     -------------------------------------------------------------------------*/
-    irq_handler_t irq_handler = ( hw_idx == 0 ) ? irq_handler_uart_0 : irq_handler_uart_1;
+    irq_handler_t irq_handler = ( hw_idx == 0 ) ? isr_uart_0 : isr_uart_1;
+    int           irq_index   = ( hw_idx == 0 ) ? UART0_IRQ : UART1_IRQ;
 
-    irq_set_exclusive_handler( get_uart_irq( s_cb[ hw_idx ].hw ), irq_handler );
-    irq_set_enabled( get_uart_irq( s_cb[ hw_idx ].hw ), true );
+    irq_set_exclusive_handler( irq_index, irq_handler );
+    irq_set_enabled( irq_index, true );
 
     /*-------------------------------------------------------------------------
     Configure DMA handlers
@@ -175,10 +178,10 @@ namespace mb::hw::serial
     /*-------------------------------------------------------------------------
     Configure the UART peripheral
     -------------------------------------------------------------------------*/
-    const uint actual_baud = uart_init( config.uart, config.baudrate );
-    const float pct_error = ( ( float )actual_baud - ( float )config.baudrate ) / ( float )config.baudrate;
-    mbed_assert_continue_msg( pct_error <= 0.03f, "UART %d baud rate error > 3%. Exp: %d, Act: %d",
-                              config.usr_channel, config.baudrate, actual_baud );
+    const uint  actual_baud = uart_init( config.uart, config.baudrate );
+    const float pct_error   = ( ( float )actual_baud - ( float )config.baudrate ) / ( float )config.baudrate;
+    mbed_assert_continue_msg( pct_error <= 0.03f, "UART %d baud rate error > 3%. Exp: %d, Act: %d", config.usr_channel,
+                              config.baudrate, actual_baud );
 
     /* Enable the FIFO so we can buffer while interrupt handlers are firing */
     uart_set_fifo_enabled( config.uart, true );
@@ -229,10 +232,7 @@ namespace mb::hw::serial
 
   bool intf::lock( const size_t channel, const size_t timeout )
   {
-    if( s_driver_initialized != mb::DRIVER_INITIALIZED_KEY )
-    {
-      return false;
-    }
+    mbed_dbg_assert( s_driver_initialized == mb::DRIVER_INITIALIZED_KEY );
 
     return mb::osal::tryLockMutex( get_cb( channel )->mutex, timeout );
   }
@@ -240,12 +240,37 @@ namespace mb::hw::serial
 
   void intf::unlock( const size_t channel )
   {
-    if( s_driver_initialized != mb::DRIVER_INITIALIZED_KEY )
-    {
-      return;
-    }
+    mbed_dbg_assert( s_driver_initialized == mb::DRIVER_INITIALIZED_KEY );
 
     mb::osal::unlockMutex( get_cb( channel )->mutex );
+  }
+
+
+  void intf::disable_interrupts( const size_t channel )
+  {
+    mbed_dbg_assert( s_driver_initialized == mb::DRIVER_INITIALIZED_KEY );
+
+    auto cb = get_cb( channel );
+    cb->uart_irq_mask           = uart_get_hw( cb->hw )->imsc;
+    uart_get_hw( cb->hw )->imsc = 0;
+  }
+
+
+  void intf::enable_interrupts( const size_t channel )
+  {
+    mbed_dbg_assert( s_driver_initialized == mb::DRIVER_INITIALIZED_KEY );
+
+    auto cb = get_cb( channel );
+    uart_get_hw( cb->hw )->imsc = cb->uart_irq_mask;
+  }
+
+
+  void intf::flush( const size_t channel )
+  {
+    mbed_dbg_assert( s_driver_initialized == mb::DRIVER_INITIALIZED_KEY );
+
+    write_abort( channel );
+    read_abort( channel );
   }
 
 
@@ -308,7 +333,7 @@ namespace mb::hw::serial
     /*-------------------------------------------------------------------------
     Update the control block with the new transfer information
     -------------------------------------------------------------------------*/
-    cb->tx_expected       = length;
+    cb->tx_expect      = length;
     cb->tx_in_progress = true;
 
     /*-------------------------------------------------------------------------
@@ -322,12 +347,15 @@ namespace mb::hw::serial
 
   void intf::on_tx_complete( const size_t channel, intf::TXCompleteCallback callback )
   {
+    mbed_dbg_assert( s_driver_initialized == mb::DRIVER_INITIALIZED_KEY );
     get_cb( channel )->usr_tx_complete_callback = callback;
   }
 
 
   void intf::write_abort( const size_t channel )
   {
+    mbed_dbg_assert( s_driver_initialized == mb::DRIVER_INITIALIZED_KEY );
+
     auto cb = get_cb( channel );
     if( !cb->tx_in_progress )
     {
@@ -349,7 +377,7 @@ namespace mb::hw::serial
       abort mechanism is called, so we have to do this now. Potential race
       condition here if the DMA ends up pushing more bytes before the abort.
       -----------------------------------------------------------------------*/
-      size_t bytes_transferred = cb->tx_expected - dma_channel_hw_addr( cb->dma_tx_channel )->transfer_count;
+      size_t bytes_transferred = cb->tx_expect - dma_channel_hw_addr( cb->dma_tx_channel )->transfer_count;
 
       /*-----------------------------------------------------------------------
       Kill the DMA transfer without triggering an interrupt
@@ -419,7 +447,7 @@ namespace mb::hw::serial
     Update the control block with the new transfer information
     -------------------------------------------------------------------------*/
     cb->rx_buffer           = reinterpret_cast<uint8_t *>( data );
-    cb->rx_expected         = length;
+    cb->rx_expect           = length;
     cb->rx_actual           = 0;
     cb->rx_in_progress      = true;
     cb->rx_active_tick      = mb::time::millis();
@@ -437,12 +465,15 @@ namespace mb::hw::serial
 
   void intf::on_rx_complete( const size_t channel, intf::RXCompleteCallback callback )
   {
+    mbed_dbg_assert( s_driver_initialized == mb::DRIVER_INITIALIZED_KEY );
     get_cb( channel )->usr_rx_complete_callback = callback;
   }
 
 
   void intf::read_abort( const size_t channel )
   {
+    mbed_dbg_assert( s_driver_initialized == mb::DRIVER_INITIALIZED_KEY );
+
     auto cb = get_cb( channel );
     if( !cb->rx_in_progress )
     {
@@ -480,77 +511,59 @@ namespace mb::hw::serial
 
 
   /**
-   * @brief Gets the control block for the given UART peripheral.
-   *
-   * @param uart  UART peripheral instance
-   * @return ControlBlock*
-   */
-  static ControlBlock *get_cb( uart_inst_t *uart )
-  {
-    for( auto &cb : s_cb )
-    {
-      if( cb.hw == uart )
-      {
-        return &cb;
-      }
-    }
-
-    mbed_assert_always();
-    return nullptr;
-  }
-
-
-  /**
-   * @brief Get IRQ number for the given UART peripheral.
-   *
-   * @param uart  UART peripheral instance
-   * @return int  IRQ number
-   */
-  int get_uart_irq( uart_inst_t *uart )
-  {
-    int uart_index = uart_get_index( uart );
-    return uart_index == 0 ? UART0_IRQ : UART1_IRQ;
-  }
-
-
-  /**
    * @brief Handle the UART 0 interrupt event
    */
-  static void irq_handler_uart_0()
+  static void isr_uart_0()
   {
-    irq_handler_uart_x( uart0 );
+    isr_uart_x( uart0 );
   }
 
 
   /**
    * @brief Handle the UART 1 interrupt event
    */
-  static void irq_handler_uart_1()
+  static void isr_uart_1()
   {
-    irq_handler_uart_x( uart1 );
+    isr_uart_x( uart1 );
   }
 
 
   /**
    * @brief UARTx interrupt handler for all events
    */
-  void irq_handler_uart_x( uart_inst_t *uart )
+  void isr_uart_x( uart_inst_t *uart )
   {
     /*-------------------------------------------------------------------------
     Cache the internal state that got us here
     -------------------------------------------------------------------------*/
-    const uint32_t enabled = uart_get_hw( uart )->mis;
-    const uint32_t status  = uart_get_hw( uart )->ris;
-    ControlBlock  *cb      = get_cb( uart );
-
-    const bool rx_event         = ( enabled & UART_UARTIMSC_RXIM_BITS ) && ( status & UART_UARTRIS_RXRIS_BITS );
-    const bool rx_timeout_event = ( enabled & UART_UARTIMSC_RTIM_BITS ) && ( status & UART_UARTRIS_RTRIS_BITS );
+    const uint32_t enabled          = uart_get_hw( uart )->mis;
+    const uint32_t status           = uart_get_hw( uart )->ris;
+    const bool     rx_event         = ( enabled & UART_UARTIMSC_RXIM_BITS ) && ( status & UART_UARTRIS_RXRIS_BITS );
+    const bool     rx_timeout_event = ( enabled & UART_UARTIMSC_RTIM_BITS ) && ( status & UART_UARTRIS_RTRIS_BITS );
 
     /*-------------------------------------------------------------------------
     At a minimum ACK all events, then process them if we've actually got a
     transfer in progress.
     -------------------------------------------------------------------------*/
     uart_get_hw( uart )->icr = status;
+
+    /*-------------------------------------------------------------------------
+    Find the control block associated with this UART peripheral
+    -------------------------------------------------------------------------*/
+    ControlBlock *cb = nullptr;
+    for( auto &c : s_cb )
+    {
+      cb = &c;
+      if( cb->hw == uart )
+      {
+        break;
+      }
+    }
+
+    if( cb == nullptr )
+    {
+      return;
+    }
 
     /*-------------------------------------------------------------------------
     Handle receive events. No data moves unless the RX fifo hits its threshold
@@ -588,7 +601,12 @@ namespace mb::hw::serial
 
 
   /**
-   * @brief Handle the DMA TX completion event
+   * @brief Handle the DMA TX completion event.
+   *
+   * This method's job is to cleanly terminate the end of a DMA transfer request
+   * started with the write_async method. This involves ensuring the HW is in a
+   * state to start a new transfer immediately if the invoked user callback
+   * requests it.
    */
   static void isr_dma_tx_complete()
   {
@@ -624,7 +642,8 @@ namespace mb::hw::serial
         Note that this wait penalty is paid only when the DMA transfer happened
         to **exactly** fill the FIFO. This is a rare case.
         ---------------------------------------------------------------------*/
-        while( !uart_is_writable( cb.hw ) ) {
+        while( !uart_is_writable( cb.hw ) )
+        {
           tight_loop_contents();
         }
 
@@ -635,7 +654,7 @@ namespace mb::hw::serial
         cb.tx_in_progress = false;
         if( cb.usr_tx_complete_callback )
         {
-          cb.usr_tx_complete_callback( cb.usr_channel, cb.tx_expected );
+          cb.usr_tx_complete_callback( cb.usr_channel, cb.tx_expect );
         }
       }
     }
@@ -643,11 +662,14 @@ namespace mb::hw::serial
 
 
   /**
-   * @brief Timeout alarm for when the RX transfer takes too long.
+   * @brief Absolute timeout mechanism for RX operations.
    *
-   * @param id Alarm identifier from registration
+   * This handler will fire if the RX transfer does not complete within the
+   * specified timeout window.
+   *
+   * @param id        Alarm identifier from registration
    * @param user_data Control block for the UART peripheral
-   * @return int64_t
+   * @return int64_t  Scheduling decision for the next alarm
    */
   static int64_t rx_alarm_cb( alarm_id_t id, void *user_data )
   {
@@ -678,7 +700,10 @@ namespace mb::hw::serial
 
 
   /**
-   * @brief Flush data to the user buffer from the RX FIFO
+   * @brief Flush data to the user buffer from the RX FIFO.
+   *
+   * This function will read as much data as possible from the RX FIFO into the
+   * user buffer. If filled, the function will return true.
    *
    * @param cb      Control block for the UART peripheral
    * @param use_dma Should we use DMA to read the RX FIFO?
@@ -702,14 +727,14 @@ namespace mb::hw::serial
       least one byte in the FIFO to accurately detect a line idle event.
       -----------------------------------------------------------------------*/
       uint8_t *write_address = cb->rx_buffer + cb->rx_actual;
-      size_t   write_length  = cb->rx_expected - cb->rx_actual;
+      size_t   write_length  = cb->rx_expect - cb->rx_actual;
 
       if( write_length > cb->rx_fifo_threshold )
       {
         write_length = cb->rx_fifo_threshold - 1;
       }
 
-      mbed_dbg_assert( ( write_address + write_length ) <= ( cb->rx_buffer + cb->rx_expected ) );
+      mbed_dbg_assert( ( write_address + write_length ) <= ( cb->rx_buffer + cb->rx_expect ) );
       cb->rx_actual += write_length;
 
       /*-----------------------------------------------------------------------
@@ -731,20 +756,25 @@ namespace mb::hw::serial
     else
     {
       /*-----------------------------------------------------------------------
-      Manually read the RX FIFO. This is less efficient than DMA, but is
-      sufficient when a timeout occurs and we don't know the state of the FIFO.
+      Make sure DMA can't intervene with reading the FIFO
       -----------------------------------------------------------------------*/
       uart_get_hw( cb->hw )->dmacr &= ~UART_UARTDMACR_RXDMAE_BITS;
 
-      while( uart_is_readable( cb->hw ) && ( cb->rx_actual < cb->rx_expected ) )
+      /*-----------------------------------------------------------------------
+      Manually read the RX FIFO. This is less efficient than DMA, but is
+      sufficient when a timeout occurs and we don't know FIFO fill level.
+      -----------------------------------------------------------------------*/
+      while( uart_is_readable( cb->hw ) && ( cb->rx_actual < cb->rx_expect ) )
       {
-        cb->rx_buffer[ cb->rx_actual++ ] = ( uint8_t )uart_get_hw( cb->hw )->dr;
+        cb->rx_buffer[ cb->rx_actual ] = ( uint8_t )uart_get_hw( cb->hw )->dr;
+        cb->rx_actual                  = cb->rx_actual + 1u;
       }
     }
 
-    mbed_dbg_assert( cb->rx_actual <= cb->rx_expected );
-    return cb->rx_actual == cb->rx_expected;
+    mbed_dbg_assert( cb->rx_actual <= cb->rx_expect );
+    return cb->rx_actual == cb->rx_expect;
   }
+
 
   /**
    * @brief Terminate the RX operation and invoke the user's RX completion callback
@@ -754,11 +784,17 @@ namespace mb::hw::serial
    */
   void terminate_rx_operation( ControlBlock *cb, bool invoke_callback )
   {
+    /*-------------------------------------------------------------------------
+    Disable all signaling mechanisms for RX operations
+    -------------------------------------------------------------------------*/
     cancel_alarm( cb->rx_alarm_id );
-
     uart_get_hw( cb->hw )->dmacr &= ~UART_UARTDMACR_RXDMAE_BITS;
     uart_get_hw( cb->hw )->imsc &= ~( ( 1u << UART_UARTIMSC_RXIM_LSB ) | ( 1u << UART_UARTIMSC_RTIM_LSB ) );
 
+    /*-------------------------------------------------------------------------
+    Let the user know how much data we actually received. This is calculated
+    before this function is called, so we can just pass it along.
+    -------------------------------------------------------------------------*/
     cb->rx_in_progress = false;
     if( invoke_callback && cb->usr_rx_complete_callback )
     {
