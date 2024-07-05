@@ -18,6 +18,7 @@ Includes
 #include <cstddef>
 #include <cstdint>
 #include <etl/string.h>
+#include <mbedutils/drivers/hardware/serial.hpp>
 #include <mbedutils/drivers/logging/logging_types.hpp>
 #include <mbedutils/drivers/threading/lock.hpp>
 
@@ -126,30 +127,32 @@ namespace mb::logging
   };
 
   /**
-   * @brief Log messages to a serial channel using the mb UART driver.
+   * @brief Log messages to a serial channel
    *
    * This is intended for use in a bare-metal environment where the typical
    * logging mechanism is some kind of serial interface.
    */
-  class UARTSink : public SinkInterface
+  class SerialSink : public SinkInterface
   {
   public:
-    UARTSink();
-    ~UARTSink() = default;
+    SerialSink();
+    ~SerialSink() = default;
     ErrCode open() final override;
     ErrCode close() final override;
     ErrCode flush() final override;
     ErrCode insert( const Level level, const void *const message, const size_t length ) final override;
 
     /**
-     * @brief Assigns the serial channel to use for logging
+     * @brief Assigns the serial driver to use for logging
      *
-     * @param channel Which channel to hook into
+     * @param serial Driver to attach for logging
+     * @param config Configuration to use for the driver
      */
-    void assignChannel( const size_t channel );
+    void assignDriver( ::mb::hw::serial::ISerial &serial, const ::mb::hw::serial::Config &config );
 
   private:
-    size_t mChannel;
+    ::mb::hw::serial::ISerial *mSerial; /**< Driver for logging messages */
+    ::mb::hw::serial::Config   mConfig; /**< Configuration to use for the driver */
   };
 }  // namespace mb::logging
 

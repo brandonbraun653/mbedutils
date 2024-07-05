@@ -76,8 +76,10 @@ namespace mb::logging
    *
    * The actual sink can change over time depending on how many times
    * setRootSink() is called with a different sink handle.
+   *
+   * @return SinkHandle_rPtr
    */
-  void getRootSink( SinkHandle_rPtr *handle );
+  SinkHandle_rPtr getRootSink();
 
   /**
    * @brief Emits a log to every registered sink.

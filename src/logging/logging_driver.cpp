@@ -88,9 +88,9 @@ namespace mb::logging
   {
     constexpr size_t invalidIndex = std::numeric_limits<size_t>::max();
 
-    size_t nullIndex        = invalidIndex;         /* First index that doesn't have a sink registered */
-    bool   sinkIsRegistered = false;                /* Indicates if the sink we are registering already exists */
-    bool   registryIsFull   = true;                 /* Is the registry full of sinks? */
+    size_t nullIndex        = invalidIndex;    /* First index that doesn't have a sink registered */
+    bool   sinkIsRegistered = false;           /* Indicates if the sink we are registering already exists */
+    bool   registryIsFull   = true;            /* Is the registry full of sinks? */
     auto   result           = ErrCode::ERR_OK; /* Function return code */
 
     if( osal::tryLockRecursiveMutex( s_driver_lock, MBEDUTILS_LOGGING_DEFAULT_LOCK_TIMEOUT ) )
@@ -193,10 +193,9 @@ namespace mb::logging
   }
 
 
-  void getRootSink( SinkHandle_rPtr *handle )
+  SinkHandle_rPtr getRootSink()
   {
-    assert( handle != nullptr );
-    *handle = s_root_sink;
+    return s_root_sink;
   }
 
 
@@ -297,9 +296,8 @@ namespace mb::logging
     osal::lockRecursiveMutex( s_driver_lock );
     {
       s_log_buffer.fill( 0 );
-      npf_snprintf( s_log_buffer.data(), s_log_buffer.max_size(),
-                    "%u | %s:%u | %s | ",
-                    time::millis(), file, line, str_level.data() );
+      npf_snprintf( s_log_buffer.data(), s_log_buffer.max_size(), "%u | %s:%u | %s | ", time::millis(), file, line,
+                    str_level.data() );
 
       /*-----------------------------------------------------------------------
       Format the user message

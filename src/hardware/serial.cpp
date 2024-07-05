@@ -21,6 +21,15 @@ Includes
 namespace mb::hw::serial
 {
   /*---------------------------------------------------------------------------
+  Constants
+  ---------------------------------------------------------------------------*/
+
+  /**
+   * @brief The maximum amount of time to wait for a read operation to complete.
+   */
+  static constexpr size_t RX_SCAN_TIMEOUT_MS = 1000;
+
+  /*---------------------------------------------------------------------------
   Classes
   ---------------------------------------------------------------------------*/
 
@@ -35,7 +44,7 @@ namespace mb::hw::serial
   }
 
 
-  int SerialDriver::open( const ::mb::hw::serial::Config &config )
+  bool SerialDriver::open( const ::mb::hw::serial::Config &config )
   {
     /*-------------------------------------------------------------------------
     Validate the input configuration
@@ -43,7 +52,7 @@ namespace mb::hw::serial
     if( mIsConfigured )
     {
       mbed_assert_continue_msg( false, "UART %d attempted reconfiguration", mConfig.channel );
-      return -1;
+      return false;
     }
 
     if( mb::hw::is_driver_available( mb::hw::Driver::UART, config.channel ) == false )
@@ -55,7 +64,7 @@ namespace mb::hw::serial
     if( !config.rxBuffer && !config.txBuffer )
     {
       mbed_assert_continue_msg( false, "Buffer pointers are null" );
-      return -1;
+      return false;
     }
 
     /*-------------------------------------------------------------------------
@@ -64,7 +73,7 @@ namespace mb::hw::serial
     if( !mb::hw::serial::intf::lock( config.channel, 100 ) )
     {
       mbed_assert_continue_msg( false, "Failed to lock UART channel %d", config.channel );
-      return -1;
+      return false;
     }
 
     intf::flush( config.channel );
@@ -116,7 +125,8 @@ namespace mb::hw::serial
       mRXControl.in_progress = true;
       mRXControl.buffer      = mConfig.rxBuffer->write_reserve_optimal();
 
-      auto start_error = intf::read_async( mConfig.channel, mRXControl.buffer.data(), mRXControl.buffer.size(), 1000 );
+      auto start_error =
+          intf::read_async( mConfig.channel, mRXControl.buffer.data(), mRXControl.buffer.size(), RX_SCAN_TIMEOUT_MS );
       if( start_error < 0 )
       {
         mbed_assert_continue_msg( false, "Failed to start UART %d RX: %d", mConfig.channel, start_error );
@@ -125,7 +135,7 @@ namespace mb::hw::serial
       }
     }
 
-    return 0;
+    return true;
   }
 
 
@@ -182,25 +192,9 @@ namespace mb::hw::serial
     Kick off a write operation if not already in progress. Otherwise the data
     will get transferred when the TX complete callback is triggered.
     -------------------------------------------------------------------------*/
-    if( !mTXControl.in_progress )
+    if( !mTXControl.in_progress && !start_tx_transfer( write_size ) )
     {
-      this->resetAIOSignals();
-
-      mTXControl.in_progress = true;
-      mTXControl.buffer      = mConfig.txBuffer->read_reserve( write_size );
-
-      auto actual_size = intf::write_async( mConfig.channel, mTXControl.buffer.data(), mTXControl.buffer.size() );
-
-      /*-----------------------------------------------------------------------
-      If for some reason the write fails, return zero bytes to instruct the
-      caller to try again. Data isn't lost here because it can be re-copied.
-      -----------------------------------------------------------------------*/
-      if( ( actual_size < 0 ) || ( static_cast<size_t>( actual_size ) != write_size ) )
-      {
-        mTXControl.in_progress = false;
-        mTXControl.buffer      = {};
-        write_size             = 0;
-      }
+      write_size = 0;
     }
 
     /*-------------------------------------------------------------------------
@@ -283,6 +277,32 @@ namespace mb::hw::serial
   }
 
 
+  void SerialDriver::flushRX()
+  {
+    if( !mIsConfigured || !mConfig.rxBuffer || mb::irq::in_isr() )
+    {
+      mbed_assert_continue_always();
+      return;
+    }
+
+    mb::thread::RecursiveLockGuard _lock( mLockableMutex );
+    mConfig.rxBuffer->clear();
+  }
+
+
+  void SerialDriver::flushTX()
+  {
+    if( !mIsConfigured || !mConfig.rxBuffer || mb::irq::in_isr() )
+    {
+      mbed_assert_continue_always();
+      return;
+    }
+
+    mb::thread::RecursiveLockGuard _lock( mLockableMutex );
+    start_tx_transfer();
+  }
+
+
   void SerialDriver::onWriteComplete( CompletionCallback callback )
   {
     this->registerAIO( mb::thread::EVENT_WRITE_COMPLETE, callback, true );
@@ -292,6 +312,46 @@ namespace mb::hw::serial
   void SerialDriver::onReadComplete( CompletionCallback callback )
   {
     this->registerAIO( mb::thread::EVENT_READ_COMPLETE, callback, true );
+  }
+
+
+  /**
+   * @brief Starts a new TX transfer if one is not already in progress.
+   *
+   * If a transfer is already in progress, this function does nothing and the TX complete
+   * callback will handle queueing more data as needed.
+   *
+   * @param num_bytes Hint of how many bytes to transfer.
+   * @return size_t Number of actual bytes transferred.
+   */
+  size_t SerialDriver::start_tx_transfer( const size_t num_bytes )
+  {
+    int actual_write_size = 0;
+
+    if( !mTXControl.in_progress )
+    {
+      this->resetAIOSignals();
+
+      mTXControl.in_progress = true;
+      mTXControl.buffer      = mConfig.txBuffer->read_reserve( num_bytes );
+      actual_write_size      = intf::write_async( mConfig.channel, mTXControl.buffer.data(), mTXControl.buffer.size() );
+
+      /*-----------------------------------------------------------------------
+      Due to how the write_async method is supposed to work, we should always
+      be able to write the full buffer size. If we can't, something went wrong.
+      Leave the data in the buffer so it can be re-transferred.
+      -----------------------------------------------------------------------*/
+      if( ( actual_write_size < 0 ) || ( static_cast<size_t>( actual_write_size ) != mTXControl.buffer.size() ) )
+      {
+        mbed_assert_continue_msg( false, "Failed to start TX of %d bytes on UART %d: %d", mTXControl.buffer.size(),
+                                  mConfig.channel, actual_write_size );
+        mTXControl.in_progress = false;
+        mTXControl.buffer      = {};
+        actual_write_size      = 0;
+      }
+    }
+
+    return static_cast<size_t>( actual_write_size );
   }
 
 
@@ -397,7 +457,8 @@ namespace mb::hw::serial
     /*-------------------------------------------------------------------------
     Restart the RX operation
     -------------------------------------------------------------------------*/
-    auto start_error = intf::read_async( mConfig.channel, mRXControl.buffer.data(), mRXControl.buffer.size(), 1000 );
+    auto start_error =
+        intf::read_async( mConfig.channel, mRXControl.buffer.data(), mRXControl.buffer.size(), RX_SCAN_TIMEOUT_MS );
     if( start_error < 0 )
     {
       mbed_assert_continue_msg( false, "Failed to start UART %d RX: %d", mConfig.channel, start_error );

@@ -24,35 +24,39 @@ namespace mb::logging
   UART Sink
   ---------------------------------------------------------------------------*/
 
-  UARTSink::UARTSink() : mChannel( -1 )
+  SerialSink::SerialSink() : mSerial( nullptr ), mConfig( {} )
   {
   }
 
 
-  ErrCode UARTSink::open()
+  ErrCode SerialSink::open()
   {
+    this->initLockable();
+    return mSerial->open( mConfig ) ? ErrCode::ERR_OK : ErrCode::ERR_FAIL;
+  }
+
+
+  ErrCode SerialSink::close()
+  {
+    mSerial->close();
     return ErrCode::ERR_OK;
   }
 
 
-  ErrCode UARTSink::close()
+  ErrCode SerialSink::flush()
   {
+    mSerial->flushRX();
+    mSerial->flushTX();
     return ErrCode::ERR_OK;
   }
 
 
-  ErrCode UARTSink::flush()
-  {
-    return ErrCode::ERR_OK;
-  }
-
-
-  ErrCode UARTSink::insert( const Level level, const void *const message, const size_t length )
+  ErrCode SerialSink::insert( const Level level, const void *const message, const size_t length )
   {
     /*-------------------------------------------------------------------------
     Check to see if we should even write
     -------------------------------------------------------------------------*/
-    if ( !enabled || ( level < logLevel ) || !message || !length || ( mChannel < 0 ) )
+    if ( !enabled || ( level < logLevel ) || !message || !length )
     {
       return ErrCode::ERR_FAIL;
     }
@@ -60,21 +64,21 @@ namespace mb::logging
     /*-------------------------------------------------------------------------
     Write the message to the UART channel
     -------------------------------------------------------------------------*/
-    // size_t written = static_cast<size_t>( intf::uart::write( mChannel, message, length ) );
-
-    // TODO BMB: Need to route this through a buffered uart interface.
-    mbed_assert_always();
-    size_t written = 0;
-    return ( written == length ) ? ErrCode::ERR_OK : ErrCode::ERR_NO_MEM;
+    if( static_cast<size_t>( mSerial->write( message, length ) ) == length )
+    {
+      return ErrCode::ERR_OK;
+    }
+    else
+    {
+      return ErrCode::ERR_FAIL;
+    }
   }
 
 
-  void UARTSink::assignChannel( const size_t channel )
+  void SerialSink::assignDriver( ::mb::hw::serial::ISerial &serial, const ::mb::hw::serial::Config &config )
   {
-    mbed_assert_msg( hw::is_driver_available( hw::Driver::UART, channel ),
-                     "Invalid UART channel assignment");
-
-    mChannel = channel;
+    mSerial = &serial;
+    mConfig = config;
   }
 
 }  // namespace mb::logging

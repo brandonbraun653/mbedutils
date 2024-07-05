@@ -78,7 +78,6 @@ namespace mb::thread
      * @brief Signal that a particular event has occurred
      *
      * @param event Which event occurred
-     * @return void
      */
     virtual void signalAIO( const mb::thread::Event event ) = 0;
 
@@ -86,7 +85,6 @@ namespace mb::thread
      * @brief Signal that a particular event has occurred, but from an ISR safe context
      *
      * @param event Which event occurred
-     * @return void
      */
     virtual void signalAIOFromISR( const mb::thread::Event event ) = 0;
 

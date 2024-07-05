@@ -35,15 +35,12 @@ namespace mb::thread
 
     /**
      * @brief Reserve the inheriting object, blocking if not immediately successful.
-     *
      * @warning This function can only run from unprivileged code. Do **not** execute in an ISR.
-     * @return void
      */
     virtual void lock() = 0;
 
     /**
      * @brief Tries to lock the resource without blocking
-     *
      * @return bool True if the lock was acquired, false otherwise
      */
     virtual bool try_lock() = 0;
@@ -51,16 +48,14 @@ namespace mb::thread
     /**
      * @brief Tries to lock the resource for the given amount of time
      *
-     * @param timeout     How long to wait to acquire the lock in milliseconds
-     * @return bool
+     * @param timeout How long to wait to acquire the lock in milliseconds
+     * @return bool   True if the lock was acquired, false otherwise
      */
     virtual bool try_lock_for( const size_t timeout ) = 0;
 
     /**
-     * @brief Release the inheriting object, assuming current thread has ownership
-     *
+     * @brief Release the inheriting object, assuming current thread has ownership.
      * @warning This function can only run from unprivileged code. Do **not** execute in an ISR.
-     * @return void
      */
     virtual void unlock() = 0;
   };
@@ -82,6 +77,15 @@ namespace mb::thread
   class Lockable : public virtual LockableInterface
   {
   public:
+    Lockable() = default;
+    ~Lockable()
+    {
+      if( mLockableMutex != nullptr )
+      {
+        osal::destroyMutexStrategy( mLockableMutex );
+      }
+    }
+
     void lock() final override
     {
       osal::lockRecursiveMutex( static_cast<T *>( this )->mLockableMutex );

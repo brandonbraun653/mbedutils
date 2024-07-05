@@ -46,7 +46,7 @@ namespace mb::osal
 
   bool createSmphr( mb_smphr_t &s, const size_t maxCount, const size_t initialCount )
   {
-    mbed_dbg_assert( mutex == nullptr );
+    mbed_dbg_assert( s == nullptr );
     mbed_dbg_assert( maxCount < std::numeric_limits<int16_t>::max() );
     mbed_dbg_assert( initialCount < std::numeric_limits<int16_t>::max() );
 
@@ -65,7 +65,7 @@ namespace mb::osal
 
   void destroySmphr( mb_smphr_t &s )
   {
-    mbed_dbg_assert( mutex != nullptr );
+    mbed_dbg_assert( s != nullptr );
     delete static_cast<semaphore_t *>( s );
     s = nullptr;
   }

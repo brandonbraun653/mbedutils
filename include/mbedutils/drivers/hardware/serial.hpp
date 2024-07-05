@@ -19,6 +19,7 @@ Includes
 -----------------------------------------------------------------------------*/
 #include <cstdint>
 #include <cstddef>
+#include <limits>
 #include <etl/span.h>
 #include <etl/bip_buffer_spsc_atomic.h>
 #include <etl/delegate.h>
@@ -68,6 +69,25 @@ namespace mb::hw::serial
     virtual ~ISerial() = default;
 
     /**
+     * @brief Prepares the serial interface for operation.
+     * @warning Assumes exclusive ownership of the serial channel until close() is called.
+     *
+     * This does not configure the real HW (that's left up to the user), but
+     * rather prepares the internal buffers and other resources for operation.
+     *
+     * @param config  Configuration data for the driver
+     * @return True if the driver was opened successfully, false otherwise
+     */
+    virtual bool open( const Config &config ) = 0;
+
+    /**
+     * @brief Releases ownership of the hardware and tears down the driver.
+     *
+     * Must call open() again before using.
+     */
+    virtual void close() = 0;
+
+    /**
      * @brief Writes data onto the wire
      *
      * @param buffer  Buffer to write
@@ -94,6 +114,18 @@ namespace mb::hw::serial
      * @return size_t  Number of bytes available
      */
     virtual size_t readable() = 0;
+
+    /**
+     * @brief Flushes the RX buffer, discarding all data.
+     * @warning Do not call from an ISR.
+     */
+    virtual void flushRX() = 0;
+
+    /**
+     * @brief Flushes the TX buffer immediately to the wire.
+     * @warning Do not call from an ISR.
+     */
+    virtual void flushTX() = 0;
 
     /**
      * @brief Registers a callback to be invoked when a write operation completes
@@ -132,30 +164,15 @@ namespace mb::hw::serial
   public:
     SerialDriver();
     ~SerialDriver();
+    bool   open( const Config &config ) final override;
+    void   close() final override;
     int    write( const void *const buffer, const size_t length ) final override;
     int    read( void *const buffer, const size_t length, const size_t timeout ) final override;
     size_t readable() final override;
+    void   flushRX() final override;
+    void   flushTX() final override;
     void   onWriteComplete( CompletionCallback callback ) final override;
     void   onReadComplete( CompletionCallback callback ) final override;
-
-    /**
-     * @brief Prepares the serial interface for operation.
-     * @warning Assumes exclusive ownership of the serial channel until close() is called.
-     *
-     * This does not configure the real HW (that's left up to the user), but
-     * rather prepares the internal buffers and other resources for operation.
-     *
-     * @param config Desired operating parameters
-     * @return int Zero on success, negative on error
-     */
-    int open( const ::mb::hw::serial::Config &config );
-
-    /**
-     * @brief Closes the serial interface, preventing further operation.
-     *
-     * Must call open() again before using.
-     */
-    void close();
 
   private:
     friend class ::mb::thread::Lockable<SerialDriver>;
@@ -176,6 +193,7 @@ namespace mb::hw::serial
     TransferControl          mTXControl;
     TransferControl          mRXControl;
 
+    size_t start_tx_transfer( const size_t num_bytes = std::numeric_limits<size_t>::max() );
     void on_tx_complete_callback( const size_t channel, const size_t num_bytes );
     void on_rx_complete_callback( const size_t channel, const size_t num_bytes );
   };

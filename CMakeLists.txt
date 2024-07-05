@@ -67,3 +67,24 @@ if( PICO_SDK_PATH )
     )
 endif()
 
+# --------------------------------------------------------------------------------
+# Tooling
+# --------------------------------------------------------------------------------
+find_package(Doxygen)
+if(DOXYGEN_FOUND)
+    set(MBEDUTILS_DOXYGEN_INPUT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+    set(MBEDUTILS_DOXYGEN_OUTPUT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/docs)
+    set(MBEDUTILS_DOXYFILE_IN ${CMAKE_CURRENT_SOURCE_DIR}/docs/Doxyfile.in)
+    set(MBEDUTILS_DOXYFILE_OUT ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
+    configure_file(${MBEDUTILS_DOXYFILE_IN} ${MBEDUTILS_DOXYFILE_OUT} @ONLY)
+    add_custom_command(
+    OUTPUT ${MBEDUTILS_DOXYGEN_OUTPUT_DIR}/html/index.xml
+    COMMAND ${DOXYGEN_EXECUTABLE} ${MBEDUTILS_DOXYFILE_OUT}
+    MAIN_DEPENDENCY ${MBEDUTILS_DOXYFILE_OUT} ${MBEDUTILS_DOXYFILE_IN}
+    COMMENT "Generating mbedutils documentation"
+    VERBATIM)
+
+    add_custom_target(mbedutils_docs ALL DEPENDS ${MBEDUTILS_DOXYGEN_OUTPUT_DIR}/html/index.xml)
+else()
+    message(STATUS "Doxygen needs to be installed to generate the documentation")
+endif()

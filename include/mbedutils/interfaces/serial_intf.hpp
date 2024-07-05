@@ -104,13 +104,13 @@ namespace mb::hw::serial::intf
    *
    * @details
    * Implementation Notes:
-   * -# The write should only proceed if the hardware is immediately ready to
+   *  - The write should only proceed if the hardware is immediately ready to
    *    begin transmission. If the hardware is not ready, the function should
    *    return immediately with a negative value.
-   * -# Data must be contiguous in memory up to the length specified,
+   *  - Data must be contiguous in memory up to the length specified,
    *    as the backing implementation may be based on DMA or other
    *    hardware accelerated methods.
-   * -# Once the transmission is complete, the callback registered with
+   *  - Once the transmission is complete, the callback registered with
    *    on_tx_complete should be invoked so that any more data can be sent.
    *
    * @param channel Channel to write data to
