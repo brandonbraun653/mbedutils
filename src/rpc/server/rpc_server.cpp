@@ -12,6 +12,7 @@
 Includes
 -----------------------------------------------------------------------------*/
 #include <mbedutils/drivers/rpc/rpc_server.hpp>
+#include <mbed_rpc.pb.h>
 
 namespace mb::rpc::server
 {

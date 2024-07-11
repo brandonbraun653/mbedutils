@@ -16,15 +16,13 @@
 Includes
 -----------------------------------------------------------------------------*/
 #include "pb.h"
-#include <cstdint>
 #include <cstddef>
-#include <etl/array.h>
-#include <etl/circular_buffer.h>
+#include <cstdint>
 #include <etl/delegate.h>
 #include <etl/string.h>
 #include <etl/unordered_map.h>
-#include <etl/vector.h>
 #include <mbedutils/drivers/hardware/serial.hpp>
+#include <mbedutils/drivers/rpc/rpc_common.hpp>
 #include <mbedutils/thread.hpp>
 
 namespace mb::rpc::server
@@ -40,29 +38,6 @@ namespace mb::rpc::server
   /*---------------------------------------------------------------------------
   Aliases
   ---------------------------------------------------------------------------*/
-
-  /**
-   * @brief Identifier for a unique message type
-   */
-  using MsgId = uint16_t;
-
-  /**
-   * @brief Identifier for a unique service
-   */
-  using SvcId = uint16_t;
-
-  /**
-   * @brief Size independent circular buffer reference for holding stream data
-   */
-  using StreamBuffer = etl::icircular_buffer<uint8_t>;
-
-  /**
-   * @brief
-   *
-   */
-  using COBSFrame = etl::ivector<uint8_t>;
-
-  using NanoPBFrame = etl::ivector<uint8_t>;
 
   /**
    * @brief Hashmap data-structure for storing Service descriptors
@@ -98,9 +73,10 @@ namespace mb::rpc::server
    */
   struct Response
   {
-    MsgId    type; /**< What message type this response contains */
-    uint16_t size; /**< Size of the data payload, if given */
-    void    *data; /**< Optional data payload of the response */
+    ErrId    status; /**< Status of the response */
+    MsgId    type;   /**< What message type this response contains */
+    uint16_t size;   /**< Size of the data payload, if given */
+    void    *data;   /**< Optional data payload of the response */
   };
 
 
@@ -135,21 +111,65 @@ namespace mb::rpc::server
   class IRPCService
   {
   public:
-    SvcId svcId; /**< Which service this is */
-    MsgId reqId; /**< Input request data message id */
-    MsgId rspId; /**< Output response data message id */
-
     virtual ~IRPCService() = default;
 
-  /**
-   * @brief A highly generic RPC service stub
-   *
-   * @param req     Request input data
-   * @param rsp     Response output data
-   * @return true   If the service executed successfully
-   * @return false  Something went wrong
-   */
-    virtual bool stub( const Request &req, Response &rsp ) = 0;
+    /**
+     * @brief Initializes the service and allocates any resources it needs.
+     */
+    virtual void initialize() = 0;
+
+    /**
+     * @brief Tears down the service and releases all resources.
+     */
+    virtual void shutdown() = 0;
+
+    /**
+     * @brief A highly generic RPC service stub
+     *
+     * @param req     Request input data
+     * @param rsp     Response output data
+     * @return true   If the service executed successfully
+     * @return false  Something went wrong
+     */
+    virtual void processRequest( const Request &req, Response &rsp ) = 0;
+
+    /**
+     * @brief Get's the name of the service for debugging purposes.
+     *
+     * @return etl::string_view
+     */
+    virtual etl::string_view getServiceName() const = 0;
+
+    /**
+     * @brief Get's the ID of the service for internal use.
+     *
+     * @return SvcId
+     */
+    virtual SvcId getServiceId() const = 0;
+
+    /**
+     * @brief Get the message ID that this service expects to receive.
+     *
+     * @return MsgId
+     */
+    constexpr inline MsgId getRequestMessageId() const
+    {
+      return mRequestType;
+    }
+
+    /**
+     * @brief Get the message ID that this service will respond with.
+     *
+     * @return MsgId
+     */
+    constexpr inline MsgId getResponseMessageId() const
+    {
+      return mResponseType;
+    }
+
+  protected:
+    MsgId mRequestType;  /**< What message type this service expects */
+    MsgId mResponseType; /**< What message type this service responds with */
   };
 
   /**
