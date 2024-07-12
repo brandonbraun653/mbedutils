@@ -14,6 +14,14 @@ typedef enum _mbed_rpc_ErrorCode {
     mbed_rpc_ErrorCode_NO_ERROR = 0
 } mbed_rpc_ErrorCode;
 
+typedef enum _mbed_rpc_BuiltinServices {
+    mbed_rpc_BuiltinServices_SVC_PING = 0
+} mbed_rpc_BuiltinServices;
+
+typedef enum _mbed_rpc_BuiltinMessages {
+    mbed_rpc_BuiltinMessages_MSG_PING = 0
+} mbed_rpc_BuiltinMessages;
+
 typedef enum _mbed_rpc_Header_Constants {
     mbed_rpc_Header_Constants_MAGIC = 504403532
 } mbed_rpc_Header_Constants;
@@ -59,6 +67,14 @@ extern "C" {
 #define _mbed_rpc_ErrorCode_MIN mbed_rpc_ErrorCode_NO_ERROR
 #define _mbed_rpc_ErrorCode_MAX mbed_rpc_ErrorCode_NO_ERROR
 #define _mbed_rpc_ErrorCode_ARRAYSIZE ((mbed_rpc_ErrorCode)(mbed_rpc_ErrorCode_NO_ERROR+1))
+
+#define _mbed_rpc_BuiltinServices_MIN mbed_rpc_BuiltinServices_SVC_PING
+#define _mbed_rpc_BuiltinServices_MAX mbed_rpc_BuiltinServices_SVC_PING
+#define _mbed_rpc_BuiltinServices_ARRAYSIZE ((mbed_rpc_BuiltinServices)(mbed_rpc_BuiltinServices_SVC_PING+1))
+
+#define _mbed_rpc_BuiltinMessages_MIN mbed_rpc_BuiltinMessages_MSG_PING
+#define _mbed_rpc_BuiltinMessages_MAX mbed_rpc_BuiltinMessages_MSG_PING
+#define _mbed_rpc_BuiltinMessages_ARRAYSIZE ((mbed_rpc_BuiltinMessages)(mbed_rpc_BuiltinMessages_MSG_PING+1))
 
 #define _mbed_rpc_Header_Constants_MIN mbed_rpc_Header_Constants_MAGIC
 #define _mbed_rpc_Header_Constants_MAX mbed_rpc_Header_Constants_MAGIC

@@ -32,6 +32,32 @@ class ErrorCode(_ErrorCode, metaclass=_ErrorCodeEnumTypeWrapper): ...
 NO_ERROR: ErrorCode.ValueType  # 0
 global___ErrorCode = ErrorCode
 
+class _BuiltinServices:
+    ValueType = typing.NewType("ValueType", builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _BuiltinServicesEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_BuiltinServices.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    SVC_PING: _BuiltinServices.ValueType  # 0
+
+class BuiltinServices(_BuiltinServices, metaclass=_BuiltinServicesEnumTypeWrapper): ...
+
+SVC_PING: BuiltinServices.ValueType  # 0
+global___BuiltinServices = BuiltinServices
+
+class _BuiltinMessages:
+    ValueType = typing.NewType("ValueType", builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _BuiltinMessagesEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_BuiltinMessages.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    MSG_PING: _BuiltinMessages.ValueType  # 0
+
+class BuiltinMessages(_BuiltinMessages, metaclass=_BuiltinMessagesEnumTypeWrapper): ...
+
+MSG_PING: BuiltinMessages.ValueType  # 0
+global___BuiltinMessages = BuiltinMessages
+
 @typing.final
 class Header(google.protobuf.message.Message):
     """Core message header common to all types. Each functional message type **must**

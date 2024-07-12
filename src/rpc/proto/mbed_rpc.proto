@@ -8,6 +8,14 @@ enum ErrorCode {
   NO_ERROR = 0;
 }
 
+enum BuiltinServices {
+  SVC_PING = 0;
+}
+
+enum BuiltinMessages {
+  MSG_PING = 0;
+}
+
 
 // Core message header common to all types. Each functional message type **must**
 // have this first in their list of declarations.

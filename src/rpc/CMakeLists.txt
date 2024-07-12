@@ -13,9 +13,13 @@ target_include_directories(${MBED_RPC_HEADERS} INTERFACE
 
 # Server Library
 file(GLOB RPC_SERVER_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/server/*.cpp)
+file(GLOB RPC_SERVICE_BUILTIN_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/services/*_service.cpp)
 set(RPC_SERVER_LIB_NAME ${PROJECT_NAME}_lib_rpc_server)
 
-add_library(${RPC_SERVER_LIB_NAME} STATIC ${RPC_SERVER_SOURCES})
+add_library(${RPC_SERVER_LIB_NAME} STATIC
+    ${RPC_SERVER_SOURCES}
+    ${RPC_SERVICE_BUILTIN_SOURCES}
+)
 target_link_libraries(${RPC_SERVER_LIB_NAME} PRIVATE
     ${PROJECT_NAME}_headers
     ${PROJECT_NAME}_internal_headers

@@ -1,9 +1,9 @@
 /******************************************************************************
  *  File Name:
- *    ping_service.hpp
+ *    builtin_services.hpp
  *
  *  Description:
- *    RPC service for handling ping requests
+ *    RPC services that come pre-built with the system
  *
  *  2024 | Brandon Braun | brandonbraun653@protonmail.com
  *****************************************************************************/
@@ -31,46 +31,17 @@ namespace mb::rpc::services
   {
   public:
     PingService();
-    ~PingService();
-
-    /**
-     * @copydoc IRPCService::initialize
-     */
-    void initialize() final override;
-
-    /**
-     * @copydoc IRPCService::shutdown
-     */
-    void shutdown() final override;
+    ~PingService() = default;
 
     /**
      * @copydoc IRPCService::processRequest
      */
     void processRequest( const mb::rpc::server::Request &request, mb::rpc::server::Response &response ) final override;
 
-    /**
-     * @copydoc IRPCService::getServiceId
-     */
-    SvcId getServiceId() const final override;
-
-    /**
-     * @copydoc IRPCService::getServiceName
-     */
-    etl::string_view getServiceName() const final override;
-
-    /**
-     * @copydoc IRPCService::getRequestMessageId
-     */
-    MsgId getRequestMessageId() const final override;
-
-    /**
-     * @copydoc IRPCService::getResponseMessageId
-     */
-    MsgId getResponseMessageId() const final override;
-
   private:
     mbed_rpc_Ping mPingResponse;
   };
+
 }  // namespace mb::rpc::services
 
 #endif  /* !MBEDUTILS_RPC_PING_SERVICE_HPP */

@@ -85,11 +85,11 @@ namespace mb::rpc::server
    */
   struct Config
   {
-    mb::hw::serial::ISerial &iostream; /**< Serial driver to use for communication */
-    StreamBuffer            &rxBuffer; /**< Buffer for incoming data stream */
-    StreamBuffer            &txBuffer; /**< Buffer for outgoing data stream */
-    ServiceRegistry         &svcReg;   /**< Service descriptor storage */
-    MessageRegistry         &msgReg;   /**< Message descriptor storage */
+    mb::hw::serial::ISerial *iostream; /**< Serial driver to use for communication */
+    StreamBuffer            *rxBuffer; /**< Buffer for incoming data stream */
+    StreamBuffer            *txBuffer; /**< Buffer for outgoing data stream */
+    ServiceRegistry         *svcReg;   /**< Service descriptor storage */
+    MessageRegistry         *msgReg;   /**< Message descriptor storage */
 
     /**
      * @brief Configure how the server should handle incoming requests.
@@ -107,21 +107,29 @@ namespace mb::rpc::server
 
   /**
    * @brief Core interface for describing a service to the RPC server.
+   *
+   * Where possible, the number of virtual interfaces was reduced to help with
+   * code size and performance. Embedded platforms don't really have much
+   * memory to spare, so it's important to keep things as lean as possible while
+   * still abstracting the necessary functionality.
    */
   class IRPCService
   {
   public:
+    IRPCService( const SvcId id, const MsgId req, const MsgId rsp, const etl::string_view name ) :
+        mServiceId( id ), mRequestType( req ), mResponseType( rsp ), mName( name ) {};
+
     virtual ~IRPCService() = default;
 
     /**
      * @brief Initializes the service and allocates any resources it needs.
      */
-    virtual void initialize() = 0;
+    virtual void initialize() {};
 
     /**
      * @brief Tears down the service and releases all resources.
      */
-    virtual void shutdown() = 0;
+    virtual void shutdown() {};
 
     /**
      * @brief A highly generic RPC service stub
@@ -138,14 +146,20 @@ namespace mb::rpc::server
      *
      * @return etl::string_view
      */
-    virtual etl::string_view getServiceName() const = 0;
+    constexpr inline etl::string_view getServiceName() const
+    {
+      return mName;
+    }
 
     /**
      * @brief Get's the ID of the service for internal use.
      *
      * @return SvcId
      */
-    virtual SvcId getServiceId() const = 0;
+    constexpr inline SvcId getServiceId() const
+    {
+      return mServiceId;
+    }
 
     /**
      * @brief Get the message ID that this service expects to receive.
@@ -168,8 +182,10 @@ namespace mb::rpc::server
     }
 
   protected:
-    MsgId mRequestType;  /**< What message type this service expects */
-    MsgId mResponseType; /**< What message type this service responds with */
+    const SvcId            mServiceId;    /**< Unique ID for this service */
+    const MsgId            mRequestType;  /**< What message type this service expects */
+    const MsgId            mResponseType; /**< What message type this service responds with */
+    const etl::string_view mName;         /**< Name of the service */
   };
 
   /**
@@ -185,7 +201,7 @@ namespace mb::rpc::server
 
     bool encode( /* input/output? */ );
 
-    bool decode( /* output/input? */);
+    bool decode( /* output/input? */ );
   };
 
 
@@ -226,7 +242,7 @@ namespace mb::rpc::server
      * @return true   The service was registered successfully.
      * @return false  Failed to register for some reason.
      */
-    bool addService( const IRPCService &svc );
+    bool addService( const IRPCService &&svc );
 
     /**
      * @brief Remove a service from this RPC server.
@@ -242,7 +258,7 @@ namespace mb::rpc::server
      * @return true   The message was registered successfully.
      * @return false  Failed to register for some reason.
      */
-    bool addMessage( const IRPCMessage &msg );
+    bool addMessage( const IRPCMessage &&msg );
 
     /**
      * @brief Removes a message from this RPC server.
@@ -273,7 +289,6 @@ namespace mb::rpc::server
     void runServices();
 
   protected:
-
     bool rpc_invoke( const SvcId svc, const Request &req, Response &rsp );
 
     void rpc_throw_error( const size_t txn_id, uint32_t error_code, etl::string_view &msg );
@@ -282,7 +297,7 @@ namespace mb::rpc::server
 
     bool rpc_pack_response( const SvcId svc, void *const msg_data, const size_t msg_size, const Request &req, Response &rsp );
 
-    bool rpc_publish_message( const pb_msgdesc_t *dsc, const void * data );
+    bool rpc_publish_message( const pb_msgdesc_t *dsc, const void *data );
 
   private:
     friend class ::mb::thread::Lockable<Server>;
@@ -290,8 +305,8 @@ namespace mb::rpc::server
     Config mConfig;
 
     size_t stream_read( COBSFrame &buffer );
-    void stream_write( const COBSFrame &buffer );
+    void   stream_write( const COBSFrame &buffer );
   };
-}  // namespace mb::rpc::server
+}    // namespace mb::rpc::server
 
-#endif  /* !MBEDUTILS_RPC_SERVER_HPP */
+#endif /* !MBEDUTILS_RPC_SERVER_HPP */
