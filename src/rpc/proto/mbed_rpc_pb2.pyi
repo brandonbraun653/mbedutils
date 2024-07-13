@@ -66,39 +66,32 @@ class Header(google.protobuf.message.Message):
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
-    class _Constants:
-        ValueType = typing.NewType("ValueType", builtins.int)
-        V: typing_extensions.TypeAlias = ValueType
-
-    class _ConstantsEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[Header._Constants.ValueType], builtins.type):
-        DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
-        MAGIC: Header._Constants.ValueType  # 504403532
-
-    class Constants(_Constants, metaclass=_ConstantsEnumTypeWrapper): ...
-    MAGIC: Header.Constants.ValueType  # 504403532
-
-    MAGIC_FIELD_NUMBER: builtins.int
-    MSGID_FIELD_NUMBER: builtins.int
-    SUBID_FIELD_NUMBER: builtins.int
+    CRC_FIELD_NUMBER: builtins.int
+    SIZE_FIELD_NUMBER: builtins.int
+    VERSION_FIELD_NUMBER: builtins.int
     SEQID_FIELD_NUMBER: builtins.int
-    magic: builtins.int
-    """Magic number to identify the message as an RPC message"""
-    msgId: builtins.int
-    """Root message identifier"""
-    subId: builtins.int
-    """Possible sub-identifier to specify root ID details"""
+    MSGID_FIELD_NUMBER: builtins.int
+    crc: builtins.int
+    """CRC16 of the message for validity checks"""
+    size: builtins.int
+    """Size of the message in bytes"""
+    version: builtins.int
+    """Version of this message & RPC protocol. Upper 4 bits are RPC, lower 4 bits are message."""
     seqId: builtins.int
     """Sequence ID for the message transaction"""
+    msgId: builtins.int
+    """Root message identifier"""
     def __init__(
         self,
         *,
-        magic: builtins.int | None = ...,
-        msgId: builtins.int | None = ...,
-        subId: builtins.int | None = ...,
+        crc: builtins.int | None = ...,
+        size: builtins.int | None = ...,
+        version: builtins.int | None = ...,
         seqId: builtins.int | None = ...,
+        msgId: builtins.int | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["magic", b"magic", "msgId", b"msgId", "seqId", b"seqId", "subId", b"subId"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["magic", b"magic", "msgId", b"msgId", "seqId", b"seqId", "subId", b"subId"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["crc", b"crc", "msgId", b"msgId", "seqId", b"seqId", "size", b"size", "version", b"version"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["crc", b"crc", "msgId", b"msgId", "seqId", b"seqId", "size", b"size", "version", b"version"]) -> None: ...
 
 global___Header = Header
 

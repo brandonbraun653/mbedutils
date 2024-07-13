@@ -15,7 +15,6 @@
 /*-----------------------------------------------------------------------------
 Includes
 -----------------------------------------------------------------------------*/
-#include "pb.h"
 #include <cstddef>
 #include <cstdint>
 #include <etl/delegate.h>
@@ -24,6 +23,7 @@ Includes
 #include <mbedutils/drivers/hardware/serial.hpp>
 #include <mbedutils/drivers/rpc/rpc_common.hpp>
 #include <mbedutils/thread.hpp>
+#include <mbedutils/assert.hpp>
 
 namespace mb::rpc::server
 {
@@ -33,7 +33,6 @@ namespace mb::rpc::server
   struct Request;
   struct Response;
   class IRPCService;
-  class IRPCMessage;
 
   /*---------------------------------------------------------------------------
   Aliases
@@ -85,18 +84,26 @@ namespace mb::rpc::server
    */
   struct Config
   {
-    mb::hw::serial::ISerial *iostream; /**< Serial driver to use for communication */
-    StreamBuffer            *rxBuffer; /**< Buffer for incoming data stream */
-    StreamBuffer            *txBuffer; /**< Buffer for outgoing data stream */
-    ServiceRegistry         *svcReg;   /**< Service descriptor storage */
-    MessageRegistry         *msgReg;   /**< Message descriptor storage */
+    mb::hw::serial::ISerial *iostream;      /**< Serial driver to use for communication */
+    StreamBuffer            *rxBuffer;      /**< Buffer for incoming data stream */
+    StreamBuffer            *txBuffer;      /**< Buffer for outgoing data stream */
+    ServiceRegistry         *svcReg;        /**< Service descriptor storage */
+    MessageRegistry         *msgReg;        /**< Message descriptor storage */
+    uint8_t                 *txScratch;     /**< Scratch buffer for encoding messages */
+    size_t                   txScratchSize; /**< Size of the scratch buffer */
+    uint8_t                 *rxScratch;     /**< Scratch buffer for decoding messages */
+    size_t                   rxScratchSize; /**< Size of the scratch buffer */
 
     /**
      * @brief Configure how the server should handle incoming requests.
+     * @warning Requests may be handled in an ISR depending on the iostream implementation.
      *
      * If enabled, this will process requests immediately as they come in. If
      * disabled, requests will be queued up and processed in a batch, but this
      * places a requirement on the user to call runServices() periodically.
+     *
+     * If an asynchronous service is used, this setting is effectively ignored
+     * for that service only.
      */
     bool handleImmediate;
   };
@@ -116,7 +123,7 @@ namespace mb::rpc::server
   class IRPCService
   {
   public:
-    IRPCService( const SvcId id, const MsgId req, const MsgId rsp, const etl::string_view name ) :
+    constexpr IRPCService( const SvcId id, const MsgId req, const MsgId rsp, const etl::string_view name ) :
         mServiceId( id ), mRequestType( req ), mResponseType( rsp ), mName( name ) {};
 
     virtual ~IRPCService() = default;
@@ -139,7 +146,10 @@ namespace mb::rpc::server
      * @return true   If the service executed successfully
      * @return false  Something went wrong
      */
-    virtual void processRequest( const Request &req, Response &rsp ) = 0;
+    virtual void processRequest( const Request &req, Response &rsp )
+    {
+      mbed_dbg_assert_always();
+    };
 
     /**
      * @brief Get's the name of the service for debugging purposes.
@@ -188,22 +198,6 @@ namespace mb::rpc::server
     const etl::string_view mName;         /**< Name of the service */
   };
 
-  /**
-   * @brief Descriptor for registering a message type with the RPC server.
-   */
-  class IRPCMessage
-  {
-  public:
-    MsgId               type;         /**< What message type this descriptor references */
-    const pb_msgdesc_t *descriptor;   /**< NanoPB generated descriptor for encoding/decoding */
-    size_t              max_enc_size; /**< Max encoded size of the message in bytes */
-    size_t              type_size;    /**< Size of the raw message structure */
-
-    bool encode( /* input/output? */ );
-
-    bool decode( /* output/input? */ );
-  };
-
 
   /**
    * @brief Core RPC server implementation.
@@ -236,11 +230,25 @@ namespace mb::rpc::server
     void close();
 
     /**
+     * @brief Process all pending RPC service requests.
+     *
+     * This is a blocking call that will process all pending requests in the
+     * queue. The total execution time is variable depending on the number of
+     * requests in the queue and the time it takes to process each one.
+     */
+    void runServices();
+
+    /**
      * @brief Registers a service to be handled by this server instance.
      *
      * @param svc     The service to register
      * @return true   The service was registered successfully.
      * @return false  Failed to register for some reason.
+     */
+    bool addService( const IRPCService &svc );
+
+    /**
+     * @copydoc addService
      */
     bool addService( const IRPCService &&svc );
 
@@ -257,6 +265,11 @@ namespace mb::rpc::server
      * @param msg     The message to register
      * @return true   The message was registered successfully.
      * @return false  Failed to register for some reason.
+     */
+    bool addMessage( const IRPCMessage &msg );
+
+    /**
+     * @copydoc addMessage
      */
     bool addMessage( const IRPCMessage &&msg );
 
@@ -279,15 +292,6 @@ namespace mb::rpc::server
      */
     bool sendAsyncResponse( const Response &rsp );
 
-    /**
-     * @brief Process all pending RPC service requests.
-     *
-     * This is a blocking call that will process all pending requests in the
-     * queue. The total execution time is variable depending on the number of
-     * requests in the queue and the time it takes to process each one.
-     */
-    void runServices();
-
   protected:
     bool rpc_invoke( const SvcId svc, const Request &req, Response &rsp );
 
@@ -302,10 +306,14 @@ namespace mb::rpc::server
   private:
     friend class ::mb::thread::Lockable<Server>;
 
+    bool mIsOpen;
     Config mConfig;
 
-    size_t stream_read( COBSFrame &buffer );
-    void   stream_write( const COBSFrame &buffer );
+    bool read_cobs_frame();
+    bool write_cobs_frame();
+    void isr_on_io_write_complete();
+    void isr_on_io_read_complete();
+    bool process_next_request();
   };
 }    // namespace mb::rpc::server
 

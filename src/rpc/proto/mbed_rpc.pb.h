@@ -22,18 +22,15 @@ typedef enum _mbed_rpc_BuiltinMessages {
     mbed_rpc_BuiltinMessages_MSG_PING = 0
 } mbed_rpc_BuiltinMessages;
 
-typedef enum _mbed_rpc_Header_Constants {
-    mbed_rpc_Header_Constants_MAGIC = 504403532
-} mbed_rpc_Header_Constants;
-
 /* Struct definitions */
 /* Core message header common to all types. Each functional message type **must**
  have this first in their list of declarations. */
 typedef struct _mbed_rpc_Header {
-    uint32_t magic; /* Magic number to identify the message as an RPC message */
-    uint8_t msgId; /* Root message identifier */
-    uint8_t subId; /* Possible sub-identifier to specify root ID details */
-    uint16_t seqId; /* Sequence ID for the message transaction */
+    uint16_t crc; /* CRC16 of the message for validity checks */
+    uint16_t size; /* Size of the message in bytes */
+    uint8_t version; /* Version of this message & RPC protocol. Upper 4 bits are RPC, lower 4 bits are message. */
+    uint8_t seqId; /* Sequence ID for the message transaction */
+    uint16_t msgId; /* Root message identifier */
 } mbed_rpc_Header;
 
 /* Root type that parsers can use to peek at messages and figure out what type the full message is. */
@@ -76,10 +73,6 @@ extern "C" {
 #define _mbed_rpc_BuiltinMessages_MAX mbed_rpc_BuiltinMessages_MSG_PING
 #define _mbed_rpc_BuiltinMessages_ARRAYSIZE ((mbed_rpc_BuiltinMessages)(mbed_rpc_BuiltinMessages_MSG_PING+1))
 
-#define _mbed_rpc_Header_Constants_MIN mbed_rpc_Header_Constants_MAGIC
-#define _mbed_rpc_Header_Constants_MAX mbed_rpc_Header_Constants_MAGIC
-#define _mbed_rpc_Header_Constants_ARRAYSIZE ((mbed_rpc_Header_Constants)(mbed_rpc_Header_Constants_MAGIC+1))
-
 
 
 
@@ -87,22 +80,23 @@ extern "C" {
 
 
 /* Initializer values for message structs */
-#define mbed_rpc_Header_init_default             {0, 0, 0, 0}
+#define mbed_rpc_Header_init_default             {0, 0, 0, 0, 0}
 #define mbed_rpc_BaseMessage_init_default        {mbed_rpc_Header_init_default}
 #define mbed_rpc_Ping_init_default               {mbed_rpc_Header_init_default, 0}
 #define mbed_rpc_ListFunctionsRequest_init_default {mbed_rpc_Header_init_default}
 #define mbed_rpc_ListFunctionsResponse_init_default {mbed_rpc_Header_init_default, {{NULL}, NULL}}
-#define mbed_rpc_Header_init_zero                {0, 0, 0, 0}
+#define mbed_rpc_Header_init_zero                {0, 0, 0, 0, 0}
 #define mbed_rpc_BaseMessage_init_zero           {mbed_rpc_Header_init_zero}
 #define mbed_rpc_Ping_init_zero                  {mbed_rpc_Header_init_zero, 0}
 #define mbed_rpc_ListFunctionsRequest_init_zero  {mbed_rpc_Header_init_zero}
 #define mbed_rpc_ListFunctionsResponse_init_zero {mbed_rpc_Header_init_zero, {{NULL}, NULL}}
 
 /* Field tags (for use in manual encoding/decoding) */
-#define mbed_rpc_Header_magic_tag                1
-#define mbed_rpc_Header_msgId_tag                2
-#define mbed_rpc_Header_subId_tag                3
+#define mbed_rpc_Header_crc_tag                  1
+#define mbed_rpc_Header_size_tag                 2
+#define mbed_rpc_Header_version_tag              3
 #define mbed_rpc_Header_seqId_tag                4
+#define mbed_rpc_Header_msgId_tag                5
 #define mbed_rpc_BaseMessage_header_tag          1
 #define mbed_rpc_Ping_header_tag                 1
 #define mbed_rpc_Ping_timestamp_tag              2
@@ -112,10 +106,11 @@ extern "C" {
 
 /* Struct field encoding specification for nanopb */
 #define mbed_rpc_Header_FIELDLIST(X, a) \
-X(a, STATIC,   REQUIRED, UINT32,   magic,             1) \
-X(a, STATIC,   REQUIRED, UINT32,   msgId,             2) \
-X(a, STATIC,   REQUIRED, UINT32,   subId,             3) \
-X(a, STATIC,   REQUIRED, UINT32,   seqId,             4)
+X(a, STATIC,   REQUIRED, UINT32,   crc,               1) \
+X(a, STATIC,   REQUIRED, UINT32,   size,              2) \
+X(a, STATIC,   REQUIRED, UINT32,   version,           3) \
+X(a, STATIC,   REQUIRED, UINT32,   seqId,             4) \
+X(a, STATIC,   REQUIRED, UINT32,   msgId,             5)
 #define mbed_rpc_Header_CALLBACK NULL
 #define mbed_rpc_Header_DEFAULT NULL
 
@@ -161,10 +156,10 @@ extern const pb_msgdesc_t mbed_rpc_ListFunctionsResponse_msg;
 /* Maximum encoded size of messages (where known) */
 /* mbed_rpc_ListFunctionsResponse_size depends on runtime parameters */
 #define MBED_RPC_MBED_RPC_PB_H_MAX_SIZE          mbed_rpc_Ping_size
-#define mbed_rpc_BaseMessage_size                18
-#define mbed_rpc_Header_size                     16
-#define mbed_rpc_ListFunctionsRequest_size       18
-#define mbed_rpc_Ping_size                       24
+#define mbed_rpc_BaseMessage_size                20
+#define mbed_rpc_Header_size                     18
+#define mbed_rpc_ListFunctionsRequest_size       20
+#define mbed_rpc_Ping_size                       26
 
 #ifdef __cplusplus
 } /* extern "C" */
@@ -175,7 +170,7 @@ extern const pb_msgdesc_t mbed_rpc_ListFunctionsResponse_msg;
 namespace nanopb {
 template <>
 struct MessageDescriptor<mbed_rpc_Header> {
-    static PB_INLINE_CONSTEXPR const pb_size_t fields_array_length = 4;
+    static PB_INLINE_CONSTEXPR const pb_size_t fields_array_length = 5;
     static inline const pb_msgdesc_t* fields() {
         return &mbed_rpc_Header_msg;
     }

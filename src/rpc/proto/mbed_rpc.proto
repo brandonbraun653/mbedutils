@@ -20,14 +20,11 @@ enum BuiltinMessages {
 // Core message header common to all types. Each functional message type **must**
 // have this first in their list of declarations.
 message Header {
-  enum Constants {
-    MAGIC = 0x1e10964c ;
-  }
-
-  required uint32 magic = 1; // Magic number to identify the message as an RPC message
-  required uint32 msgId = 2 [(nanopb).int_size = IS_8]; // Root message identifier
-  required uint32 subId = 3 [(nanopb).int_size = IS_8]; // Possible sub-identifier to specify root ID details
-  required uint32 seqId = 4 [(nanopb).int_size = IS_16]; // Sequence ID for the message transaction
+  required uint32 crc   = 1 [(nanopb).int_size = IS_16];  // CRC16 of the message for validity checks (up to 4096 bytes)
+  required uint32 size  = 2 [(nanopb).int_size = IS_16];  // Size of the message in bytes
+  required uint32 version = 3 [(nanopb).int_size = IS_8]; // Version of this message & RPC protocol. Upper 4 bits are RPC, lower 4 bits are message.
+  required uint32 seqId = 4 [(nanopb).int_size = IS_8];   // Sequence ID for the message transaction
+  required uint32 msgId = 5 [(nanopb).int_size = IS_16];  // Root message identifier
 }
 
 // Root type that parsers can use to peek at messages and figure out what type the full message is.
