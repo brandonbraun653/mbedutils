@@ -17,14 +17,15 @@
 /*-----------------------------------------------------------------------------
 Includes
 -----------------------------------------------------------------------------*/
-#include <cstdint>
 #include <cstddef>
-#include <limits>
-#include <etl/span.h>
+#include <cstdint>
 #include <etl/bip_buffer_spsc_atomic.h>
+#include <etl/circular_buffer.h>
 #include <etl/delegate.h>
-#include <mbedutils/drivers/threading/lock.hpp>
+#include <etl/span.h>
+#include <limits>
 #include <mbedutils/drivers/threading/asyncio.hpp>
+#include <mbedutils/drivers/threading/lock.hpp>
 
 namespace mb::hw::serial
 {
@@ -97,6 +98,22 @@ namespace mb::hw::serial
     virtual int write( const void *const buffer, const size_t length ) = 0;
 
     /**
+     * @brief Writes data onto the wire from a circular buffer
+     *
+     * @param buffer Buffer to write from
+     * @param length Number of bytes to write from the buffer
+     * @return int   Number of bytes actually written, negative on error
+     */
+    virtual int write( const etl::icircular_buffer<uint8_t> &buffer, const size_t length ) = 0;
+
+    /**
+     * @brief Gets the number of bytes that can be written to the wire immediately
+     *
+     * @return size_t
+     */
+    virtual size_t writeable() = 0;
+
+    /**
      * @brief Read a number of bytes from the wire
      *
      * This will read from internal IO buffers.
@@ -107,6 +124,18 @@ namespace mb::hw::serial
      * @return int    Number of bytes actually read, negative on error
      */
     virtual int read( void *const buffer, const size_t length, const size_t timeout ) = 0;
+
+    /**
+     * @brief Read a number of bytes from the wire into a circular buffer
+     *
+     * This will read from internal IO buffers.
+     *
+     * @param buffer  Buffer to read into
+     * @param length  Number of bytes to read
+     * @param timeout Total time the transaction may take to occur in milliseconds
+     * @return int    Number of bytes actually read, negative on error
+     */
+    virtual int read( etl::icircular_buffer<uint8_t> &buffer, const size_t length, const size_t timeout ) = 0;
 
     /**
      * @brief Determines how many bytes are available to read
@@ -167,7 +196,10 @@ namespace mb::hw::serial
     bool   open( const Config &config ) final override;
     void   close() final override;
     int    write( const void *const buffer, const size_t length ) final override;
+    int    write( const etl::icircular_buffer<uint8_t> &buffer, const size_t length ) final override;
+    size_t writeable() final override;
     int    read( void *const buffer, const size_t length, const size_t timeout ) final override;
+    int    read( etl::icircular_buffer<uint8_t> &buffer, const size_t length, const size_t timeout ) final override;
     size_t readable() final override;
     void   flushRX() final override;
     void   flushTX() final override;
@@ -192,6 +224,9 @@ namespace mb::hw::serial
     ::mb::hw::serial::Config mConfig;
     TransferControl          mTXControl;
     TransferControl          mRXControl;
+
+    etl::span<uint8_t> read_enter_critical( const size_t length, const size_t timeout );
+    void read_exit_critical( etl::span<uint8_t> &span );
 
     size_t start_tx_transfer( const size_t num_bytes = std::numeric_limits<size_t>::max() );
     void on_tx_complete_callback( const size_t channel, const size_t num_bytes );
