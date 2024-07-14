@@ -3,17 +3,41 @@ import "nanopb.proto";
 
 package mbed.rpc;
 
-
-enum ErrorCode {
-  NO_ERROR = 0;
+enum ProtocolVersion {
+  RPC_PROTOCOL_VER = 1;
 }
 
-enum BuiltinServices {
+enum ErrorCode {
+  ERR_NO_ERROR      = 0; // No error occurred
+  ERR_SVC_ASYNC     = 1; // Used to indicate that the service is processing the request asynchronously without error so far
+  ERR_SVC_BUSY      = 2; // Service is busy and cannot process the request
+  ERR_RPC_VER       = 3; // RPC protocol version mismatch
+  ERR_MSG_VER       = 4; // Message version mismatch
+  ERR_MSG_SIZE      = 5; // Message size is incorrect
+  ERR_MSG_CRC       = 6; // Message CRC is incorrect
+  ERR_MSG_DECODE    = 7; // Message failed to decode
+  ERR_SVC_NOT_FOUND = 8; // Service not found
+  ERR_MSG_NOT_FOUND = 9; // Message not found
+  ERR_SVC_MSG       = 10; // Service does not support the message
+
+  ERR_MAX_ERROR     = 255; // Maximum error value
+}
+
+enum BuiltinService {
   SVC_PING = 0;
 }
 
-enum BuiltinMessages {
-  MSG_PING = 0;
+enum BuiltinMessage {
+  MSG_NULL = 0;
+  MSG_ERROR = 1;
+  MSG_PING = 2;
+}
+
+enum BuiltinMessageVersion {
+  option allow_alias = true;
+
+  MSG_VER_ERROR = 0;
+  MSG_VER_PING = 0;
 }
 
 
@@ -24,7 +48,8 @@ message Header {
   required uint32 size  = 2 [(nanopb).int_size = IS_16];  // Size of the message in bytes
   required uint32 version = 3 [(nanopb).int_size = IS_8]; // Version of this message & RPC protocol. Upper 4 bits are RPC, lower 4 bits are message.
   required uint32 seqId = 4 [(nanopb).int_size = IS_8];   // Sequence ID for the message transaction
-  required uint32 msgId = 5 [(nanopb).int_size = IS_16];  // Root message identifier
+  required uint32 msgId = 5 [(nanopb).int_size = IS_8];   // Root message identifier
+  required uint32 svcId = 6 [(nanopb).int_size = IS_8];   // Service identifier the message is for
 }
 
 // Root type that parsers can use to peek at messages and figure out what type the full message is.
@@ -32,10 +57,16 @@ message BaseMessage {
   required Header header = 1;
 }
 
+// Message type for error responses.
+message Error {
+  required Header    header = 1;
+  required ErrorCode error  = 2 [(nanopb).int_size = IS_8];
+  required bytes     detail = 3 [(nanopb).max_size = 256];
+}
+
 // Simple ping message to test RPC connection.
 message Ping {
   required Header header = 1;
-  required uint32 timestamp = 2;
 }
 
 // Message to request a list of all available RPC functions.

@@ -10,27 +10,50 @@
 #endif
 
 /* Enum definitions */
+typedef enum _mbed_rpc_ProtocolVersion {
+    mbed_rpc_ProtocolVersion_RPC_PROTOCOL_VER = 1
+} mbed_rpc_ProtocolVersion;
+
 typedef enum _mbed_rpc_ErrorCode {
-    mbed_rpc_ErrorCode_NO_ERROR = 0
+    mbed_rpc_ErrorCode_ERR_NO_ERROR = 0, /* No error occurred */
+    mbed_rpc_ErrorCode_ERR_SVC_ASYNC = 1, /* Used to indicate that the service is processing the request asynchronously without error so far */
+    mbed_rpc_ErrorCode_ERR_SVC_BUSY = 2, /* Service is busy and cannot process the request */
+    mbed_rpc_ErrorCode_ERR_RPC_VER = 3, /* RPC protocol version mismatch */
+    mbed_rpc_ErrorCode_ERR_MSG_VER = 4, /* Message version mismatch */
+    mbed_rpc_ErrorCode_ERR_MSG_SIZE = 5, /* Message size is incorrect */
+    mbed_rpc_ErrorCode_ERR_MSG_CRC = 6, /* Message CRC is incorrect */
+    mbed_rpc_ErrorCode_ERR_MSG_DECODE = 7, /* Message failed to decode */
+    mbed_rpc_ErrorCode_ERR_SVC_NOT_FOUND = 8, /* Service not found */
+    mbed_rpc_ErrorCode_ERR_MSG_NOT_FOUND = 9, /* Message not found */
+    mbed_rpc_ErrorCode_ERR_SVC_MSG = 10, /* Service does not support the message */
+    mbed_rpc_ErrorCode_ERR_MAX_ERROR = 255 /* Maximum error value */
 } mbed_rpc_ErrorCode;
 
-typedef enum _mbed_rpc_BuiltinServices {
-    mbed_rpc_BuiltinServices_SVC_PING = 0
-} mbed_rpc_BuiltinServices;
+typedef enum _mbed_rpc_BuiltinService {
+    mbed_rpc_BuiltinService_SVC_PING = 0
+} mbed_rpc_BuiltinService;
 
-typedef enum _mbed_rpc_BuiltinMessages {
-    mbed_rpc_BuiltinMessages_MSG_PING = 0
-} mbed_rpc_BuiltinMessages;
+typedef enum _mbed_rpc_BuiltinMessage {
+    mbed_rpc_BuiltinMessage_MSG_NULL = 0,
+    mbed_rpc_BuiltinMessage_MSG_ERROR = 1,
+    mbed_rpc_BuiltinMessage_MSG_PING = 2
+} mbed_rpc_BuiltinMessage;
+
+typedef enum _mbed_rpc_BuiltinMessageVersion {
+    mbed_rpc_BuiltinMessageVersion_MSG_VER_ERROR = 0,
+    mbed_rpc_BuiltinMessageVersion_MSG_VER_PING = 0
+} mbed_rpc_BuiltinMessageVersion;
 
 /* Struct definitions */
 /* Core message header common to all types. Each functional message type **must**
  have this first in their list of declarations. */
 typedef struct _mbed_rpc_Header {
-    uint16_t crc; /* CRC16 of the message for validity checks */
+    uint16_t crc; /* CRC16 of the message for validity checks (up to 4096 bytes) */
     uint16_t size; /* Size of the message in bytes */
     uint8_t version; /* Version of this message & RPC protocol. Upper 4 bits are RPC, lower 4 bits are message. */
     uint8_t seqId; /* Sequence ID for the message transaction */
-    uint16_t msgId; /* Root message identifier */
+    uint8_t msgId; /* Root message identifier */
+    uint8_t svcId; /* Service identifier the message is for */
 } mbed_rpc_Header;
 
 /* Root type that parsers can use to peek at messages and figure out what type the full message is. */
@@ -38,10 +61,17 @@ typedef struct _mbed_rpc_BaseMessage {
     mbed_rpc_Header header;
 } mbed_rpc_BaseMessage;
 
+typedef PB_BYTES_ARRAY_T(256) mbed_rpc_Error_detail_t;
+/* Message type for error responses. */
+typedef struct _mbed_rpc_Error {
+    mbed_rpc_Header header;
+    mbed_rpc_ErrorCode error;
+    mbed_rpc_Error_detail_t detail;
+} mbed_rpc_Error;
+
 /* Simple ping message to test RPC connection. */
 typedef struct _mbed_rpc_Ping {
     mbed_rpc_Header header;
-    uint32_t timestamp;
 } mbed_rpc_Ping;
 
 /* Message to request a list of all available RPC functions. */
@@ -61,33 +91,45 @@ extern "C" {
 #endif
 
 /* Helper constants for enums */
-#define _mbed_rpc_ErrorCode_MIN mbed_rpc_ErrorCode_NO_ERROR
-#define _mbed_rpc_ErrorCode_MAX mbed_rpc_ErrorCode_NO_ERROR
-#define _mbed_rpc_ErrorCode_ARRAYSIZE ((mbed_rpc_ErrorCode)(mbed_rpc_ErrorCode_NO_ERROR+1))
+#define _mbed_rpc_ProtocolVersion_MIN mbed_rpc_ProtocolVersion_RPC_PROTOCOL_VER
+#define _mbed_rpc_ProtocolVersion_MAX mbed_rpc_ProtocolVersion_RPC_PROTOCOL_VER
+#define _mbed_rpc_ProtocolVersion_ARRAYSIZE ((mbed_rpc_ProtocolVersion)(mbed_rpc_ProtocolVersion_RPC_PROTOCOL_VER+1))
 
-#define _mbed_rpc_BuiltinServices_MIN mbed_rpc_BuiltinServices_SVC_PING
-#define _mbed_rpc_BuiltinServices_MAX mbed_rpc_BuiltinServices_SVC_PING
-#define _mbed_rpc_BuiltinServices_ARRAYSIZE ((mbed_rpc_BuiltinServices)(mbed_rpc_BuiltinServices_SVC_PING+1))
+#define _mbed_rpc_ErrorCode_MIN mbed_rpc_ErrorCode_ERR_NO_ERROR
+#define _mbed_rpc_ErrorCode_MAX mbed_rpc_ErrorCode_ERR_MAX_ERROR
+#define _mbed_rpc_ErrorCode_ARRAYSIZE ((mbed_rpc_ErrorCode)(mbed_rpc_ErrorCode_ERR_MAX_ERROR+1))
 
-#define _mbed_rpc_BuiltinMessages_MIN mbed_rpc_BuiltinMessages_MSG_PING
-#define _mbed_rpc_BuiltinMessages_MAX mbed_rpc_BuiltinMessages_MSG_PING
-#define _mbed_rpc_BuiltinMessages_ARRAYSIZE ((mbed_rpc_BuiltinMessages)(mbed_rpc_BuiltinMessages_MSG_PING+1))
+#define _mbed_rpc_BuiltinService_MIN mbed_rpc_BuiltinService_SVC_PING
+#define _mbed_rpc_BuiltinService_MAX mbed_rpc_BuiltinService_SVC_PING
+#define _mbed_rpc_BuiltinService_ARRAYSIZE ((mbed_rpc_BuiltinService)(mbed_rpc_BuiltinService_SVC_PING+1))
+
+#define _mbed_rpc_BuiltinMessage_MIN mbed_rpc_BuiltinMessage_MSG_NULL
+#define _mbed_rpc_BuiltinMessage_MAX mbed_rpc_BuiltinMessage_MSG_PING
+#define _mbed_rpc_BuiltinMessage_ARRAYSIZE ((mbed_rpc_BuiltinMessage)(mbed_rpc_BuiltinMessage_MSG_PING+1))
+
+#define _mbed_rpc_BuiltinMessageVersion_MIN mbed_rpc_BuiltinMessageVersion_MSG_VER_ERROR
+#define _mbed_rpc_BuiltinMessageVersion_MAX mbed_rpc_BuiltinMessageVersion_MSG_VER_PING
+#define _mbed_rpc_BuiltinMessageVersion_ARRAYSIZE ((mbed_rpc_BuiltinMessageVersion)(mbed_rpc_BuiltinMessageVersion_MSG_VER_PING+1))
 
 
+
+#define mbed_rpc_Error_error_ENUMTYPE mbed_rpc_ErrorCode
 
 
 
 
 
 /* Initializer values for message structs */
-#define mbed_rpc_Header_init_default             {0, 0, 0, 0, 0}
+#define mbed_rpc_Header_init_default             {0, 0, 0, 0, 0, 0}
 #define mbed_rpc_BaseMessage_init_default        {mbed_rpc_Header_init_default}
-#define mbed_rpc_Ping_init_default               {mbed_rpc_Header_init_default, 0}
+#define mbed_rpc_Error_init_default              {mbed_rpc_Header_init_default, _mbed_rpc_ErrorCode_MIN, {0, {0}}}
+#define mbed_rpc_Ping_init_default               {mbed_rpc_Header_init_default}
 #define mbed_rpc_ListFunctionsRequest_init_default {mbed_rpc_Header_init_default}
 #define mbed_rpc_ListFunctionsResponse_init_default {mbed_rpc_Header_init_default, {{NULL}, NULL}}
-#define mbed_rpc_Header_init_zero                {0, 0, 0, 0, 0}
+#define mbed_rpc_Header_init_zero                {0, 0, 0, 0, 0, 0}
 #define mbed_rpc_BaseMessage_init_zero           {mbed_rpc_Header_init_zero}
-#define mbed_rpc_Ping_init_zero                  {mbed_rpc_Header_init_zero, 0}
+#define mbed_rpc_Error_init_zero                 {mbed_rpc_Header_init_zero, _mbed_rpc_ErrorCode_MIN, {0, {0}}}
+#define mbed_rpc_Ping_init_zero                  {mbed_rpc_Header_init_zero}
 #define mbed_rpc_ListFunctionsRequest_init_zero  {mbed_rpc_Header_init_zero}
 #define mbed_rpc_ListFunctionsResponse_init_zero {mbed_rpc_Header_init_zero, {{NULL}, NULL}}
 
@@ -97,9 +139,12 @@ extern "C" {
 #define mbed_rpc_Header_version_tag              3
 #define mbed_rpc_Header_seqId_tag                4
 #define mbed_rpc_Header_msgId_tag                5
+#define mbed_rpc_Header_svcId_tag                6
 #define mbed_rpc_BaseMessage_header_tag          1
+#define mbed_rpc_Error_header_tag                1
+#define mbed_rpc_Error_error_tag                 2
+#define mbed_rpc_Error_detail_tag                3
 #define mbed_rpc_Ping_header_tag                 1
-#define mbed_rpc_Ping_timestamp_tag              2
 #define mbed_rpc_ListFunctionsRequest_header_tag 1
 #define mbed_rpc_ListFunctionsResponse_header_tag 1
 #define mbed_rpc_ListFunctionsResponse_functions_tag 2
@@ -110,7 +155,8 @@ X(a, STATIC,   REQUIRED, UINT32,   crc,               1) \
 X(a, STATIC,   REQUIRED, UINT32,   size,              2) \
 X(a, STATIC,   REQUIRED, UINT32,   version,           3) \
 X(a, STATIC,   REQUIRED, UINT32,   seqId,             4) \
-X(a, STATIC,   REQUIRED, UINT32,   msgId,             5)
+X(a, STATIC,   REQUIRED, UINT32,   msgId,             5) \
+X(a, STATIC,   REQUIRED, UINT32,   svcId,             6)
 #define mbed_rpc_Header_CALLBACK NULL
 #define mbed_rpc_Header_DEFAULT NULL
 
@@ -120,9 +166,16 @@ X(a, STATIC,   REQUIRED, MESSAGE,  header,            1)
 #define mbed_rpc_BaseMessage_DEFAULT NULL
 #define mbed_rpc_BaseMessage_header_MSGTYPE mbed_rpc_Header
 
-#define mbed_rpc_Ping_FIELDLIST(X, a) \
+#define mbed_rpc_Error_FIELDLIST(X, a) \
 X(a, STATIC,   REQUIRED, MESSAGE,  header,            1) \
-X(a, STATIC,   REQUIRED, UINT32,   timestamp,         2)
+X(a, STATIC,   REQUIRED, UENUM,    error,             2) \
+X(a, STATIC,   REQUIRED, BYTES,    detail,            3)
+#define mbed_rpc_Error_CALLBACK NULL
+#define mbed_rpc_Error_DEFAULT NULL
+#define mbed_rpc_Error_header_MSGTYPE mbed_rpc_Header
+
+#define mbed_rpc_Ping_FIELDLIST(X, a) \
+X(a, STATIC,   REQUIRED, MESSAGE,  header,            1)
 #define mbed_rpc_Ping_CALLBACK NULL
 #define mbed_rpc_Ping_DEFAULT NULL
 #define mbed_rpc_Ping_header_MSGTYPE mbed_rpc_Header
@@ -142,6 +195,7 @@ X(a, CALLBACK, REPEATED, STRING,   functions,         2)
 
 extern const pb_msgdesc_t mbed_rpc_Header_msg;
 extern const pb_msgdesc_t mbed_rpc_BaseMessage_msg;
+extern const pb_msgdesc_t mbed_rpc_Error_msg;
 extern const pb_msgdesc_t mbed_rpc_Ping_msg;
 extern const pb_msgdesc_t mbed_rpc_ListFunctionsRequest_msg;
 extern const pb_msgdesc_t mbed_rpc_ListFunctionsResponse_msg;
@@ -149,17 +203,19 @@ extern const pb_msgdesc_t mbed_rpc_ListFunctionsResponse_msg;
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
 #define mbed_rpc_Header_fields &mbed_rpc_Header_msg
 #define mbed_rpc_BaseMessage_fields &mbed_rpc_BaseMessage_msg
+#define mbed_rpc_Error_fields &mbed_rpc_Error_msg
 #define mbed_rpc_Ping_fields &mbed_rpc_Ping_msg
 #define mbed_rpc_ListFunctionsRequest_fields &mbed_rpc_ListFunctionsRequest_msg
 #define mbed_rpc_ListFunctionsResponse_fields &mbed_rpc_ListFunctionsResponse_msg
 
 /* Maximum encoded size of messages (where known) */
 /* mbed_rpc_ListFunctionsResponse_size depends on runtime parameters */
-#define MBED_RPC_MBED_RPC_PB_H_MAX_SIZE          mbed_rpc_Ping_size
-#define mbed_rpc_BaseMessage_size                20
-#define mbed_rpc_Header_size                     18
-#define mbed_rpc_ListFunctionsRequest_size       20
-#define mbed_rpc_Ping_size                       26
+#define MBED_RPC_MBED_RPC_PB_H_MAX_SIZE          mbed_rpc_Error_size
+#define mbed_rpc_BaseMessage_size                22
+#define mbed_rpc_Error_size                      284
+#define mbed_rpc_Header_size                     20
+#define mbed_rpc_ListFunctionsRequest_size       22
+#define mbed_rpc_Ping_size                       22
 
 #ifdef __cplusplus
 } /* extern "C" */
@@ -170,7 +226,7 @@ extern const pb_msgdesc_t mbed_rpc_ListFunctionsResponse_msg;
 namespace nanopb {
 template <>
 struct MessageDescriptor<mbed_rpc_Header> {
-    static PB_INLINE_CONSTEXPR const pb_size_t fields_array_length = 5;
+    static PB_INLINE_CONSTEXPR const pb_size_t fields_array_length = 6;
     static inline const pb_msgdesc_t* fields() {
         return &mbed_rpc_Header_msg;
     }
@@ -183,8 +239,15 @@ struct MessageDescriptor<mbed_rpc_BaseMessage> {
     }
 };
 template <>
+struct MessageDescriptor<mbed_rpc_Error> {
+    static PB_INLINE_CONSTEXPR const pb_size_t fields_array_length = 3;
+    static inline const pb_msgdesc_t* fields() {
+        return &mbed_rpc_Error_msg;
+    }
+};
+template <>
 struct MessageDescriptor<mbed_rpc_Ping> {
-    static PB_INLINE_CONSTEXPR const pb_size_t fields_array_length = 2;
+    static PB_INLINE_CONSTEXPR const pb_size_t fields_array_length = 1;
     static inline const pb_msgdesc_t* fields() {
         return &mbed_rpc_Ping_msg;
     }

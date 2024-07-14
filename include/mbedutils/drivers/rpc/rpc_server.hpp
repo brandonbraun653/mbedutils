@@ -33,51 +33,43 @@ namespace mb::rpc::server
   struct Request;
   struct Response;
   class IRPCService;
+  class Server;
 
   /*---------------------------------------------------------------------------
   Aliases
   ---------------------------------------------------------------------------*/
 
   /**
-   * @brief Hashmap data-structure for storing Service descriptors
+   * @brief Hashmap data-structure for storing Service descriptors with a fixed size
+   *
+   * @tparam N  Number of elements to store
+   */
+  template<const size_t N>
+  using ServiceStorage = etl::unordered_map<SvcId, IRPCService, N>;
+
+  /**
+   * @brief A reference to a service descriptor storage location
    */
   using ServiceRegistry = etl::iunordered_map<SvcId, IRPCService>;
+
+
+  /**
+   * @brief Hashmap data-structure for storing Message descriptors with a fixed size
+   *
+   * @tparam N  Number of elements to store
+   */
+  template<const size_t N>
+  using MessageStorage = etl::unordered_map<MsgId, IRPCMessage, N>;
 
   /**
    * @brief Hashmap data-structure for storing Message descriptors
    */
   using MessageRegistry = etl::iunordered_map<MsgId, IRPCMessage>;
 
+
   /*---------------------------------------------------------------------------
   Structures
   ---------------------------------------------------------------------------*/
-
-  /**
-   * @brief Abstracts a single request message.
-   *
-   * This provides enough information to resolve the message decoder at runtime.
-   */
-  struct Request
-  {
-    MsgId       type; /**< What message type this request contains */
-    uint16_t    size; /**< Byte size of the payload, if given */
-    const void *data; /**< Optional data payload of the request */
-  };
-
-
-  /**
-   * @brief Abstracts a single response message.
-   *
-   * This provides enough information to resolve the message encoder at runtime.
-   */
-  struct Response
-  {
-    ErrId    status; /**< Status of the response */
-    MsgId    type;   /**< What message type this response contains */
-    uint16_t size;   /**< Size of the data payload, if given */
-    void    *data;   /**< Optional data payload of the response */
-  };
-
 
   /**
    * @brief Specifies the system resources consumed by the RPC server.
@@ -93,19 +85,6 @@ namespace mb::rpc::server
     size_t                   txScratchSize; /**< Size of the scratch buffer */
     uint8_t                 *rxScratch;     /**< Scratch buffer for decoding messages */
     size_t                   rxScratchSize; /**< Size of the scratch buffer */
-
-    /**
-     * @brief Configure how the server should handle incoming requests.
-     * @warning Requests may be handled in an ISR depending on the iostream implementation.
-     *
-     * If enabled, this will process requests immediately as they come in. If
-     * disabled, requests will be queued up and processed in a batch, but this
-     * places a requirement on the user to call runServices() periodically.
-     *
-     * If an asynchronous service is used, this setting is effectively ignored
-     * for that service only.
-     */
-    bool handleImmediate;
   };
 
   /*---------------------------------------------------------------------------
@@ -124,31 +103,37 @@ namespace mb::rpc::server
   {
   public:
     constexpr IRPCService( const SvcId id, const MsgId req, const MsgId rsp, const etl::string_view name ) :
-        mServiceId( id ), mRequestType( req ), mResponseType( rsp ), mName( name ) {};
+        mServiceId( id ), mRequestType( req ), mResponseType( rsp ), mName( name ){};
 
     virtual ~IRPCService() = default;
 
     /**
      * @brief Initializes the service and allocates any resources it needs.
      */
-    virtual void initialize() {};
+    virtual void initialize(){};
 
     /**
      * @brief Tears down the service and releases all resources.
      */
-    virtual void shutdown() {};
+    virtual void shutdown(){};
 
     /**
      * @brief A highly generic RPC service stub
      *
+     * This function is called by the server to process a request. The server caches the message
+     * data in the request and response objects, so the service can access the data as needed.
+     *
+     * @param server  Server instance that is processing the request
      * @param req     Request input data
      * @param rsp     Response output data
-     * @return true   If the service executed successfully
-     * @return false  Something went wrong
+     * @return mbed_rpc_ErrorCode_ERR_NO_ERROR   If the service executed successfully
+     * @return mbed_rpc_ErrorCode_ERR_SVC_ASYNC  If the service is async and will manually send a message later
+     * @return mbed_rpc_ErrorCode_<any>          Any other error code that may have occurred
      */
-    virtual void processRequest( const Request &req, Response &rsp )
+    virtual ErrId processRequest( Server& server, const IRPCMessage &req, IRPCMessage &rsp )
     {
       mbed_dbg_assert_always();
+      return mbed_rpc_ErrorCode_ERR_MAX_ERROR;
     };
 
     /**
@@ -281,39 +266,34 @@ namespace mb::rpc::server
     void removeMessage( const MsgId id );
 
     /**
-     * @brief Sends a response for an RPC service that is asynchronous.
+     * @brief Throws an error response back to the client for a given transaction.
      *
-     * This is intended to be used by a service that may take a long time to
-     * complete and is not immediately available to send a response.
-     *
-     * @param rsp     Response to send
-     * @return true   Message was queued successfully.
-     * @return false  Something went wrong during an attempt to send.
+     * @param txn_id      Transaction ID to respond to
+     * @param error_code  Error code to send
+     * @param msg         Optional message to send along with the error
      */
-    bool sendAsyncResponse( const Response &rsp );
+    void throwError( const size_t txn_id, const mbed_rpc_ErrorCode error_code, const etl::string_view msg );
 
-  protected:
-    bool rpc_invoke( const SvcId svc, const Request &req, Response &rsp );
-
-    void rpc_throw_error( const size_t txn_id, uint32_t error_code, etl::string_view &msg );
-
-    bool rpc_validate_request( const SvcId svc, const Request &req, uint32_t &error_code );
-
-    bool rpc_pack_response( const SvcId svc, void *const msg_data, const size_t msg_size, const Request &req, Response &rsp );
-
-    bool rpc_publish_message( const pb_msgdesc_t *dsc, const void *data );
+    /**
+     * @brief Publishes a message to the client.
+     *
+     * @param msg    The message to publish
+     * @return true  If the message was published successfully
+     * @return false If the message could not be published
+     */
+    bool publishMessage( IRPCMessage &dsc );
 
   private:
     friend class ::mb::thread::Lockable<Server>;
 
-    bool mIsOpen;
-    Config mConfig;
+    bool   mIsOpen;
+    Config mCfg;
 
+    bool process_next_request();
     bool read_cobs_frame();
     bool write_cobs_frame();
     void isr_on_io_write_complete();
     void isr_on_io_read_complete();
-    bool process_next_request();
   };
 }    // namespace mb::rpc::server
 

@@ -15,13 +15,16 @@
 /*-----------------------------------------------------------------------------
 Includes
 -----------------------------------------------------------------------------*/
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 #include <etl/delegate.h>
 #include <etl/vector.h>
 #include <mbedutils/assert.hpp>
 #include <mbedutils/drivers/threading/event.hpp>
+#include <mbedutils/drivers/threading/lock.hpp>
 #include <mbedutils/interfaces/irq_intf.hpp>
+#include <mbedutils/interfaces/mutex_intf.hpp>
+#include <mbedutils/interfaces/smphr_intf.hpp>
 #include <mbedutils/interfaces/time_intf.hpp>
 #include <mbedutils/interfaces/util_intf.hpp>
 

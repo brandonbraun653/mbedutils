@@ -53,3 +53,11 @@ add_library(${NANOPB_LIB_NAME} STATIC ${NANOPB_SRCS})
 target_link_libraries(${NANOPB_LIB_NAME} PRIVATE
     ${MBED_RPC_HEADERS}
 )
+
+
+# COBS Library
+set(COBS_LIB_NAME ${PROJECT_NAME}_lib_rpc_cobs)
+add_library(${COBS_LIB_NAME} STATIC ${CMAKE_CURRENT_SOURCE_DIR}/../../lib/cobs/cobs.c)
+target_link_libraries(${COBS_LIB_NAME} PRIVATE
+    ${MBED_RPC_HEADERS}
+)

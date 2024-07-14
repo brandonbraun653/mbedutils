@@ -19,44 +19,122 @@ else:
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 
+class _ProtocolVersion:
+    ValueType = typing.NewType("ValueType", builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _ProtocolVersionEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_ProtocolVersion.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    RPC_PROTOCOL_VER: _ProtocolVersion.ValueType  # 1
+
+class ProtocolVersion(_ProtocolVersion, metaclass=_ProtocolVersionEnumTypeWrapper): ...
+
+RPC_PROTOCOL_VER: ProtocolVersion.ValueType  # 1
+global___ProtocolVersion = ProtocolVersion
+
 class _ErrorCode:
     ValueType = typing.NewType("ValueType", builtins.int)
     V: typing_extensions.TypeAlias = ValueType
 
 class _ErrorCodeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_ErrorCode.ValueType], builtins.type):
     DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
-    NO_ERROR: _ErrorCode.ValueType  # 0
+    ERR_NO_ERROR: _ErrorCode.ValueType  # 0
+    """No error occurred"""
+    ERR_SVC_ASYNC: _ErrorCode.ValueType  # 1
+    """Used to indicate that the service is processing the request asynchronously without error so far"""
+    ERR_SVC_BUSY: _ErrorCode.ValueType  # 2
+    """Service is busy and cannot process the request"""
+    ERR_RPC_VER: _ErrorCode.ValueType  # 3
+    """RPC protocol version mismatch"""
+    ERR_MSG_VER: _ErrorCode.ValueType  # 4
+    """Message version mismatch"""
+    ERR_MSG_SIZE: _ErrorCode.ValueType  # 5
+    """Message size is incorrect"""
+    ERR_MSG_CRC: _ErrorCode.ValueType  # 6
+    """Message CRC is incorrect"""
+    ERR_MSG_DECODE: _ErrorCode.ValueType  # 7
+    """Message failed to decode"""
+    ERR_SVC_NOT_FOUND: _ErrorCode.ValueType  # 8
+    """Service not found"""
+    ERR_MSG_NOT_FOUND: _ErrorCode.ValueType  # 9
+    """Message not found"""
+    ERR_SVC_MSG: _ErrorCode.ValueType  # 10
+    """Service does not support the message"""
+    ERR_MAX_ERROR: _ErrorCode.ValueType  # 255
+    """Maximum error value"""
 
 class ErrorCode(_ErrorCode, metaclass=_ErrorCodeEnumTypeWrapper): ...
 
-NO_ERROR: ErrorCode.ValueType  # 0
+ERR_NO_ERROR: ErrorCode.ValueType  # 0
+"""No error occurred"""
+ERR_SVC_ASYNC: ErrorCode.ValueType  # 1
+"""Used to indicate that the service is processing the request asynchronously without error so far"""
+ERR_SVC_BUSY: ErrorCode.ValueType  # 2
+"""Service is busy and cannot process the request"""
+ERR_RPC_VER: ErrorCode.ValueType  # 3
+"""RPC protocol version mismatch"""
+ERR_MSG_VER: ErrorCode.ValueType  # 4
+"""Message version mismatch"""
+ERR_MSG_SIZE: ErrorCode.ValueType  # 5
+"""Message size is incorrect"""
+ERR_MSG_CRC: ErrorCode.ValueType  # 6
+"""Message CRC is incorrect"""
+ERR_MSG_DECODE: ErrorCode.ValueType  # 7
+"""Message failed to decode"""
+ERR_SVC_NOT_FOUND: ErrorCode.ValueType  # 8
+"""Service not found"""
+ERR_MSG_NOT_FOUND: ErrorCode.ValueType  # 9
+"""Message not found"""
+ERR_SVC_MSG: ErrorCode.ValueType  # 10
+"""Service does not support the message"""
+ERR_MAX_ERROR: ErrorCode.ValueType  # 255
+"""Maximum error value"""
 global___ErrorCode = ErrorCode
 
-class _BuiltinServices:
+class _BuiltinService:
     ValueType = typing.NewType("ValueType", builtins.int)
     V: typing_extensions.TypeAlias = ValueType
 
-class _BuiltinServicesEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_BuiltinServices.ValueType], builtins.type):
+class _BuiltinServiceEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_BuiltinService.ValueType], builtins.type):
     DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
-    SVC_PING: _BuiltinServices.ValueType  # 0
+    SVC_PING: _BuiltinService.ValueType  # 0
 
-class BuiltinServices(_BuiltinServices, metaclass=_BuiltinServicesEnumTypeWrapper): ...
+class BuiltinService(_BuiltinService, metaclass=_BuiltinServiceEnumTypeWrapper): ...
 
-SVC_PING: BuiltinServices.ValueType  # 0
-global___BuiltinServices = BuiltinServices
+SVC_PING: BuiltinService.ValueType  # 0
+global___BuiltinService = BuiltinService
 
-class _BuiltinMessages:
+class _BuiltinMessage:
     ValueType = typing.NewType("ValueType", builtins.int)
     V: typing_extensions.TypeAlias = ValueType
 
-class _BuiltinMessagesEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_BuiltinMessages.ValueType], builtins.type):
+class _BuiltinMessageEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_BuiltinMessage.ValueType], builtins.type):
     DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
-    MSG_PING: _BuiltinMessages.ValueType  # 0
+    MSG_NULL: _BuiltinMessage.ValueType  # 0
+    MSG_ERROR: _BuiltinMessage.ValueType  # 1
+    MSG_PING: _BuiltinMessage.ValueType  # 2
 
-class BuiltinMessages(_BuiltinMessages, metaclass=_BuiltinMessagesEnumTypeWrapper): ...
+class BuiltinMessage(_BuiltinMessage, metaclass=_BuiltinMessageEnumTypeWrapper): ...
 
-MSG_PING: BuiltinMessages.ValueType  # 0
-global___BuiltinMessages = BuiltinMessages
+MSG_NULL: BuiltinMessage.ValueType  # 0
+MSG_ERROR: BuiltinMessage.ValueType  # 1
+MSG_PING: BuiltinMessage.ValueType  # 2
+global___BuiltinMessage = BuiltinMessage
+
+class _BuiltinMessageVersion:
+    ValueType = typing.NewType("ValueType", builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _BuiltinMessageVersionEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_BuiltinMessageVersion.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    MSG_VER_ERROR: _BuiltinMessageVersion.ValueType  # 0
+    MSG_VER_PING: _BuiltinMessageVersion.ValueType  # 0
+
+class BuiltinMessageVersion(_BuiltinMessageVersion, metaclass=_BuiltinMessageVersionEnumTypeWrapper): ...
+
+MSG_VER_ERROR: BuiltinMessageVersion.ValueType  # 0
+MSG_VER_PING: BuiltinMessageVersion.ValueType  # 0
+global___BuiltinMessageVersion = BuiltinMessageVersion
 
 @typing.final
 class Header(google.protobuf.message.Message):
@@ -71,8 +149,9 @@ class Header(google.protobuf.message.Message):
     VERSION_FIELD_NUMBER: builtins.int
     SEQID_FIELD_NUMBER: builtins.int
     MSGID_FIELD_NUMBER: builtins.int
+    SVCID_FIELD_NUMBER: builtins.int
     crc: builtins.int
-    """CRC16 of the message for validity checks"""
+    """CRC16 of the message for validity checks (up to 4096 bytes)"""
     size: builtins.int
     """Size of the message in bytes"""
     version: builtins.int
@@ -81,6 +160,8 @@ class Header(google.protobuf.message.Message):
     """Sequence ID for the message transaction"""
     msgId: builtins.int
     """Root message identifier"""
+    svcId: builtins.int
+    """Service identifier the message is for"""
     def __init__(
         self,
         *,
@@ -89,9 +170,10 @@ class Header(google.protobuf.message.Message):
         version: builtins.int | None = ...,
         seqId: builtins.int | None = ...,
         msgId: builtins.int | None = ...,
+        svcId: builtins.int | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["crc", b"crc", "msgId", b"msgId", "seqId", b"seqId", "size", b"size", "version", b"version"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["crc", b"crc", "msgId", b"msgId", "seqId", b"seqId", "size", b"size", "version", b"version"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["crc", b"crc", "msgId", b"msgId", "seqId", b"seqId", "size", b"size", "svcId", b"svcId", "version", b"version"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["crc", b"crc", "msgId", b"msgId", "seqId", b"seqId", "size", b"size", "svcId", b"svcId", "version", b"version"]) -> None: ...
 
 global___Header = Header
 
@@ -115,24 +197,46 @@ class BaseMessage(google.protobuf.message.Message):
 global___BaseMessage = BaseMessage
 
 @typing.final
-class Ping(google.protobuf.message.Message):
-    """Simple ping message to test RPC connection."""
+class Error(google.protobuf.message.Message):
+    """Message type for error responses."""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     HEADER_FIELD_NUMBER: builtins.int
-    TIMESTAMP_FIELD_NUMBER: builtins.int
-    timestamp: builtins.int
+    ERROR_FIELD_NUMBER: builtins.int
+    DETAIL_FIELD_NUMBER: builtins.int
+    error: global___ErrorCode.ValueType
+    detail: builtins.bytes
     @property
     def header(self) -> global___Header: ...
     def __init__(
         self,
         *,
         header: global___Header | None = ...,
-        timestamp: builtins.int | None = ...,
+        error: global___ErrorCode.ValueType | None = ...,
+        detail: builtins.bytes | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["header", b"header", "timestamp", b"timestamp"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["header", b"header", "timestamp", b"timestamp"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["detail", b"detail", "error", b"error", "header", b"header"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["detail", b"detail", "error", b"error", "header", b"header"]) -> None: ...
+
+global___Error = Error
+
+@typing.final
+class Ping(google.protobuf.message.Message):
+    """Simple ping message to test RPC connection."""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    HEADER_FIELD_NUMBER: builtins.int
+    @property
+    def header(self) -> global___Header: ...
+    def __init__(
+        self,
+        *,
+        header: global___Header | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["header", b"header"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["header", b"header"]) -> None: ...
 
 global___Ping = Ping
 

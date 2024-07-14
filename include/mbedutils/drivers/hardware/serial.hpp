@@ -104,7 +104,7 @@ namespace mb::hw::serial
      * @param length Number of bytes to write from the buffer
      * @return int   Number of bytes actually written, negative on error
      */
-    virtual int write( const etl::icircular_buffer<uint8_t> &buffer, const size_t length ) = 0;
+    virtual int write( etl::icircular_buffer<uint8_t> &buffer, const size_t length ) = 0;
 
     /**
      * @brief Gets the number of bytes that can be written to the wire immediately
@@ -196,7 +196,7 @@ namespace mb::hw::serial
     bool   open( const Config &config ) final override;
     void   close() final override;
     int    write( const void *const buffer, const size_t length ) final override;
-    int    write( const etl::icircular_buffer<uint8_t> &buffer, const size_t length ) final override;
+    int    write( etl::icircular_buffer<uint8_t> &buffer, const size_t length ) final override;
     size_t writeable() final override;
     int    read( void *const buffer, const size_t length, const size_t timeout ) final override;
     int    read( etl::icircular_buffer<uint8_t> &buffer, const size_t length, const size_t timeout ) final override;
@@ -225,8 +225,11 @@ namespace mb::hw::serial
     TransferControl          mTXControl;
     TransferControl          mRXControl;
 
+    etl::span<uint8_t> write_enter_critical( const size_t length );
+    int write_exit_critical( etl::span<uint8_t> &span );
+
     etl::span<uint8_t> read_enter_critical( const size_t length, const size_t timeout );
-    void read_exit_critical( etl::span<uint8_t> &span );
+    int read_exit_critical( etl::span<uint8_t> &span );
 
     size_t start_tx_transfer( const size_t num_bytes = std::numeric_limits<size_t>::max() );
     void on_tx_complete_callback( const size_t channel, const size_t num_bytes );

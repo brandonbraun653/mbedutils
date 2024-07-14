@@ -20,18 +20,15 @@ namespace mb::rpc::services
   ---------------------------------------------------------------------------*/
 
   PingService::PingService() :
-      IRPCService( mbed_rpc_BuiltinServices_SVC_PING, mbed_rpc_BuiltinMessages_MSG_PING, mbed_rpc_BuiltinMessages_MSG_PING,
+      IRPCService( mbed_rpc_BuiltinService_SVC_PING, mbed_rpc_BuiltinMessage_MSG_PING, mbed_rpc_BuiltinMessage_MSG_PING,
                    "PingService" ),
       mPingResponse( {} )
   {
   }
 
-  void PingService::processRequest( const mb::rpc::server::Request &request, mb::rpc::server::Response &response )
+  ErrId PingService::processRequest( server::Server &server, const IRPCMessage &req, IRPCMessage &rsp )
   {
-    // Extract the ping message
-    mPingResponse = *(mbed_rpc_Ping*)request.data;
-
-    response.data = &mPingResponse;
+    return mbed_rpc_ErrorCode_ERR_NO_ERROR;
   }
 
 }  // namespace

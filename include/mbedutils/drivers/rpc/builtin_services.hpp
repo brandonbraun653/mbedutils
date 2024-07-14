@@ -36,7 +36,7 @@ namespace mb::rpc::services
     /**
      * @copydoc IRPCService::processRequest
      */
-    void processRequest( const mb::rpc::server::Request &request, mb::rpc::server::Response &response ) final override;
+    ErrId processRequest( server::Server &server, const IRPCMessage &req, IRPCMessage &rsp ) final override;
 
   private:
     mbed_rpc_Ping mPingResponse;

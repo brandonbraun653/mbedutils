@@ -64,6 +64,7 @@ namespace mb::logging
     ERR_NO_MEM,
     ERR_LOCKED,
     ERR_FULL,
+    ERR_NOT_INITIALIZED,
 
     ERR_INVALID_LEVEL
   };

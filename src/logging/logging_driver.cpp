@@ -39,6 +39,7 @@ namespace mb::logging
   static SinkRegistry               s_sink_reg;    /**< Registry of all user logging sinks */
   static osal::mb_recursive_mutex_t s_driver_lock; /**< Lock for changing driver state */
   static osal::mb_recursive_mutex_t s_format_lock; /**< Lock for accessing the log buffer */
+  static size_t                     s_initialized; /**< Initialization flag */
 
   /*---------------------------------------------------------------------------
   Private Functions
@@ -58,6 +59,11 @@ namespace mb::logging
 
   void initialize()
   {
+    if( s_initialized == mb::DRIVER_INITIALIZED_KEY )
+    {
+      return;
+    }
+
     /*-------------------------------------------------------------------------
     Prepare the module memory
     -------------------------------------------------------------------------*/
@@ -71,11 +77,18 @@ namespace mb::logging
 
     osal::buildRecursiveMutexStrategy( s_format_lock );
     mbed_assert( s_format_lock != nullptr );
+
+    s_initialized = mb::DRIVER_INITIALIZED_KEY;
   }
 
 
   ErrCode sets_log_level( const Level level )
   {
+    if( s_initialized != mb::DRIVER_INITIALIZED_KEY )
+    {
+      return ErrCode::ERR_NOT_INITIALIZED;
+    }
+
     osal::lockRecursiveMutex( s_driver_lock );
     s_log_level = level;
     osal::unlockRecursiveMutex( s_driver_lock );
@@ -92,6 +105,11 @@ namespace mb::logging
     bool   sinkIsRegistered = false;           /* Indicates if the sink we are registering already exists */
     bool   registryIsFull   = true;            /* Is the registry full of sinks? */
     auto   result           = ErrCode::ERR_OK; /* Function return code */
+
+    if( s_initialized != mb::DRIVER_INITIALIZED_KEY )
+    {
+      return ErrCode::ERR_NOT_INITIALIZED;
+    }
 
     if( osal::tryLockRecursiveMutex( s_driver_lock, MBEDUTILS_LOGGING_DEFAULT_LOCK_TIMEOUT ) )
     {
@@ -147,6 +165,11 @@ namespace mb::logging
   {
     ErrCode result = ErrCode::ERR_LOCKED;
 
+    if( s_initialized != mb::DRIVER_INITIALIZED_KEY )
+    {
+      return ErrCode::ERR_NOT_INITIALIZED;
+    }
+
     if( osal::tryLockRecursiveMutex( s_driver_lock, MBEDUTILS_LOGGING_DEFAULT_LOCK_TIMEOUT ) )
     {
       auto index = get_sink_offset_idx( sink );
@@ -181,6 +204,11 @@ namespace mb::logging
   {
     ErrCode result = ErrCode::ERR_LOCKED;
 
+    if( s_initialized != mb::DRIVER_INITIALIZED_KEY )
+    {
+      return ErrCode::ERR_NOT_INITIALIZED;
+    }
+
     if( osal::tryLockRecursiveMutex( s_driver_lock, MBEDUTILS_LOGGING_DEFAULT_LOCK_TIMEOUT ) )
     {
       s_root_sink = sink;
@@ -195,6 +223,11 @@ namespace mb::logging
 
   SinkHandle_rPtr getRootSink()
   {
+    if( s_initialized != mb::DRIVER_INITIALIZED_KEY )
+    {
+      return nullptr;
+    }
+
     return s_root_sink;
   }
 
@@ -204,6 +237,11 @@ namespace mb::logging
     /*-------------------------------------------------------------------------
     Input boundary checking
     -------------------------------------------------------------------------*/
+    if( s_initialized != mb::DRIVER_INITIALIZED_KEY )
+    {
+      return ErrCode::ERR_NOT_INITIALIZED;
+    }
+
     if( ( level < s_log_level ) || !message || !length )
     {
       return ErrCode::ERR_FAIL_BAD_ARG;
@@ -238,6 +276,11 @@ namespace mb::logging
     /*-------------------------------------------------------------------------
     Input boundary checking
     -------------------------------------------------------------------------*/
+    if( s_initialized != mb::DRIVER_INITIALIZED_KEY )
+    {
+      return ErrCode::ERR_NOT_INITIALIZED;
+    }
+
     if( ( lvl < s_log_level ) || !file || !fmt )
     {
       return ErrCode::ERR_FAIL_BAD_ARG;
