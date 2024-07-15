@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "mbedutils"
+version = "0.1.0"
+description = "Drivers and utilities to accompany my mbedutils C++ library"
+authors = ["Brandon Braun <brandonbraun653@protonmail.com>"]
+license = "MIT"
+readme = "README.md"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+cobs = "*"
