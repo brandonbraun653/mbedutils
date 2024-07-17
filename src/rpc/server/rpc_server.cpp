@@ -39,12 +39,12 @@ namespace mb::rpc::server
     Validate the configuration
     -------------------------------------------------------------------------*/
     /* clang-format off */
-    if( mIsOpen                  || !config.iostream
-     || !config.txBuffer         || !config.rxBuffer
-     || !config.svcReg           || !config.msgReg
-     || !config.txBuffer->size() || !config.rxBuffer->size()
-     || !config.txScratch        || !config.rxScratch
-     || !config.txScratchSize    || !config.rxScratchSize )
+    if( mIsOpen                       || !config.iostream
+     || !config.txBuffer              || !config.rxBuffer
+     || !config.svcReg                || !config.msgReg
+     || !config.txBuffer->available() || !config.rxBuffer->available()
+     || !config.txScratch             || !config.rxScratch
+     || !config.txScratchSize         || !config.rxScratchSize )
     { /* clang-format on */
       mbed_dbg_assert_continue_always();
       return false;
@@ -80,14 +80,8 @@ namespace mb::rpc::server
     memset( config.txScratch, 0, config.txScratchSize );
     memset( config.rxScratch, 0, config.rxScratchSize );
 
-    mCfg = config;
+    mCfg    = config;
     mIsOpen = true;
-
-    /*-------------------------------------------------------------------------
-    Bind builtin services and messages to the server
-    -------------------------------------------------------------------------*/
-    mbed_assert_continue( this->addMessage( messages::PingMessage() ) );
-    mbed_assert_continue( this->addService( services::PingService() ) );
 
     return true;
   }
@@ -134,18 +128,12 @@ namespace mb::rpc::server
   }
 
 
-  bool Server::addService( const IRPCService &service )
-  {
-    return this->addService( std::move( service ) );
-  }
-
-
-  bool Server::addService( const IRPCService &&service )
+  bool Server::addService( IRPCService *const service )
   {
     /*-------------------------------------------------------------------------
     Entrancy Protection
     -------------------------------------------------------------------------*/
-    if( !mIsOpen )
+    if( !mIsOpen || !service )
     {
       return false;
     }
@@ -157,27 +145,21 @@ namespace mb::rpc::server
     -------------------------------------------------------------------------*/
     if( mCfg.svcReg->full() )
     {
-      mbed_assert_continue_msg( false, "Unable to add service %d, registry is full", service.getServiceId() );
+      mbed_assert_continue_msg( false, "Registry is full: %s", service->getServiceName().data() );
       return false;
     }
 
-    mCfg.svcReg->insert( { service.getServiceId(), service } );
+    mCfg.svcReg->insert( { service->getServiceId(), service } );
     return true;
   }
 
 
-  bool Server::addMessage( const IRPCMessage &message )
-  {
-    return this->addMessage( std::move( message ) );
-  }
-
-
-  bool Server::addMessage( const IRPCMessage &&message )
+  bool Server::addMessage( IRPCMessage *message )
   {
     /*-------------------------------------------------------------------------
     Entrancy Protection
     -------------------------------------------------------------------------*/
-    if( !mIsOpen )
+    if( !mIsOpen || !message )
     {
       return false;
     }
@@ -189,11 +171,12 @@ namespace mb::rpc::server
     -------------------------------------------------------------------------*/
     if( mCfg.msgReg->full() )
     {
-      mbed_assert_continue_msg( false, "Unable to add message %d, registry is full", message.id );
+      mbed_assert_continue_msg( false, "Unable to add message %d, registry is full", message->id );
       return false;
     }
 
-    mCfg.msgReg->insert( { message.id, message } );
+    message->init();
+    mCfg.msgReg->insert( { message->id, message } );
     return true;
   }
 
@@ -280,6 +263,8 @@ namespace mb::rpc::server
     /*-------------------------------------------------------------------------
     Encode the message into the scratch tx buffer
     -------------------------------------------------------------------------*/
+    mbed_assert_continue_msg( mCfg.txScratch[ 0 ] == 0, "Clobbered cached message in tx buffer" );
+
     if( !dsc.encode_to_wire( mCfg.txScratch, mCfg.txScratchSize ) )
     {
       mbed_assert_continue_msg( false, "Failed to encode message %d", dsc.id );
@@ -314,8 +299,8 @@ namespace mb::rpc::server
     }
 
     /*-------------------------------------------------------------------------
-    Decode the message. Output size is always less than or equal to input size.
-    This will transform the buffer from COBS encoded to raw NanoPB data.
+    Decode the COBS framed message. Output size is always less than or equal
+    to input size. This will transform the buffer from COBS to raw NanoPB data.
     -------------------------------------------------------------------------*/
     size_t decode_size = strlen( reinterpret_cast<char *>( mCfg.rxScratch ) );
     auto   cobs_result = cobs_decode( mCfg.rxScratch, mCfg.rxScratchSize, mCfg.rxScratch, decode_size );
@@ -327,21 +312,41 @@ namespace mb::rpc::server
     }
 
     /*-------------------------------------------------------------------------
+    Validate the CRC field of the message. This is the first 2 bytes of the
+    frame, prepended by the sender.
+    -------------------------------------------------------------------------*/
+    etl::crc16_xmodem crc_calculator;
+
+    uint8_t *nanopb_data_start = mCfg.rxScratch + COBS_CRC_SIZE;
+    uint8_t *nanopb_data_end   = mCfg.rxScratch + cobs_result.out_len;
+    size_t   nanopb_data_size  = nanopb_data_end - nanopb_data_start;
+    std::copy( nanopb_data_start, nanopb_data_end, crc_calculator.input() );
+
+    const uint16_t expected_crc = *reinterpret_cast<uint16_t *>( mCfg.rxScratch );
+    const uint16_t actual_crc   = crc_calculator.value();
+
+    if( expected_crc != actual_crc )
+    {
+      mbed_assert_continue_msg( false, "CRC mismatch. Expected: %d, Actual: %d", expected_crc, actual_crc );
+      return false;
+    }
+
+    /*-------------------------------------------------------------------------
     Peek at the base message to determine the RPC type and ID
     -------------------------------------------------------------------------*/
     mbed_rpc_BaseMessage msg;
-    pb_istream_t stream = pb_istream_from_buffer( mCfg.rxScratch, cobs_result.out_len );
+    pb_istream_t         stream = pb_istream_from_buffer( nanopb_data_start, nanopb_data_size );
 
     if( !pb_decode( &stream, mbed_rpc_BaseMessage_fields, &msg ) )
     {
-      mbed_assert_continue_msg( false, "Failed to decode base message" );
+      mbed_assert_continue_msg( false, "Failed to decode BaseMessage: %s", stream.errmsg );
       return false;
     }
 
     /*-------------------------------------------------------------------------
     Find the service and message in the registry, then validate processability.
     -------------------------------------------------------------------------*/
-    auto svc_iter = mCfg.svcReg->find( msg.header.svcId );
+    auto svc_iter     = mCfg.svcReg->find( msg.header.svcId );
     auto msg_req_iter = mCfg.msgReg->find( msg.header.msgId );
 
     if( svc_iter == mCfg.svcReg->end() )
@@ -358,10 +363,9 @@ namespace mb::rpc::server
       return false;
     }
 
-    if( svc_iter->second.getRequestMessageId() != msg.header.msgId )
+    if( svc_iter->second->getRequestMessageId() != msg.header.msgId )
     {
-      npf_snprintf( err_msg, sizeof( err_msg ), "Service %d does not accept message %d", msg.header.svcId,
-                    msg.header.msgId );
+      npf_snprintf( err_msg, sizeof( err_msg ), "Service %d does not accept message %d", msg.header.svcId, msg.header.msgId );
       throwError( msg.header.seqId, mbed_rpc_ErrorCode_ERR_SVC_MSG, err_msg );
       return false;
     }
@@ -369,19 +373,20 @@ namespace mb::rpc::server
     /*-------------------------------------------------------------------------
     Find the response message type
     -------------------------------------------------------------------------*/
-    auto msg_rsp_iter = mCfg.msgReg->find( svc_iter->second.getResponseMessageId() );
+    auto msg_rsp_iter = mCfg.msgReg->find( svc_iter->second->getResponseMessageId() );
     if( msg_rsp_iter == mCfg.msgReg->end() )
     {
-      mbed_assert_continue_msg( false, "RPC response msg %d not found", svc_iter->second.getResponseMessageId() );
+      mbed_assert_continue_msg( false, "RPC service %s depends on msg type %d, but it's not registered",
+                                svc_iter->second->getServiceName(), svc_iter->second->getResponseMessageId() );
       return false;
     }
 
     /*-------------------------------------------------------------------------
-    Fully decode the message. Internally this will also validate the CRC field.
+    Fully decode the message into the message descriptor storage
     -------------------------------------------------------------------------*/
-    if( !msg_req_iter->second.decode_nanopb_frame( mCfg.rxScratch, cobs_result.out_len ) )
+    if( !msg_req_iter->second->decode_nanopb_frame( nanopb_data_start, nanopb_data_size ) )
     {
-      npf_snprintf( err_msg, sizeof( err_msg ), "Failed to decode NanoPB message %d", msg.header.msgId );
+      npf_snprintf( err_msg, sizeof( err_msg ), "Failed to decode message %d", msg.header.msgId );
       throwError( msg.header.seqId, mbed_rpc_ErrorCode_ERR_MSG_DECODE, err_msg );
       return false;
     }
@@ -389,7 +394,7 @@ namespace mb::rpc::server
     /*-------------------------------------------------------------------------
     Invoke the service.
     -------------------------------------------------------------------------*/
-    auto status = svc_iter->second.processRequest( *this, msg_req_iter->second, msg_rsp_iter->second );
+    auto status = svc_iter->second->processRequest( *this, *msg_req_iter->second, *msg_rsp_iter->second );
 
     switch( status )
     {
@@ -397,7 +402,7 @@ namespace mb::rpc::server
       Nominal path. Service completed and wants to send a response.
       -----------------------------------------------------------------------*/
       case mbed_rpc_ErrorCode_ERR_NO_ERROR:
-        publishMessage( msg_rsp_iter->second );
+        publishMessage( *msg_rsp_iter->second );
         break;
 
       /*-----------------------------------------------------------------------
@@ -427,12 +432,20 @@ namespace mb::rpc::server
   bool Server::read_cobs_frame()
   {
     /*-------------------------------------------------------------------------
+    Empty the RX buffer of any null bytes that may have been left over from
+    a previous frame. New frames start on the first non-null byte.
+    -------------------------------------------------------------------------*/
+    while( !mCfg.rxBuffer->empty() && ( mCfg.rxBuffer->front() == 0 ) )
+    {
+      mCfg.rxBuffer->pop();
+    }
+
+    /*-------------------------------------------------------------------------
     Scan the RX buffer for a full frame
     -------------------------------------------------------------------------*/
     size_t scratch_idx = 0;
 
-    for( auto iter = mCfg.rxBuffer->begin(); ( iter != mCfg.rxBuffer->end() ) && ( scratch_idx < mCfg.rxScratchSize );
-         iter++ )
+    for( auto iter = mCfg.rxBuffer->begin(); ( iter != mCfg.rxBuffer->end() ) && ( scratch_idx < mCfg.rxScratchSize ); iter++ )
     {
       mCfg.rxScratch[ scratch_idx ] = *iter;
 
@@ -447,7 +460,7 @@ namespace mb::rpc::server
     /*-------------------------------------------------------------------------
     Remove the frame data if a full COBS frame was found.
     -------------------------------------------------------------------------*/
-    if( mCfg.rxScratch[ scratch_idx ] == 0 )
+    if( ( scratch_idx != 0 ) && ( mCfg.rxScratch[ scratch_idx ] == 0 ) )
     {
       for( size_t i = 0; i < scratch_idx; i++ )
       {
@@ -456,6 +469,7 @@ namespace mb::rpc::server
 
       return true;
     }
+
     /*-------------------------------------------------------------------------
     If the buffer is full and no frame was found, then we have to flush it.
     This effectively means it's not possible to find a full frame anymore.
@@ -489,13 +503,13 @@ namespace mb::rpc::server
     -------------------------------------------------------------------------*/
     mCfg.txScratch[ mCfg.txScratchSize - 1 ] = 0;
 
-    size_t frame_size = strlen( reinterpret_cast<char *>( mCfg.txScratch ) );
+    size_t frame_size = strlen( reinterpret_cast<char *>( mCfg.txScratch ) ) + 1u;
 
     /*-------------------------------------------------------------------------
     Write the frame to the wire directly if we can.
     -------------------------------------------------------------------------*/
     size_t actual_size = 0;
-    if( mCfg.txBuffer->empty() && ( mCfg.iostream->writeable() >= frame_size ) )
+    if( ( frame_size > 1 ) && mCfg.txBuffer->empty() && ( mCfg.iostream->writeable() >= frame_size ) )
     {
       actual_size = mCfg.iostream->write( mCfg.txScratch, frame_size );
     }
@@ -508,6 +522,7 @@ namespace mb::rpc::server
 
     if( !remaining )
     {
+      mCfg.txScratch[ 0 ] = 0;
       return true;
     }
     else if( mCfg.txBuffer->available() >= remaining )
@@ -517,11 +532,12 @@ namespace mb::rpc::server
         mCfg.txBuffer->push( mCfg.txScratch[ i ] );
       }
 
+      mCfg.txScratch[ 0 ] = 0;
       return true;
     }
     else
     {
-      mbed_assert_continue_msg( false, "Lost %d bytes of COBS frame data", remaining );
+      // Leave the frame in the scratch buffer and try again later
       return false;
     }
   }

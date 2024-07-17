@@ -4,9 +4,7 @@ isort:skip_file
 """
 
 import builtins
-import collections.abc
 import google.protobuf.descriptor
-import google.protobuf.internal.containers
 import google.protobuf.internal.enum_type_wrapper
 import google.protobuf.message
 import sys
@@ -60,6 +58,8 @@ class _ErrorCodeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._Enum
     """Message not found"""
     ERR_SVC_MSG: _ErrorCode.ValueType  # 10
     """Service does not support the message"""
+    ERR_SVC_FAILED: _ErrorCode.ValueType  # 11
+    """Service failed to process the message"""
     ERR_MAX_ERROR: _ErrorCode.ValueType  # 255
     """Maximum error value"""
 
@@ -87,6 +87,8 @@ ERR_MSG_NOT_FOUND: ErrorCode.ValueType  # 9
 """Message not found"""
 ERR_SVC_MSG: ErrorCode.ValueType  # 10
 """Service does not support the message"""
+ERR_SVC_FAILED: ErrorCode.ValueType  # 11
+"""Service failed to process the message"""
 ERR_MAX_ERROR: ErrorCode.ValueType  # 255
 """Maximum error value"""
 global___ErrorCode = ErrorCode
@@ -113,12 +115,20 @@ class _BuiltinMessageEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper.
     MSG_NULL: _BuiltinMessage.ValueType  # 0
     MSG_ERROR: _BuiltinMessage.ValueType  # 1
     MSG_PING: _BuiltinMessage.ValueType  # 2
+    MSG_ACK_NACK: _BuiltinMessage.ValueType  # 3
+    MSG_TICK: _BuiltinMessage.ValueType  # 4
+    MSG_CONSOLE: _BuiltinMessage.ValueType  # 5
+    MSG_SYSTEM_INFO: _BuiltinMessage.ValueType  # 6
 
 class BuiltinMessage(_BuiltinMessage, metaclass=_BuiltinMessageEnumTypeWrapper): ...
 
 MSG_NULL: BuiltinMessage.ValueType  # 0
 MSG_ERROR: BuiltinMessage.ValueType  # 1
 MSG_PING: BuiltinMessage.ValueType  # 2
+MSG_ACK_NACK: BuiltinMessage.ValueType  # 3
+MSG_TICK: BuiltinMessage.ValueType  # 4
+MSG_CONSOLE: BuiltinMessage.ValueType  # 5
+MSG_SYSTEM_INFO: BuiltinMessage.ValueType  # 6
 global___BuiltinMessage = BuiltinMessage
 
 class _BuiltinMessageVersion:
@@ -129,11 +139,19 @@ class _BuiltinMessageVersionEnumTypeWrapper(google.protobuf.internal.enum_type_w
     DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
     MSG_VER_ERROR: _BuiltinMessageVersion.ValueType  # 0
     MSG_VER_PING: _BuiltinMessageVersion.ValueType  # 0
+    MSG_VER_ACK_NACK: _BuiltinMessageVersion.ValueType  # 0
+    MSG_VER_TICK: _BuiltinMessageVersion.ValueType  # 0
+    MSG_VER_CONSOLE: _BuiltinMessageVersion.ValueType  # 0
+    MSG_VER_SYSTEM_INFO: _BuiltinMessageVersion.ValueType  # 0
 
 class BuiltinMessageVersion(_BuiltinMessageVersion, metaclass=_BuiltinMessageVersionEnumTypeWrapper): ...
 
 MSG_VER_ERROR: BuiltinMessageVersion.ValueType  # 0
 MSG_VER_PING: BuiltinMessageVersion.ValueType  # 0
+MSG_VER_ACK_NACK: BuiltinMessageVersion.ValueType  # 0
+MSG_VER_TICK: BuiltinMessageVersion.ValueType  # 0
+MSG_VER_CONSOLE: BuiltinMessageVersion.ValueType  # 0
+MSG_VER_SYSTEM_INFO: BuiltinMessageVersion.ValueType  # 0
 global___BuiltinMessageVersion = BuiltinMessageVersion
 
 @typing.final
@@ -144,18 +162,12 @@ class Header(google.protobuf.message.Message):
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
-    CRC_FIELD_NUMBER: builtins.int
-    SIZE_FIELD_NUMBER: builtins.int
     VERSION_FIELD_NUMBER: builtins.int
     SEQID_FIELD_NUMBER: builtins.int
     MSGID_FIELD_NUMBER: builtins.int
     SVCID_FIELD_NUMBER: builtins.int
-    crc: builtins.int
-    """CRC16 of the message for validity checks (up to 4096 bytes)"""
-    size: builtins.int
-    """Size of the message in bytes"""
     version: builtins.int
-    """Version of this message & RPC protocol. Upper 4 bits are RPC, lower 4 bits are message."""
+    """Version of this message."""
     seqId: builtins.int
     """Sequence ID for the message transaction"""
     msgId: builtins.int
@@ -165,15 +177,13 @@ class Header(google.protobuf.message.Message):
     def __init__(
         self,
         *,
-        crc: builtins.int | None = ...,
-        size: builtins.int | None = ...,
         version: builtins.int | None = ...,
         seqId: builtins.int | None = ...,
         msgId: builtins.int | None = ...,
         svcId: builtins.int | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["crc", b"crc", "msgId", b"msgId", "seqId", b"seqId", "size", b"size", "svcId", b"svcId", "version", b"version"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["crc", b"crc", "msgId", b"msgId", "seqId", b"seqId", "size", b"size", "svcId", b"svcId", "version", b"version"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["msgId", b"msgId", "seqId", b"seqId", "svcId", b"svcId", "version", b"version"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["msgId", b"msgId", "seqId", b"seqId", "svcId", b"svcId", "version", b"version"]) -> None: ...
 
 global___Header = Header
 
@@ -197,7 +207,7 @@ class BaseMessage(google.protobuf.message.Message):
 global___BaseMessage = BaseMessage
 
 @typing.final
-class Error(google.protobuf.message.Message):
+class ErrorMessage(google.protobuf.message.Message):
     """Message type for error responses."""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
@@ -219,10 +229,10 @@ class Error(google.protobuf.message.Message):
     def HasField(self, field_name: typing.Literal["detail", b"detail", "error", b"error", "header", b"header"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing.Literal["detail", b"detail", "error", b"error", "header", b"header"]) -> None: ...
 
-global___Error = Error
+global___ErrorMessage = ErrorMessage
 
 @typing.final
-class Ping(google.protobuf.message.Message):
+class PingMessage(google.protobuf.message.Message):
     """Simple ping message to test RPC connection."""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
@@ -238,46 +248,120 @@ class Ping(google.protobuf.message.Message):
     def HasField(self, field_name: typing.Literal["header", b"header"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing.Literal["header", b"header"]) -> None: ...
 
-global___Ping = Ping
+global___PingMessage = PingMessage
 
 @typing.final
-class ListFunctionsRequest(google.protobuf.message.Message):
-    """Message to request a list of all available RPC functions."""
+class AckNackMessage(google.protobuf.message.Message):
+    """Generic ACK or NACK to a previous message, with optional data payload"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     HEADER_FIELD_NUMBER: builtins.int
+    ACKNOWLEDGE_FIELD_NUMBER: builtins.int
+    STATUS_CODE_FIELD_NUMBER: builtins.int
+    DATA_FIELD_NUMBER: builtins.int
+    acknowledge: builtins.bool
+    """True if this is an ACK, false if it's a NACK"""
+    status_code: global___ErrorCode.ValueType
+    """Optional error code for the ACK/NACK"""
+    data: builtins.bytes
+    """Optional data payload for small responses"""
     @property
     def header(self) -> global___Header: ...
     def __init__(
         self,
         *,
         header: global___Header | None = ...,
+        acknowledge: builtins.bool | None = ...,
+        status_code: global___ErrorCode.ValueType | None = ...,
+        data: builtins.bytes | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["header", b"header"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["header", b"header"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["acknowledge", b"acknowledge", "data", b"data", "header", b"header", "status_code", b"status_code"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["acknowledge", b"acknowledge", "data", b"data", "header", b"header", "status_code", b"status_code"]) -> None: ...
 
-global___ListFunctionsRequest = ListFunctionsRequest
+global___AckNackMessage = AckNackMessage
 
 @typing.final
-class ListFunctionsResponse(google.protobuf.message.Message):
-    """Message to respond to a ListFunctionsRequest."""
+class TickMessage(google.protobuf.message.Message):
+    """Advertise the current system tick time"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     HEADER_FIELD_NUMBER: builtins.int
-    FUNCTIONS_FIELD_NUMBER: builtins.int
+    TICK_FIELD_NUMBER: builtins.int
+    tick: builtins.int
+    """System time in milliseconds"""
     @property
     def header(self) -> global___Header: ...
-    @property
-    def functions(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]: ...
     def __init__(
         self,
         *,
         header: global___Header | None = ...,
-        functions: collections.abc.Iterable[builtins.str] | None = ...,
+        tick: builtins.int | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["header", b"header"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["functions", b"functions", "header", b"header"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["header", b"header", "tick", b"tick"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["header", b"header", "tick", b"tick"]) -> None: ...
 
-global___ListFunctionsResponse = ListFunctionsResponse
+global___TickMessage = TickMessage
+
+@typing.final
+class ConsoleMessage(google.protobuf.message.Message):
+    """Stream console messages in real time"""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    HEADER_FIELD_NUMBER: builtins.int
+    THIS_FRAME_FIELD_NUMBER: builtins.int
+    TOTAL_FRAMES_FIELD_NUMBER: builtins.int
+    DATA_FIELD_NUMBER: builtins.int
+    this_frame: builtins.int
+    """Which frame is this?"""
+    total_frames: builtins.int
+    """How many frames are there?"""
+    data: builtins.bytes
+    """Data payload"""
+    @property
+    def header(self) -> global___Header: ...
+    def __init__(
+        self,
+        *,
+        header: global___Header | None = ...,
+        this_frame: builtins.int | None = ...,
+        total_frames: builtins.int | None = ...,
+        data: builtins.bytes | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["data", b"data", "header", b"header", "this_frame", b"this_frame", "total_frames", b"total_frames"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["data", b"data", "header", b"header", "this_frame", b"this_frame", "total_frames", b"total_frames"]) -> None: ...
+
+global___ConsoleMessage = ConsoleMessage
+
+@typing.final
+class SystemInfoMessage(google.protobuf.message.Message):
+    """Message type for announcing some device descriptions"""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    HEADER_FIELD_NUMBER: builtins.int
+    SW_VERSION_FIELD_NUMBER: builtins.int
+    SERIAL_NUMBER_FIELD_NUMBER: builtins.int
+    DESCRIPTION_FIELD_NUMBER: builtins.int
+    sw_version: builtins.str
+    """Software version"""
+    serial_number: builtins.str
+    """Serial number"""
+    description: builtins.str
+    """Device description"""
+    @property
+    def header(self) -> global___Header: ...
+    def __init__(
+        self,
+        *,
+        header: global___Header | None = ...,
+        sw_version: builtins.str | None = ...,
+        serial_number: builtins.str | None = ...,
+        description: builtins.str | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["description", b"description", "header", b"header", "serial_number", b"serial_number", "sw_version", b"sw_version"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["description", b"description", "header", b"header", "serial_number", b"serial_number", "sw_version", b"sw_version"]) -> None: ...
+
+global___SystemInfoMessage = SystemInfoMessage

@@ -13,3 +13,6 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry.dependencies]
 python = "^3.10"
 cobs = "*"
+pyserial = "*"
+loguru = "*"
+nanopb = "^0.4.8"   # This matches the version in the mbedutils library

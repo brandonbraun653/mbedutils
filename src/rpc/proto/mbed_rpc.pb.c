@@ -12,16 +12,22 @@ PB_BIND(mbed_rpc_Header, mbed_rpc_Header, AUTO)
 PB_BIND(mbed_rpc_BaseMessage, mbed_rpc_BaseMessage, AUTO)
 
 
-PB_BIND(mbed_rpc_Error, mbed_rpc_Error, 2)
+PB_BIND(mbed_rpc_ErrorMessage, mbed_rpc_ErrorMessage, 2)
 
 
-PB_BIND(mbed_rpc_Ping, mbed_rpc_Ping, AUTO)
+PB_BIND(mbed_rpc_PingMessage, mbed_rpc_PingMessage, AUTO)
 
 
-PB_BIND(mbed_rpc_ListFunctionsRequest, mbed_rpc_ListFunctionsRequest, AUTO)
+PB_BIND(mbed_rpc_AckNackMessage, mbed_rpc_AckNackMessage, AUTO)
 
 
-PB_BIND(mbed_rpc_ListFunctionsResponse, mbed_rpc_ListFunctionsResponse, AUTO)
+PB_BIND(mbed_rpc_TickMessage, mbed_rpc_TickMessage, AUTO)
+
+
+PB_BIND(mbed_rpc_ConsoleMessage, mbed_rpc_ConsoleMessage, AUTO)
+
+
+PB_BIND(mbed_rpc_SystemInfoMessage, mbed_rpc_SystemInfoMessage, AUTO)
 
 
 

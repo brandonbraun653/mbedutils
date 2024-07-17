@@ -45,12 +45,12 @@ namespace mb::rpc::server
    * @tparam N  Number of elements to store
    */
   template<const size_t N>
-  using ServiceStorage = etl::unordered_map<SvcId, IRPCService, N>;
+  using ServiceStorage = etl::unordered_map<SvcId, IRPCService*, N>;
 
   /**
    * @brief A reference to a service descriptor storage location
    */
-  using ServiceRegistry = etl::iunordered_map<SvcId, IRPCService>;
+  using ServiceRegistry = etl::iunordered_map<SvcId, IRPCService*>;
 
 
   /**
@@ -59,12 +59,12 @@ namespace mb::rpc::server
    * @tparam N  Number of elements to store
    */
   template<const size_t N>
-  using MessageStorage = etl::unordered_map<MsgId, IRPCMessage, N>;
+  using MessageStorage = etl::unordered_map<MsgId, IRPCMessage*, N>;
 
   /**
    * @brief Hashmap data-structure for storing Message descriptors
    */
-  using MessageRegistry = etl::iunordered_map<MsgId, IRPCMessage>;
+  using MessageRegistry = etl::iunordered_map<MsgId, IRPCMessage*>;
 
 
   /*---------------------------------------------------------------------------
@@ -230,12 +230,7 @@ namespace mb::rpc::server
      * @return true   The service was registered successfully.
      * @return false  Failed to register for some reason.
      */
-    bool addService( const IRPCService &svc );
-
-    /**
-     * @copydoc addService
-     */
-    bool addService( const IRPCService &&svc );
+    bool addService( IRPCService *const svc );
 
     /**
      * @brief Remove a service from this RPC server.
@@ -251,12 +246,7 @@ namespace mb::rpc::server
      * @return true   The message was registered successfully.
      * @return false  Failed to register for some reason.
      */
-    bool addMessage( const IRPCMessage &msg );
-
-    /**
-     * @copydoc addMessage
-     */
-    bool addMessage( const IRPCMessage &&msg );
+    bool addMessage( IRPCMessage *const msg );
 
     /**
      * @brief Removes a message from this RPC server.

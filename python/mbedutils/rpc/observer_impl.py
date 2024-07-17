@@ -1,32 +1,21 @@
-# **********************************************************************************************************************
-#   FileName:
-#       observers.py
-#
-#   Description:
-#       Various observers for the serial client
-#
-#   01/20/2023 | Brandon Braun | brandonbraun653@gmail.com
-# **********************************************************************************************************************
-
 from __future__ import annotations
 
 import copy
 import time
 from functools import cmp_to_key
 from queue import Queue
-
 from loguru import logger
-from typing import Dict, List, Callable, Optional
-from pyorbit.serial.messages import *
-from pyorbit.observers import MessageObserver
+from typing import Dict, List, Callable, Union
 from threading import Thread, Lock, Event
-from pyorbit.serial.messages import BasePBMsg
+from mbedutils.rpc.message import *
+from mbedutils.rpc.observer import MessageObserver
 
 
 class ConsoleObserver(MessageObserver):
-    """ Simple observer for listening to console messages off the OrbitESC debug port """
+    """ Simple observer for listening to console messages """
 
     class FrameBuffer:
+        """ Internal accumulator of frames for a single message """
         def __init__(self):
             self.start_time = time.time()
             self.total_frames = 0
@@ -40,6 +29,10 @@ class ConsoleObserver(MessageObserver):
             return final_msg
 
     def __init__(self, on_msg_rx: Callable[[str], None]):
+        """
+        Args:
+            on_msg_rx: Callback to invoke when a full message is received
+        """
         super().__init__(func=self._frame_accumulator, msg_type=ConsolePBMsg)
         self._frame_lock = Lock()
         self._on_msg_rx = on_msg_rx
@@ -101,6 +94,11 @@ class TransactionResponseObserver(MessageObserver):
     """ Observer for listening to the response of a specific message """
 
     def __init__(self, txn_uuid: int, timeout: Union[int, float]):
+        """
+        Args:
+            txn_uuid: UUID of the message we're waiting for
+            timeout: How long to wait for the response in seconds
+        """
         # Register the observer to listen to all messages
         super().__init__(func=self._uuid_matcher_observer, msg_type=type(None), timeout=timeout)
         self._result: Optional[BasePBMsg] = None
@@ -164,8 +162,7 @@ class PredicateObserver(MessageObserver):
 
     def _predicate_matcher_observer(self, msg: BasePBMsg) -> None:
         """
-        Callback for the observer. Will only accept messages that pass the user defined
-        predicate.
+        Callback for the observer. Will only accept messages that pass the user defined predicate.
         Args:
             msg: Message being observed
 

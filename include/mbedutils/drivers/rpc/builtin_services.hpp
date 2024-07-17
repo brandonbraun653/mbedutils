@@ -37,9 +37,6 @@ namespace mb::rpc::services
      * @copydoc IRPCService::processRequest
      */
     ErrId processRequest( server::Server &server, const IRPCMessage &req, IRPCMessage &rsp ) final override;
-
-  private:
-    mbed_rpc_Ping mPingResponse;
   };
 
 }  // namespace mb::rpc::services

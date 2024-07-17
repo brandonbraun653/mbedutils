@@ -17,8 +17,10 @@ Includes
 -----------------------------------------------------------------------------*/
 #include <cobs.h>
 #include <cstdint>
+#include <cstddef>
+#include <cstring>
 #include <etl/circular_buffer.h>
-#include <etl/crc16.h>
+#include <etl/crc.h>
 #include <etl/vector.h>
 #include <mbed_rpc.pb.h>
 #include <pb.h>
@@ -101,6 +103,20 @@ namespace mb::rpc
   template<const size_t N>
   using ScratchStorage = etl::array<uint8_t, N>;
 
+  /*---------------------------------------------------------------------------
+  Constants
+  ---------------------------------------------------------------------------*/
+
+  /**
+   * @brief Storage size of the null terminator that COBS ends every frame with
+   */
+  static constexpr size_t COBS_TERM_SIZE = 1u;
+
+  /**
+   * @brief Storage for the CRC16 value that gets prefixed to every frame
+   */
+  static constexpr size_t COBS_CRC_SIZE = 2u;
+
 
   /*---------------------------------------------------------------------------
   Classes
@@ -118,6 +134,7 @@ namespace mb::rpc
     const MsgSize   max_wire_size; /**< Max size of the fully encoded message */
     const MsgSize   max_data_size; /**< Max size of the un-encoded data storage */
     void *const     data_impl;     /**< Pointer to the data structure */
+    size_t          data_size;     /**< Actual size of the data structure being sent */
 
     /**
      * @brief Constructs the message descriptor
@@ -125,14 +142,14 @@ namespace mb::rpc
      * @param id         Unique identifier for the message
      * @param npb_fields NanoPB message descriptor
      * @param npb_size   Size of the NanoPB message
-     * @param data_size  Size of the un-encoded data storage structure
+     * @param struct_size  Size of the un-encoded data storage structure
      */
     constexpr IRPCMessage( const MsgId id, const MsgVer ver, MsgFields npb_fields, const MsgSize npb_size,
-                           const MsgSize data_size, void *const data_impl ) :
+                           const MsgSize struct_size, void *const data_impl ) :
         id( id ),
         version( ver ), fields( npb_fields ),
-        max_wire_size( std::max<MsgSize>( COBS_ENCODE_DST_BUF_LEN_MAX( npb_size ), COBS_DECODE_DST_BUF_LEN_MAX( npb_size ) ) + 1u ),
-        max_data_size( data_size ), data_impl( data_impl )
+        max_wire_size( std::max<MsgSize>( COBS_ENCODE_DST_BUF_LEN_MAX( npb_size ), COBS_DECODE_DST_BUF_LEN_MAX( npb_size ) ) + COBS_TERM_SIZE  + COBS_CRC_SIZE ),
+        max_data_size( struct_size ), data_impl( data_impl ), data_size( struct_size )
     {
     }
 
@@ -146,10 +163,9 @@ namespace mb::rpc
         memset( data_impl, 0, max_data_size );
         mbed_rpc_Header *header = reinterpret_cast<mbed_rpc_Header *>( data_impl );
 
-        header->crc     = 0xFFFF;
-        header->size    = max_data_size;
         header->version = version;
         header->msgId   = id;
+        data_size       = max_data_size;
       }
     }
 
@@ -166,41 +182,35 @@ namespace mb::rpc
       /*-----------------------------------------------------------------------
       Input Validation
       -----------------------------------------------------------------------*/
-      if( !data_impl || !frame )
+      if( !data_impl || !frame || ( frame_size < max_wire_size) || ( data_size > max_data_size ) )
       {
         mbed_dbg_assert_continue_always();
         return 0;
       }
 
       /*-----------------------------------------------------------------------
-      Double check some upper limits on sizing
+      Make sure the header is up to date for this message
       -----------------------------------------------------------------------*/
-      mbed_rpc_Header *header = reinterpret_cast<mbed_rpc_Header *>( data_impl );
-
-      if( ( frame_size < max_wire_size )        /* Frame is too small to hold this message's max size */
-          || ( header->size > max_data_size ) ) /* Malformed header. Can't possibly hold this. */
-      {
-        mbed_dbg_assert_continue_always();
-        return 0;
-      }
-
-      /*-----------------------------------------------------------------------
-      Update the CRC field in the header
-      -----------------------------------------------------------------------*/
-      header->crc     = 0xFFFF;
+      auto header     = reinterpret_cast<mbed_rpc_Header *>( data_impl );
       header->version = version;
       header->msgId   = id;
 
-      auto       data_ptr = reinterpret_cast<const uint8_t *const>( data_impl );
-      etl::crc16 crc_calculator;
-      std::copy( data_ptr, data_ptr + header->size, crc_calculator.input() );
+      /*-----------------------------------------------------------------------
+      Prepend the CRC16 value to the frame this is computed over the entire
+      message data structure.
+      -----------------------------------------------------------------------*/
+      etl::crc16_xmodem crc_calculator;
 
-      header->crc = crc_calculator.value();
+      uint8_t *data_ptr = reinterpret_cast<uint8_t *>( data_impl );
+      std::copy( data_ptr, data_ptr + data_size, crc_calculator.input() );
+
+      uint16_t *crc_ptr = reinterpret_cast<uint16_t *>( frame );
+      *crc_ptr          = crc_calculator.value();
 
       /*-----------------------------------------------------------------------
       Encode the NanoPB message
       -----------------------------------------------------------------------*/
-      pb_ostream_t stream = pb_ostream_from_buffer( frame, frame_size );
+      pb_ostream_t stream = pb_ostream_from_buffer( frame + COBS_CRC_SIZE, frame_size - COBS_CRC_SIZE );
       if( !pb_encode( &stream, fields, data_impl ) )
       {
         mbed_dbg_assert_continue_always();
@@ -218,12 +228,12 @@ namespace mb::rpc
       }
 
       /*-----------------------------------------------------------------------
-      Enforce null termination
+      Enforce null termination of the COBS frame
       -----------------------------------------------------------------------*/
       mbed_dbg_assert( result.out_len < frame_size );
-      frame[ frame_size - 1 ] = '\0';
+      frame[ result.out_len ] = '\0';
 
-      return result.out_len;
+      return result.out_len + COBS_TERM_SIZE;
     }
 
     /**
@@ -239,7 +249,7 @@ namespace mb::rpc
       /*-----------------------------------------------------------------------
       Input Validation
       -----------------------------------------------------------------------*/
-      if( !data_impl || !frame || size < max_wire_size )
+      if( !data_impl || !frame || size > max_wire_size )
       {
         mbed_dbg_assert_continue_always();
         return false;
@@ -251,29 +261,7 @@ namespace mb::rpc
       pb_istream_t stream = pb_istream_from_buffer( frame, size );
       if( !pb_decode( &stream, fields, data_impl ) )
       {
-        mbed_dbg_assert_continue_always();
-        return false;
-      }
-
-      /*-----------------------------------------------------------------------
-      Validate the CRC field in the header
-      -----------------------------------------------------------------------*/
-      auto header   = reinterpret_cast<const mbed_rpc_Header *const>( data_impl );
-      auto data_ptr = reinterpret_cast<const uint8_t *const>( data_impl );
-
-      if( header->size > size )
-      {
-        mbed_assert_continue_msg( false, "Malformed header. Claimed size of %d is larger than the frame size of %d",
-                                  header->size, size );
-        return false;
-      }
-
-      etl::crc16 crc_calculator;
-      std::copy( data_ptr, data_ptr + header->size, crc_calculator.input() );
-
-      if( crc_calculator.value() != 0 )
-      {
-        mbed_dbg_assert_continue_always();
+        mbed_assert_continue_msg( false, stream.errmsg );
         return false;
       }
 
@@ -299,11 +287,11 @@ namespace mb::rpc::messages
 
   /* MSG_ERROR */
   DECLARE_RPC_MESSAGE( ErrorMessage, mbed_rpc_BuiltinMessage_MSG_ERROR, mbed_rpc_BuiltinMessageVersion_MSG_VER_ERROR,
-                       mbed_rpc_Error_fields, mbed_rpc_Error_size, mbed_rpc_Error );
+                       mbed_rpc_ErrorMessage_fields, mbed_rpc_ErrorMessage_size, mbed_rpc_ErrorMessage );
 
   /* MSG_PING */
   DECLARE_RPC_MESSAGE( PingMessage, mbed_rpc_BuiltinMessage_MSG_PING, mbed_rpc_BuiltinMessageVersion_MSG_VER_PING,
-                       mbed_rpc_Ping_fields, mbed_rpc_Ping_size, mbed_rpc_Ping );
+                       mbed_rpc_PingMessage_fields, mbed_rpc_PingMessage_size, mbed_rpc_PingMessage );
 }    // namespace mb::rpc::messages
 
 #endif /* !MBEDUTILS_RPC_COMMON_HPP */

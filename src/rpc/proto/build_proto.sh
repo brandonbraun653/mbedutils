@@ -22,11 +22,11 @@ _cwd=$(pwd)
 SRC_DIR=$_cwd
 NPB_ROOT=$_cwd/../../../lib/nanopb
 NPB_INC=$NPB_ROOT/generator/proto
-DST_DIR=$_cwd
+PY_DST_DIR=$_cwd/../../../python/mbedutils/rpc/proto
 
 # Build the C bindings
-python $NPB_ROOT/generator/nanopb_generator.py --cpp-descriptors --output-dir="$SRC_DIR" --proto-path="$SRC_DIR" mbed_rpc.proto
+python "$NPB_ROOT"/generator/nanopb_generator.py --cpp-descriptors --output-dir="$SRC_DIR" --proto-path="$SRC_DIR" mbed_rpc.proto
 
 
 # Build the Python bindings with mypy definitions
-protoc -I="$SRC_DIR" -I="$NPB_INC" --python_out="$DST_DIR" --mypy_out="$DST_DIR" "$SRC_DIR"/*.proto
+protoc -I="$SRC_DIR" -I="$NPB_INC" --python_out="$PY_DST_DIR" --mypy_out="$PY_DST_DIR" "$SRC_DIR"/*.proto

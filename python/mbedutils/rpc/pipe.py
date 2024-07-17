@@ -1,31 +1,27 @@
-# **********************************************************************************************************************
-#   FileName:
-#       pipe.py
-#
-#   Description:
-#       Serial pipe framing formatter to communicate with an OrbitESC device
-#
-#   12/12/2022 | Brandon Braun | brandonbraun653@gmail.com
-# **********************************************************************************************************************
+import copy
 import queue
 import time
-from typing import List, Optional, Union, Callable
 
-import pyorbit.nanopb.serial_interface_pb2 as proto
+import sys
+from pathlib import Path
+nanopb_dir = Path(Path(__file__).parent.parent.parent.parent, "lib/nanopb/generator/proto")
+sys.path.append(f"{nanopb_dir.as_posix()}")
+
+import mbedutils.rpc.proto.mbed_rpc_pb2 as proto
 import google.protobuf.message as g_proto_msg
+from typing import List, Optional, Union, Callable, Dict
 from cobs import cobs
 from loguru import logger
 from serial import Serial
 from threading import Thread, Event
 from queue import Queue
-from pyorbit.publisher import Publisher
-from pyorbit.serial.messages import BasePBMsg, AckNackPBMsg, StatusCode, BasePBMsgInheritor
-from pyorbit.serial.observers import TransactionResponseObserver, PredicateObserver
-from pyorbit.serial.parameters import MessageTypeMap
-from pyorbit.serial.socket import SerialSocket
+from mbedutils.rpc.publisher import Publisher
+from mbedutils.rpc.message import BasePBMsg, AckNackPBMsg, CRCMismatchException
+from mbedutils.rpc.observer_impl import TransactionResponseObserver, PredicateObserver
+from mbedutils.rpc.socket import SerialSocket
 
 
-class SerialPipePublisher(Publisher):
+class SerialPipe(Publisher):
     """
     Message server for RTX-ing COBS encoded protocol buffer messages over a serial connection. Implements
     the Publisher interface for message dispatching to observers.
@@ -35,6 +31,7 @@ class SerialPipePublisher(Publisher):
         super().__init__()
         self._serial: Optional[Serial, SerialSocket] = None
         self._kill_event = Event()
+        self._message_descriptors: Dict[int, BasePBMsg] = {}
 
         # TX resources
         self._tx_thread = Thread()
@@ -48,12 +45,24 @@ class SerialPipePublisher(Publisher):
         # Dispatch resources
         self._dispatch_thread = Thread()
 
-    def open(self, port: Union[str, int], baudrate: int = None) -> None:
+    def add_message_descriptor(self, msg_id: int, msg_type: BasePBMsg) -> None:
+        """
+        Adds a message descriptor to the publisher so that it can encode/decode messages
+        Args:
+            msg_id: Message ID
+            msg_type: Message type
+
+        Returns:
+            None
+        """
+        self._message_descriptors[msg_id] = msg_type
+
+    def open(self, port: Union[str, int], baud: int = None) -> None:
         """
         Opens a serial port for communication
         Args:
             port: Serial port connection. Assumed a COM port if a string, Socket if an integer.
-            baudrate: Desired communication baudrate
+            baud: Desired communication baud
 
         Returns:
             None
@@ -62,7 +71,7 @@ class SerialPipePublisher(Publisher):
         if isinstance(port, str):
             self._serial = Serial(timeout=5)
             self._serial.port = port
-            self._serial.baudrate = baudrate
+            self._serial.baudrate = baud
             self._serial.exclusive = True
         elif isinstance(port, int):
             self._serial = SerialSocket(port=port)
@@ -72,7 +81,7 @@ class SerialPipePublisher(Publisher):
 
         # Open the serial port with the desired configuration
         self._serial.open()
-        logger.trace(f"Opened serial port {port} at {baudrate} baud")
+        logger.trace(f"Opened serial port {port} at {baud} baud")
 
         # Spawn the IO threads for enabling communication
         self._kill_event.clear()
@@ -132,8 +141,8 @@ class SerialPipePublisher(Publisher):
         self.unsubscribe(sub_id)
         return result
 
-    def filter(self, predicate: Callable[[BasePBMsg], bool], qty: int = 1, timeout: Union[int, float] = 1.0) -> List[
-               BasePBMsgInheritor]:
+    def filter(self, predicate: Callable[[BasePBMsg], bool], qty: int = 1,
+               timeout: Union[int, float] = 1.0) -> List[BasePBMsg]:
         """
         Filters incoming the incoming message stream based on a user defined predicate, then returns the
         messages that fulfilled the predicate.
@@ -168,7 +177,7 @@ class SerialPipePublisher(Publisher):
             return False
 
         if not msg.ack:
-            logger.error(f"NACK: {repr(msg.status_code)} ' -- {error_string if error_string else ''}")
+            logger.error(f"NACK: {repr(msg.error_code)} ' -- {error_string if error_string else ''}")
             return False
         else:
             return True
@@ -280,12 +289,11 @@ class SerialPipePublisher(Publisher):
             logger.trace("Failed to decode COBS frame. Likely partially received message.")
             return None
 
-    @staticmethod
-    def _decode_pb_frame(frame: bytes) -> Optional[proto.BaseMessage]:
+    def _decode_pb_frame(self, frame: bytes) -> Optional[BasePBMsg]:
         """
-        Decodes a COBS encoded frame into a protocol buffer message
+        Decodes a NanoPB encoded frame into the original protocol buffer message
         Args:
-            frame: COBS encoded frame
+            frame: NanoPB encoded frame
 
         Returns:
             Decoded protocol buffer message
@@ -294,7 +302,7 @@ class SerialPipePublisher(Publisher):
         try:
             base_msg = proto.BaseMessage()
             base_msg.ParseFromString(frame)
-            if base_msg.header.msgId not in MessageTypeMap.keys():
+            if base_msg.header.msgId not in self._message_descriptors.keys():
                 logger.error(f"Unsupported message ID: {base_msg.header.msgId}")
                 return None
         except g_proto_msg.DecodeError:
@@ -302,10 +310,15 @@ class SerialPipePublisher(Publisher):
             return None
 
         # Now do the full decode since the claimed type is supported
-        full_msg = MessageTypeMap[base_msg.header.msgId]()
+        full_msg = copy.deepcopy(self._message_descriptors[base_msg.header.msgId])
         try:
             full_msg.deserialize(frame)
             return full_msg
+        except CRCMismatchException:
+            logger.error(f"CRC mismatch on {full_msg.name} type")
+            return None
         except g_proto_msg.DecodeError:
             logger.error(f"Failed to decode {full_msg.name} type")
             return None
+
+

@@ -2,15 +2,12 @@ import socket
 
 
 class SerialSocket:
-    """
-    A class to simulate a serial connection over a socket. This implements a restricted interface
-    to directly support the OrbitClient class when connecting to the simulator.
-    """
+    """ A class to simulate a serial connection over a socket. """
 
     def __init__(self, port: int):
         """
         Args:
-            port: Port the OrbitESC simulator is listening on
+            port: Port the simulator is listening on
         """
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._address = ("localhost", port)
@@ -67,9 +64,5 @@ class SerialSocket:
             self._socket.sendall(data)
 
     def flush(self) -> None:
-        """
-        This is just a stub for the OrbitClient to call. It does nothing.
-        Returns:
-            None
-        """
+        """ Intentionally left blank """
         pass
