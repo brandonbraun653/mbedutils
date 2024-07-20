@@ -3,7 +3,7 @@
  *    rpc_message.hpp
  *
  *  Description:
- *    RPC message descriptor for a remote procedure call
+ *    Message interface for RPC
  *
  *  2024 | Brandon Braun | brandonbraun653@protonmail.com
  *****************************************************************************/
@@ -17,9 +17,9 @@ Includes
 -----------------------------------------------------------------------------*/
 #include <cobs.h>
 #include <cstddef>
+#include <etl/unordered_map.h>
 #include <mbed_rpc.pb.h>
 #include <pb.h>
-#include <etl/unordered_map.h>
 
 namespace mb::rpc
 {
@@ -46,45 +46,10 @@ namespace mb::rpc
    * @brief Alias for the NanoPB message descriptor
    */
   using MsgFields = const pb_msgdesc_t *;
-
-
-  /*-----------------------------------------------------------------------------
-  Structures
-  -----------------------------------------------------------------------------*/
-
-  /**
-   * @brief Descriptor for how to encode/decode a message
-   */
-  struct MsgDsc
-  {
-    MsgVer    version;
-    MsgFields fields;
-    pb_size_t max_buf_size;
-  };
-
-
-  /*---------------------------------------------------------------------------
-  Aliases
-  ---------------------------------------------------------------------------*/
-
-  /**
-   * @brief Hashmap data-structure for storing Message descriptors with a fixed size
-   *
-   * @tparam N  Number of elements to store
-   */
-  template<const size_t N>
-  using DescriptorStorage = etl::unordered_map<MsgId, MsgDsc, N>;
-
-  /**
-   * @brief Hashmap data-structure for storing Message descriptors
-   */
-  using DescriptorRegistry = etl::iunordered_map<MsgId, MsgDsc>;
-
-}
+}    // namespace mb::rpc
 
 namespace mb::rpc::message
 {
-
   /*---------------------------------------------------------------------------
   Constants
   ---------------------------------------------------------------------------*/
@@ -99,7 +64,6 @@ namespace mb::rpc::message
    */
   static constexpr size_t COBS_CRC_SIZE = 2u;
 
-
   /*---------------------------------------------------------------------------
   Constexpr Functions
   ---------------------------------------------------------------------------*/
@@ -113,45 +77,65 @@ namespace mb::rpc::message
    * @param npbSize Auto-generated size reported by NanoPB for a message type
    * @return constexpr size_t Buffer size needed to send/receive the message
    */
-  template<const pb_size_t npbSize>
-  static constexpr size_t MaxWireSize()
+  static constexpr size_t TranscodeSize( pb_size_t npbSize )
   {
-    constexpr pb_size_t encode_size = COBS_ENCODE_DST_BUF_LEN_MAX( npbSize + COBS_CRC_SIZE );
-    constexpr pb_size_t decode_size = COBS_DECODE_DST_BUF_LEN_MAX( npbSize + COBS_CRC_SIZE );
-    constexpr pb_size_t coding_max_size = std::max<pb_size_t>( encode_size, decode_size );
+    // Implements: COBS_ENCODE_DST_BUF_LEN_MAX
+    constexpr auto encode_size = []( pb_size_t size ) { return size + ( ( size + 253u ) / 254u ); };
 
-    return COBS_CRC_SIZE + coding_max_size + COBS_TERM_SIZE;
+    // Implements: COBS_DECODE_DST_BUF_LEN_MAX
+    constexpr auto decode_size = []( pb_size_t size ) { return ( size == 0 ) ? 0u : ( size - 1u ); };
+
+    pb_size_t encodeSize    = encode_size( npbSize + COBS_CRC_SIZE );
+    pb_size_t decodeSize    = decode_size( npbSize + COBS_CRC_SIZE );
+    pb_size_t codingMaxSize = std::max<pb_size_t>( encodeSize, decodeSize );
+
+    return codingMaxSize + COBS_TERM_SIZE;
   }
 
-  /*---------------------------------------------------------------------------
+  /*-----------------------------------------------------------------------------
   Structures
-  ---------------------------------------------------------------------------*/
+  -----------------------------------------------------------------------------*/
 
   /**
-   * @brief Define constexpr attributes of a message
-   *
-   * @tparam id       Message identifier
-   * @tparam ver      Current version of the message
-   * @tparam length   NanoPB size of the message
+   * @brief Descriptor for how to encode/decode a message
    */
-  template<MsgId id, MsgVer ver, pb_size_t length>
-  struct MsgAttr
+  class Descriptor
   {
-    static inline constexpr MsgId     msg_id              = id;
-    static inline constexpr MsgVer    msg_ver             = ver;
-    static inline constexpr pb_size_t fields_array_length = length;
-    static inline constexpr pb_size_t wire_buffer_length  = MaxWireSize<length>();
+  public:
+    const MsgId     id;             /**< Identifier of the message */
+    const MsgVer    version;        /**< Version of the message */
+    const MsgFields fields;         /**< Descriptor for encoding/decoding */
+    const pb_size_t transcode_size; /**< Minimum buffer size for encoding/decoding */
+
+    /**
+     * @brief Construct a new Descriptor object
+     *
+     * @param ver   Version of the message
+     * @param flds  NanoPB message descriptor
+     * @param size  NanoPB max encoded size
+     */
+    constexpr Descriptor( const MsgId id, const MsgVer ver, const MsgFields flds, const pb_size_t size ) :
+        id( id ), version( ver ), fields( flds ), transcode_size( TranscodeSize( size ) )
+    {
+    }
   };
 
   /*---------------------------------------------------------------------------
-  Builtin Messages
+  Aliases
   ---------------------------------------------------------------------------*/
 
-  /* clang-format off */
-  using NullMessage  = MsgAttr<mbed_rpc_BuiltinMessage_MSG_NULL,  mbed_rpc_BuiltinMessageVersion_MSG_VER_NULL,  0>;
-  using ErrorMessage = MsgAttr<mbed_rpc_BuiltinMessage_MSG_ERROR, mbed_rpc_BuiltinMessageVersion_MSG_VER_ERROR, mbed_rpc_ErrorMessage_size>;
-  using PingMessage  = MsgAttr<mbed_rpc_BuiltinMessage_MSG_PING,  mbed_rpc_BuiltinMessageVersion_MSG_VER_PING,  mbed_rpc_PingMessage_size>;
-  /* clang-format on */
+  /**
+   * @brief Hashmap data-structure for storing Message descriptors with a fixed size
+   *
+   * @tparam N  Number of elements to store
+   */
+  template<const size_t N>
+  using DescriptorStorage = etl::unordered_map<MsgId, Descriptor, N>;
+
+  /**
+   * @brief Hashmap data-structure for storing Message descriptors
+   */
+  using DescriptorRegistry = etl::iunordered_map<MsgId, Descriptor>;
 
   /*---------------------------------------------------------------------------
   Public Functions
@@ -165,14 +149,13 @@ namespace mb::rpc::message
   void initialize( DescriptorRegistry *const reg );
 
   /**
-   * @brief Register a message this module should know how to decode.
+   * @brief Register a message descriptor this module should know how to decode.
    *
-   * @param id      Identifier to register under
-   * @param msg     The message to register
-   * @return true   The message was registered successfully.
+   * @param dsc     The descriptor to register
+   * @return true   The descriptor was registered successfully.
    * @return false  Failed to register for some reason.
    */
-  bool addDescriptor( const MsgId id, const MsgDsc &dsc );
+  bool addDescriptor( const Descriptor &dsc );
 
   /**
    * @brief Removes a message from this module.
@@ -185,12 +168,15 @@ namespace mb::rpc::message
    * @brief Get a message descriptor registered with this module
    *
    * @param id  Id of the message to lookup
-   * @return const IRPCMessage*
+   * @return const Descriptor*
    */
-  const MsgDsc *getDescriptor( const MsgId id );
+  const Descriptor *getDescriptor( const MsgId id );
 
   /**
-   * @brief Encodes a message for transmission over the wire.
+   * @brief In-place encodes a message for transmission over the wire.
+   *
+   * Output Framing:
+   * [COBS Start][CRC16][NanoPB Data][COBS Term]
    *
    * @param msg_id        Which message this is
    * @param npb_struct    Input data to be encoded from
@@ -201,19 +187,23 @@ namespace mb::rpc::message
   size_t encode_to_wire( const MsgId msg_id, void *const npb_struct, void *cobs_out_buf, const size_t cobs_out_size );
 
   /**
-   * @brief Decode a message received from the wire.
+   * @brief In-place decode a message received from the wire.
    *
-   * If the message is successfully decoded, the message ID will be returned
-   * and the message data will be stored in the provided buffer. The message
-   * data will be in the form of a NanoPB struct.
+   * If the message is successfully decoded, the original data NanoPB
+   * data structure will be stored in the same buffer.
    *
-   * @param msg_id        Which message this is (output)
+   * Input Framing:
+   * [COBS Start][CRC16][NanoPB Data][COBS Term]
+   *
+   * Output Framing:
+   * [NanoPB Data]
+   *
    * @param cobs_in_buf   Input buffer containing the complete COBS frame
    * @param cobs_in_size  Size of the COBS frame, including null terminator
    * @return bool         True if the message was decoded successfully
    */
-  bool decode_from_wire( MsgId &msg_id, void *const cobs_in_buf, const size_t cobs_in_size );
+  bool decode_from_wire( void *const cobs_in_buf, const size_t cobs_in_size );
 
-}    // namespace mb::rpc
+}    // namespace mb::rpc::message
 
 #endif /* !MBEDUTILS_RPC_MESSAGE_HPP */

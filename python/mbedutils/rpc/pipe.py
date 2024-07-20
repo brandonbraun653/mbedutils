@@ -1,19 +1,12 @@
+import binascii
 import copy
 import queue
 import struct
 import time
-
-import sys
-from pathlib import Path
-
 import crc
-
-nanopb_dir = Path(Path(__file__).parent.parent.parent.parent, "lib/nanopb/generator/proto")
-sys.path.append(f"{nanopb_dir.as_posix()}")
-
 import mbedutils.rpc.proto.mbed_rpc_pb2 as proto
 import google.protobuf.message as g_proto_msg
-from typing import List, Optional, Union, Callable, Dict
+from typing import List, Optional, Union, Callable, Dict, Type
 from cobs import cobs
 from loguru import logger
 from serial import Serial
@@ -25,7 +18,7 @@ from mbedutils.rpc.observer_impl import TransactionResponseObserver, PredicateOb
 from mbedutils.rpc.socket import SerialSocket
 
 
-class SerialPipe(Publisher):
+class COBSerialPipe(Publisher):
     """
     Message server for RTX-ing COBS encoded protocol buffer messages over a serial connection. Implements
     the Publisher interface for message dispatching to observers.
@@ -35,7 +28,7 @@ class SerialPipe(Publisher):
         super().__init__()
         self._serial: Optional[Serial, SerialSocket] = None
         self._kill_event = Event()
-        self._message_descriptors: Dict[int, BasePBMsg] = {}
+        self._message_descriptors: Dict[int, Type[BasePBMsg]] = {}
 
         # TX resources
         self._tx_thread = Thread()
@@ -49,17 +42,17 @@ class SerialPipe(Publisher):
         # Dispatch resources
         self._dispatch_thread = Thread()
 
-    def add_message_descriptor(self, msg_id: int, msg_type: BasePBMsg) -> None:
+    def add_message_descriptor(self, msg_type: BasePBMsg) -> None:
         """
         Adds a message descriptor to the publisher so that it can encode/decode messages
         Args:
-            msg_id: Message ID
-            msg_type: Message type
+            msg_type: Message instance to register
 
         Returns:
             None
         """
-        self._message_descriptors[msg_id] = msg_type
+        assert isinstance(msg_type, BasePBMsg), "Message type must be a subclass of BasePBMsg"
+        self._message_descriptors[msg_type.msg_id] = type(msg_type)
 
     def open(self, port: Union[str, int], baud: int = None) -> None:
         """
@@ -113,16 +106,18 @@ class SerialPipe(Publisher):
             self._serial.flush()
             self._serial.close()
 
-    def write(self, data: bytes) -> None:
+    def write(self, msg: BasePBMsg) -> None:
         """
         Enqueues a new message for transmission
         Args:
-            data: Byte data to transmit
+            msg: Message to send
 
         Returns:
             None
         """
-        self._tx_msgs.put(data, block=True)
+        assert isinstance(msg, BasePBMsg), "Message must be a subclass of BasePBMsg"
+        logger.trace(f"Sending {repr(msg)}")
+        self._tx_msgs.put(msg.serialize(), block=True)
 
     def write_and_wait(self, msg: BasePBMsg, timeout: Union[int, float]) -> Optional[BasePBMsg]:
         """
@@ -138,7 +133,7 @@ class SerialPipe(Publisher):
         sub_id = self.subscribe_observer(observer)
 
         # Send the message and wait for the response
-        self.write(msg.serialize())
+        self.write(msg)
         result = observer.wait()
 
         # Clean up the observer
@@ -207,7 +202,7 @@ class SerialPipe(Publisher):
             # Encode the frame w/termination byte, then transmit
             encoded_frame = cobs.encode(crc_bytes + raw_frame) + b'\x00'
             self._serial.write(encoded_frame)
-            logger.trace(f"Write {len(encoded_frame)} bytes: {repr(encoded_frame)}")
+            logger.trace(f"Write {len(encoded_frame)} byte frame")
 
         logger.trace("Terminating OrbitESC internal Serial message encoder")
 
@@ -227,7 +222,6 @@ class SerialPipe(Publisher):
             # Fill the cache with the raw data from the bus
             if new_data := self._serial.read_all():
                 self._rx_byte_buffer.extend(new_data)
-                logger.trace(f"Received {len(new_data)} bytes")
             elif not len(self._rx_byte_buffer):
                 continue
 
@@ -269,12 +263,13 @@ class SerialPipe(Publisher):
 
                 # Remove the frame from the buffer by slicing it out
                 self._rx_byte_buffer = self._rx_byte_buffer[eof_idx + 1:]
+                logger.trace(f"Read {len(cobs_frame) + 1} byte frame")
 
                 # Decode the message into a higher level message type
                 if pb_frame := self._decode_cobs_frame(cobs_frame):
                     if full_msg := self._decode_pb_frame(pb_frame):
                         self._rx_msgs.put(full_msg)
-                        logger.trace(f"Received message type {full_msg.name}. UUID: {full_msg.uuid}")
+                        logger.trace(f"Receiving {repr(full_msg)}")
 
         except ValueError:
             # No more frames available
@@ -327,13 +322,10 @@ class SerialPipe(Publisher):
             return None
 
         # Now do the full decode since the claimed type is supported
-        full_msg = copy.deepcopy(self._message_descriptors[base_msg.header.msgId])
+        full_msg = self._message_descriptors[base_msg.header.msgId]()
         try:
             full_msg.deserialize(nano_pb_frame)
             return full_msg
-        except CRCMismatchException:
-            logger.error(f"CRC mismatch on {full_msg.name} type")
-            return None
         except g_proto_msg.DecodeError:
             logger.error(f"Failed to decode {full_msg.name} type")
             return None

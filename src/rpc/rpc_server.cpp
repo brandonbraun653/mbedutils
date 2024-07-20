@@ -76,6 +76,15 @@ namespace mb::rpc::server
     mCfg    = config;
     mIsOpen = true;
 
+    /*-------------------------------------------------------------------------
+    Bind default services and messages to the server
+    -------------------------------------------------------------------------*/
+    /* Services */
+    mbed_assert_continue( addService( &mPingService ) );
+
+    /* Messages */
+    mbed_assert_continue( message::addDescriptor( message::PingMessage ) );
+
     return true;
   }
 
@@ -190,7 +199,7 @@ namespace mb::rpc::server
     /*-------------------------------------------------------------------------
     Publish the error message
     -------------------------------------------------------------------------*/
-    publishMessage( message::ErrorMessage::msg_id, &err_msg );
+    publishMessage( message::ErrorMessage.id, &err_msg );
   }
 
 
@@ -237,43 +246,98 @@ namespace mb::rpc::server
    */
   bool Server::process_next_request()
   {
-    /*-------------------------------------------------------------------------
-    Try to pull a COBS frame out of the RX buffer and into the scratch buffer
-    -------------------------------------------------------------------------*/
-    if( !this->read_cobs_frame() )
-    {
-      return false;
-    }
+    mb::rpc::IService *service = nullptr;
+    mbed_rpc_Header   *header  = nullptr;
 
-    mbed_assert_always();
+    /*-------------------------------------------------------------------------
+    Critical section to guard the RX scratch buffer access
+    -------------------------------------------------------------------------*/
+    {
+      mb::thread::RecursiveLockGuard _lock( this->mLockableMutex );
+
+      /*-----------------------------------------------------------------------
+      Try to pull a COBS frame out of the RX buffer and into the scratch buffer
+      -----------------------------------------------------------------------*/
+      if( !this->read_cobs_frame() )
+      {
+        return false;
+      }
+
+      /*-----------------------------------------------------------------------
+      Decode the message
+      -----------------------------------------------------------------------*/
+      if( !message::decode_from_wire( mCfg.rxScratch.data(), mCfg.rxScratch.size() ) )
+      {
+        mbed_assert_continue_msg( false, "Failed to decode message" );
+        return false;
+      }
+
+      /*-----------------------------------------------------------------------
+      Find the service associated with the message
+      -----------------------------------------------------------------------*/
+      header        = reinterpret_cast<mbed_rpc_Header *>( mCfg.rxScratch.data() );
+      auto svc_iter = mCfg.svcReg->find( header->svcId );
+
+      if( ( svc_iter == mCfg.svcReg->end() ) || !svc_iter->second )
+      {
+        mbed_assert_continue_msg( false, "Service not found: %d", header->svcId );
+        return false;
+      }
+
+      service = svc_iter->second;
+      if( service->reqId != header->msgId )
+      {
+        mbed_assert_continue_msg( false, "RPC %s does not handle message %d", service->name, header->msgId );
+        return false;
+      }
+
+      /*-----------------------------------------------------------------------
+      Copy the data from the scratch buffer into the service's memory
+      -----------------------------------------------------------------------*/
+      auto msg_req_iter = message::getDescriptor( header->msgId );
+      if( !msg_req_iter )
+      {
+        mbed_assert_continue_msg( false, "Message descriptor not found: %d", header->msgId );
+        return false;
+      }
+
+      void *request_data = nullptr;
+      size_t request_size = 0;
+      service->getRequestData( request_data, request_size );
+
+      memcpy( request_data, mCfg.rxScratch.data(), request_size );
+    } // End of critical section
 
     /*-------------------------------------------------------------------------
     Invoke the service.
     -------------------------------------------------------------------------*/
-    // auto status = svc_iter->second->processRequest( *msg_req_iter->second, *msg_rsp_iter->second );
+    auto status = service->processRequest();
+    void *response_data = nullptr;
+    size_t response_size = 0;
 
-    // switch( status )
-    // {
-    //   /*-----------------------------------------------------------------------
-    //   Nominal path. Service completed and wants to send a response.
-    //   -----------------------------------------------------------------------*/
-    //   case mbed_rpc_ErrorCode_ERR_NO_ERROR:
-    //     publishMessage( *msg_rsp_iter->second );
-    //     break;
+    switch( status )
+    {
+      /*-----------------------------------------------------------------------
+      Nominal path. Service completed and wants to send a response.
+      -----------------------------------------------------------------------*/
+      case mbed_rpc_ErrorCode_ERR_NO_ERROR:
+        service->getResponseData( response_data, response_size );
+        publishMessage( service->rspId, response_data );
+        break;
 
-    //   /*-----------------------------------------------------------------------
-    //   Do nothing, the service will send the response asynchronously
-    //   -----------------------------------------------------------------------*/
-    //   case mbed_rpc_ErrorCode_ERR_SVC_ASYNC:
-    //     break;
+      /*-----------------------------------------------------------------------
+      Do nothing, the service will send the response asynchronously
+      -----------------------------------------------------------------------*/
+      case mbed_rpc_ErrorCode_ERR_SVC_ASYNC:
+        break;
 
-    //   /*-----------------------------------------------------------------------
-    //   Fall through for all other error cases generated by the service.
-    //   -----------------------------------------------------------------------*/
-    //   default:
-    //     throwError( msg.header.seqId, status, nullptr );
-    //     break;
-    // }
+      /*-----------------------------------------------------------------------
+      Fall through for all other error cases generated by the service.
+      -----------------------------------------------------------------------*/
+      default:
+        throwError( header->seqId, status, nullptr );
+        break;
+    }
 
     return true;
   }

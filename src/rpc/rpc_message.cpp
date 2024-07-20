@@ -16,14 +16,24 @@ Includes
 #include <mbedutils/assert.hpp>
 #include <pb_decode.h>
 #include <pb_encode.h>
+#include <inttypes.h>
 
 namespace mb::rpc::message
 {
   /*---------------------------------------------------------------------------
+  Constants
+  ---------------------------------------------------------------------------*/
+
+  /**
+   * @brief Absolute smallest size a message can be transcoded to
+   */
+  static constexpr size_t MIN_TRANSCODE_SIZE = TranscodeSize( mbed_rpc_BaseMessage_size );
+
+  /*---------------------------------------------------------------------------
   Static Data
   ---------------------------------------------------------------------------*/
 
-  static DescriptorRegistry * s_msg_reg;
+  static DescriptorRegistry *s_msg_reg;
 
 
   /*---------------------------------------------------------------------------
@@ -36,12 +46,12 @@ namespace mb::rpc::message
   }
 
 
-  bool addDescriptor( const MsgId id, MsgDsc *const msg )
+  bool addDescriptor( const Descriptor &dsc )
   {
     /*-------------------------------------------------------------------------
     Entrancy Protection
     -------------------------------------------------------------------------*/
-    if( !s_msg_reg || !msg )
+    if( !s_msg_reg )
     {
       return false;
     }
@@ -51,11 +61,11 @@ namespace mb::rpc::message
     -------------------------------------------------------------------------*/
     if( s_msg_reg->full() )
     {
-      mbed_assert_continue_msg( false, "Unable to add message %d, registry is full", id );
+      mbed_assert_continue_msg( false, "Unable to add message %d, registry is full", dsc.id );
       return false;
     }
 
-    s_msg_reg->insert( { id, *msg } );
+    s_msg_reg->insert( { dsc.id, dsc } );
     return true;
   }
 
@@ -66,17 +76,35 @@ namespace mb::rpc::message
   }
 
 
+  const Descriptor *getDescriptor( const MsgId id )
+  {
+    if( !s_msg_reg )
+    {
+      return nullptr;
+    }
+
+    auto msg_iter = s_msg_reg->find( id );
+    if( msg_iter == s_msg_reg->end() )
+    {
+      return nullptr;
+    }
+
+    return &msg_iter->second;
+  }
+
+
   size_t encode_to_wire( const MsgId msg_id, void *const npb_struct, void *cobs_out_buf, const size_t cobs_out_size )
   {
     /*-------------------------------------------------------------------------
     Input Validation
     -------------------------------------------------------------------------*/
-    if( !npb_struct || !cobs_out_buf || !cobs_out_size )
+    if( !s_msg_reg || !npb_struct || !cobs_out_buf || ( cobs_out_size < MIN_TRANSCODE_SIZE ) )
     {
       mbed_dbg_assert_continue_always();
       return 0;
     }
 
+    /* Find the message in the descriptor registry */
     auto msg_iter = s_msg_reg->find( msg_id );
     if( msg_iter == s_msg_reg->end() )
     {
@@ -84,12 +112,20 @@ namespace mb::rpc::message
       return 0;
     }
 
-    const MsgDsc &msg_dsc = msg_iter->second;
+    /* Check buffer sizing requirements */
+    const Descriptor &msg_dsc = msg_iter->second;
+    if( msg_dsc.transcode_size > cobs_out_size )
+    {
+      uintptr_t address_of_buf = reinterpret_cast<uintptr_t>( cobs_out_buf );
+      mbed_assert_continue_msg( false, "Buf 0x%0" PRIXPTR " too small for msg %d: %zu > %zu", address_of_buf, msg_id,
+                                msg_dsc.transcode_size, cobs_out_size );
+      return 0;
+    }
 
     /*-------------------------------------------------------------------------
     Make sure the header is up to date for this message
     -------------------------------------------------------------------------*/
-    auto header     = reinterpret_cast<mbed_rpc_Header *>( npb_struct );
+    auto header     = static_cast<mbed_rpc_Header *>( npb_struct );
     header->version = msg_dsc.version;
     header->msgId   = msg_id;
 
@@ -103,8 +139,7 @@ namespace mb::rpc::message
     static constexpr size_t CRC_START_OFFSET = 1u;
     static constexpr size_t NPB_START_OFFSET = CRC_START_OFFSET + COBS_CRC_SIZE;
 
-    uint8_t  *cob_start = reinterpret_cast<uint8_t *>( cobs_out_buf );
-    uint16_t *crc_start = reinterpret_cast<uint16_t *>( cob_start + CRC_START_OFFSET );
+    uint8_t  *cob_start = static_cast<uint8_t *>( cobs_out_buf );
     uint8_t  *npb_start = cob_start + NPB_START_OFFSET;
     size_t    npb_size  = cobs_out_size - NPB_START_OFFSET - COBS_TERM_SIZE;
 
@@ -124,12 +159,15 @@ namespace mb::rpc::message
     etl::crc16_xmodem crc_calculator;
     crc_calculator.reset();
     std::copy( npb_start, npb_start + stream.bytes_written, crc_calculator.input() );
-    *crc_start = crc_calculator.value();
+    uint16_t crc = crc_calculator.value();
+
+    cob_start[ 2 ] = ( crc >> 8 ) & 0xFF;
+    cob_start[ 1 ] = crc & 0xFF;
 
     /*-----------------------------------------------------------------------
     Frame the data using COBS encoding
     -----------------------------------------------------------------------*/
-    cobs_encode_result result = cobs_encode( cobs_out_buf, cobs_out_size, crc_start, stream.bytes_written + COBS_CRC_SIZE );
+    cobs_encode_result result = cobs_encode( cobs_out_buf, cobs_out_size, cob_start + CRC_START_OFFSET, stream.bytes_written + COBS_CRC_SIZE );
     if( result.status != COBS_ENCODE_OK )
     {
       mbed_dbg_assert_continue_always();
@@ -150,12 +188,12 @@ namespace mb::rpc::message
   }
 
 
-  bool decode_from_wire( MsgId &msg_id, void *const cobs_in_buf, const size_t cobs_in_size )
+  bool decode_from_wire( void *const cobs_in_buf, const size_t cobs_in_size )
   {
     /*-------------------------------------------------------------------------
     Input Validation
     -------------------------------------------------------------------------*/
-    if( !cobs_in_buf || !cobs_in_size )
+    if( !s_msg_reg || !cobs_in_buf || ( cobs_in_size < MIN_TRANSCODE_SIZE ) )
     {
       mbed_dbg_assert_continue_always();
       return false;
@@ -164,12 +202,11 @@ namespace mb::rpc::message
     /*-------------------------------------------------------------------------
     Force null termination of the COBS frame
     -------------------------------------------------------------------------*/
-    uint8_t *data_frame = reinterpret_cast<uint8_t *>( cobs_in_buf );
+    uint8_t *data_frame            = static_cast<uint8_t *>( cobs_in_buf );
     data_frame[ cobs_in_size - 1 ] = '\0';
 
     /*-------------------------------------------------------------------------
-    Decode the COBS framed message. Output size is always less than or equal
-    to input size. This will transform the buffer from COBS to raw NanoPB data.
+    Decode the COBS framed message.
 
     Input Framing:
     [COBS Start][CRC16][NanoPB Data][COBS Term]
@@ -194,9 +231,9 @@ namespace mb::rpc::message
     -------------------------------------------------------------------------*/
     etl::crc16_xmodem crc_calculator;
 
-    uint8_t *npb_start         = data_frame + COBS_CRC_SIZE;
-    uint8_t *nanopb_data_end   = data_frame + cobs_result.out_len;
-    size_t   nanopb_data_size  = nanopb_data_end - npb_start;
+    uint8_t *npb_start        = data_frame + COBS_CRC_SIZE;
+    uint8_t *nanopb_data_end  = data_frame + cobs_result.out_len;
+    size_t   nanopb_data_size = nanopb_data_end - npb_start;
     std::copy( npb_start, nanopb_data_end, crc_calculator.input() );
 
     const uint16_t expected_crc = *reinterpret_cast<uint16_t *>( data_frame );
@@ -221,7 +258,7 @@ namespace mb::rpc::message
     }
 
     /*-------------------------------------------------------------------------
-    Find the service and message in the registry, then validate processability.
+    Find the message in the registry and validate it.
     -------------------------------------------------------------------------*/
     auto msg_iter = s_msg_reg->find( msg.header.msgId );
     if( msg_iter == s_msg_reg->end() )
@@ -230,11 +267,38 @@ namespace mb::rpc::message
       return false;
     }
 
+    auto msg_dsc = msg_iter->second;
+
+    /* Validate the message version */
+    if( msg.header.version != msg_dsc.version )
+    {
+      mbed_assert_continue_msg( false, "Version mismatch for msg %d. Expected: %d, Actual: %d", msg.header.msgId,
+                                msg_dsc.version, msg.header.version );
+      return false;
+    }
+
+    /* Check for "impossible" buffer conditions */
+    if( msg_dsc.transcode_size > cobs_in_size )
+    {
+      uintptr_t address_of_buf = reinterpret_cast<uintptr_t>( cobs_in_buf );
+      mbed_assert_continue_msg( false, "Buf 0x%0" PRIXPTR " too small for decoding msg %d: %zu > %zu", address_of_buf,
+                                msg.header.msgId, msg_dsc.transcode_size, cobs_in_size );
+      return false;
+    }
+
     /*-------------------------------------------------------------------------
     Decode the full NanoPB message
+
+    Input Framing:
+    [CRC16][NanoPB Data]
+    [  2  ][ Variable  ]
+
+    Output Framing:
+    [NanoPB Data]
+    [ Variable  ]
     -------------------------------------------------------------------------*/
     stream = pb_istream_from_buffer( npb_start, nanopb_data_size );
-    if( !pb_decode( &stream, msg_iter->second.fields, npb_start ) )
+    if( !pb_decode_ex( &stream, msg_iter->second.fields, cobs_in_buf, PB_DECODE_NOINIT ) )
     {
       mbed_assert_continue_msg( false, stream.errmsg );
       return false;
@@ -243,4 +307,4 @@ namespace mb::rpc::message
     return true;
   }
 
-}    // namespace mb::rpc
+}    // namespace mb::rpc::message

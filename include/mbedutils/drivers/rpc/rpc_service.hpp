@@ -3,7 +3,7 @@
  *    rpc_service.hpp
  *
  *  Description:
- *    Service descriptor for a remote procedure call
+ *    Interface to describe a remote procedure call service
  *
  *  2024 | Brandon Braun | brandonbraun653@protonmail.com
  *****************************************************************************/
@@ -16,37 +16,13 @@
 Includes
 -----------------------------------------------------------------------------*/
 #include <cstdint>
-#include <mbedutils/drivers/rpc/rpc_common.hpp>
-#include <mbedutils/drivers/rpc/rpc_message.hpp>
 #include <etl/array.h>
 #include <etl/span.h>
+#include <mbedutils/drivers/rpc/rpc_common.hpp>
+#include <mbedutils/drivers/rpc/rpc_message.hpp>
 
 namespace mb::rpc
 {
-  /*---------------------------------------------------------------------------
-  Structures
-  ---------------------------------------------------------------------------*/
-
-  /**
-   * @brief Helper template to declare the proper memory for an RPC service.
-   *
-   * @tparam *Name
-   * @tparam Request
-   * @tparam ReqNPBSize
-   * @tparam Response
-   * @tparam RspNPBSize
-   */
-  template<typename Request, const size_t ReqNPBSize, typename Response, const size_t RspNPBSize>
-  struct ServiceStorage
-  {
-    //const etl::string<strlen( Name ) + 1> name{ Name };
-    Request req;
-    Response rsp;
-    etl::array<uint8_t, message::MaxWireSize<ReqNPBSize>()> reqDecodeBuffer;
-    etl::array<uint8_t, message::MaxWireSize<RspNPBSize>()> rspEncodeBuffer;
-  };
-
-
   /*---------------------------------------------------------------------------
   Classes
   ---------------------------------------------------------------------------*/
@@ -64,31 +40,95 @@ namespace mb::rpc
   public:
     virtual ~IService() = default;
 
-    const char        *name;
-    SvcId              svcId;
-    void              *reqData;
-    void              *rspData;
-    MsgId              reqId;
-    MsgId              rspId;
-    etl::span<uint8_t> reqDecodeBuffer;
-    etl::span<uint8_t> rspEncodeBuffer;
+    const char *name;
+    const SvcId svcId;
+    const MsgId reqId;
+    const MsgId rspId;
+
+    /**
+     * @brief Initializes the service with the necessary information
+     *
+     * @param name  Name of the service
+     * @param svcId Expected service identifier
+     * @param reqId Expected request identifier
+     * @param rspId Expected response identifier
+     */
+    IService( const char *name, const SvcId svcId, const MsgId reqId, const MsgId rspId ) :
+        name( name ), svcId( svcId ), reqId( reqId ), rspId( rspId )
+    {
+    }
+
+    /**
+     * @brief Retrieves a pointer to the request data and its size
+     *
+     * @param data Pointer to the data
+     * @param size Max size of the structure storing the data
+     */
+    virtual void getRequestData( void *&data, size_t &size ) = 0;
+
+    /**
+     * @brief Retrieves a pointer to the response data and its size
+     *
+     * @param data Pointer to the data
+     * @param size Max size of the structure storing the data
+     */
+    virtual void getResponseData( void *&data, size_t &size ) = 0;
 
     /**
      * @brief A highly generic RPC service stub
      *
-     * This function is called by the server to process a request. The server caches the message
-     * data in the request and response objects, so the service can access the data as needed.
+     * This function is called by the server to process a request. All
+     * input/output is cached in the final service object itself.
      *
-     * @param server  Server instance that is processing the request
-     * @param req     Request input data
-     * @param rsp     Response output data
      * @return mbed_rpc_ErrorCode_ERR_NO_ERROR   If the service executed successfully
      * @return mbed_rpc_ErrorCode_ERR_SVC_ASYNC  If the service is async and will manually send a message later
      * @return mbed_rpc_ErrorCode_<any>          Any other error code that may have occurred
      */
-    virtual ErrId processRequest( const void *req, void *rsp ) = 0;
+    virtual ErrId processRequest() = 0;
   };
 
-}  // namespace mb::rpc
 
-#endif  /* !MBEDUTILS_RPC_SERVICE_HPP */
+  /**
+   * @brief Derived service type providing storage for request and response data.
+   *
+   * @tparam Request  NanoPB message type for the request
+   * @tparam Response NanoPB message type for the response
+   */
+  template<typename Request, typename Response>
+  class BaseService : public IService
+  {
+  public:
+    /**
+     * @brief Initializes the service with the necessary information
+     *
+     * @param name  Name of the service
+     * @param svcId Expected service identifier
+     * @param reqId Expected request identifier
+     * @param rspId Expected response identifier
+     */
+    BaseService( const char *name, const SvcId svcId, const MsgId reqId, const MsgId rspId ) :
+        IService( name, svcId, reqId, rspId )
+    {
+    }
+
+    virtual ~BaseService() = default;
+
+    void getRequestData( void *&data, size_t &size ) final override
+    {
+      data = &request;
+      size = sizeof( Request );
+    }
+
+    void getResponseData( void *&data, size_t &size ) final override
+    {
+      data = &response;
+      size = sizeof( Response );
+    }
+
+  protected:
+    Request  request;  /**< Stores the request data */
+    Response response; /**< Stores the response data */
+  };
+}    // namespace mb::rpc
+
+#endif /* !MBEDUTILS_RPC_SERVICE_HPP */

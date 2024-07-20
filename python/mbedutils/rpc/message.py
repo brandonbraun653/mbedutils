@@ -33,6 +33,9 @@ class BasePBMsg(Generic[PBMsgType]):
         self._id_gen = SeqIdGenerator()
         self._pb_msg: Optional[PBMsgType] = None
 
+    def __repr__(self):
+        return f"{self.name}(uuid={self.uuid}, msg_id={self.msg_id}, msg_version={self.msg_version})"
+
     @property
     def name(self) -> str:
         return self.__class__.__name__
@@ -47,14 +50,6 @@ class BasePBMsg(Generic[PBMsgType]):
         return self._pb_msg.header.seqId
 
     @property
-    def sub_id(self) -> int:
-        return int(self._pb_msg.header.subId)
-
-    @sub_id.setter
-    def sub_id(self, sid: int) -> None:
-        self._pb_msg.header.subId = sid
-
-    @property
     def msg_id(self) -> int:
         return self._pb_msg.header.msgId
 
@@ -62,6 +57,15 @@ class BasePBMsg(Generic[PBMsgType]):
     def msg_id(self, mid: int):
         assert 0 <= mid <= 255, "Message ID must be between 0 and 255"
         self._pb_msg.header.msgId = mid
+
+    @property
+    def msg_version(self) -> int:
+        return self._pb_msg.header.version
+
+    @msg_version.setter
+    def msg_version(self, ver: int):
+        assert 0 <= ver <= 255, "Message version must be between 0 and 255"
+        self._pb_msg.header.version = ver
 
     def deserialize(self, serialized: bytes) -> int:
         """

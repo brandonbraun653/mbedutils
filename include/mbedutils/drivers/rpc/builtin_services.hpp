@@ -15,18 +15,12 @@
 /*-----------------------------------------------------------------------------
 Includes
 -----------------------------------------------------------------------------*/
-#include <mbedutils/drivers/rpc/rpc_service.hpp>
-#include <mbedutils/drivers/rpc/rpc_message.hpp>
 #include <mbed_rpc.pb.h>
+#include <mbedutils/drivers/rpc/rpc_message.hpp>
+#include <mbedutils/drivers/rpc/rpc_service.hpp>
 
-namespace mb::rpc::services
+namespace mb::rpc::service
 {
-  /*---------------------------------------------------------------------------
-  Aliases
-  ---------------------------------------------------------------------------*/
-
-  using PingStorage = ServiceStorage<mbed_rpc_PingMessage, message::PingMessage::msg_id, mbed_rpc_PingMessage, message::PingMessage::msg_id>;
-
   /*---------------------------------------------------------------------------
   Classes
   ---------------------------------------------------------------------------*/
@@ -34,18 +28,25 @@ namespace mb::rpc::services
   /**
    * @brief Service for handling ping requests
    */
-  class PingService : public mb::rpc::IService
+  class PingService : public mb::rpc::BaseService<mbed_rpc_PingMessage, mbed_rpc_PingMessage>
   {
   public:
-    PingService() = default;
+    PingService() :
+        BaseService<mbed_rpc_PingMessage, mbed_rpc_PingMessage>( "PingService", mbed_rpc_BuiltinService_SVC_PING,
+                                                                 mbed_rpc_BuiltinMessage_MSG_PING,
+                                                                 mbed_rpc_BuiltinMessage_MSG_PING ){};
     ~PingService() = default;
 
     /**
      * @copydoc IService::processRequest
      */
-    ErrId processRequest( const void *req, void *rsp ) final override;
+    ErrId processRequest() final override
+    {
+      memcpy( &response, &request, sizeof( response ) );
+      return mbed_rpc_ErrorCode_ERR_NO_ERROR;
+    }
   };
 
-}  // namespace mb::rpc::services
+}    // namespace mb::rpc::service
 
-#endif  /* !MBEDUTILS_RPC_PING_SERVICE_HPP */
+#endif /* !MBEDUTILS_RPC_PING_SERVICE_HPP */

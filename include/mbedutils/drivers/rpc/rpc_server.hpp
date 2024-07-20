@@ -20,11 +20,11 @@ Includes
 #include <etl/delegate.h>
 #include <etl/string.h>
 #include <etl/unordered_map.h>
+#include <mbedutils/assert.hpp>
 #include <mbedutils/drivers/hardware/serial.hpp>
 #include <mbedutils/drivers/rpc/rpc_common.hpp>
 #include <mbedutils/drivers/rpc/rpc_message.hpp>
 #include <mbedutils/thread.hpp>
-#include <mbedutils/assert.hpp>
 
 namespace mb::rpc::server
 {
@@ -44,12 +44,12 @@ namespace mb::rpc::server
    * @tparam N  Number of elements to store
    */
   template<const size_t N>
-  using ServiceStorage = etl::unordered_map<SvcId, ::mb::rpc::IService*, N>;
+  using ServiceStorage = etl::unordered_map<SvcId, ::mb::rpc::IService *, N>;
 
   /**
    * @brief A reference to a service descriptor storage location
    */
-  using ServiceRegistry = etl::iunordered_map<SvcId, ::mb::rpc::IService*>;
+  using ServiceRegistry = etl::iunordered_map<SvcId, ::mb::rpc::IService *>;
 
   /*---------------------------------------------------------------------------
   Structures
@@ -148,8 +148,9 @@ namespace mb::rpc::server
   private:
     friend class ::mb::thread::Lockable<Server>;
 
-    bool   mIsOpen;
-    Config mCfg;
+    bool                 mIsOpen;
+    Config               mCfg;
+    service::PingService mPingService;
 
     bool process_next_request();
     bool read_cobs_frame();

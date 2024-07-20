@@ -6,7 +6,7 @@ from functools import wraps
 from loguru import logger
 from typing import Any, Callable, Union
 from threading import Event, Thread
-from mbedutils.rpc.pipe import SerialPipe
+from mbedutils.rpc.pipe import COBSerialPipe
 from mbedutils.rpc.message import *
 from mbedutils.rpc.observer_impl import MessageObserver, ConsoleObserver
 
@@ -47,7 +47,10 @@ class RPCClient:
     """ High level client to connect with a remote RPC server listening on a port """
 
     def __init__(self):
-        self._transport = SerialPipe()
+        # Initialize the transport layer and add default messages
+        self._transport = COBSerialPipe()
+        self._transport.add_message_descriptor(PingPBMsg())
+
         self._online = False
         self._time_last_online = 0
         self._last_tick = 0
@@ -58,7 +61,7 @@ class RPCClient:
         atexit.register(self._teardown)
 
     @property
-    def com_pipe(self) -> SerialPipe:
+    def com_pipe(self) -> COBSerialPipe:
         return self._transport
 
     @property
@@ -71,7 +74,7 @@ class RPCClient:
             True if the device was ping-able, False otherwise
         """
         sub_id = self.com_pipe.subscribe(msg=PingPBMsg, qty=1, timeout=5.0)
-        self.com_pipe.write(PingPBMsg().serialize())
+        self.com_pipe.write(PingPBMsg())
         responses = self.com_pipe.get_subscription_data(sub_id, terminate=True)
         if not responses:
             logger.warning("Node did not respond to ping")

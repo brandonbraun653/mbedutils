@@ -138,11 +138,11 @@ class Publisher:
         with self._data_lock:
             try:
                 # Dispatch the message to listeners of all types
-                for cb in self._dispatch_map[type(None)]:
+                for cb in self._dispatch_map.get(type(None), []):
                     cb.observer_function(message)
 
                 # Dispatch the message to all registered observers for this class type
-                for cb in self._dispatch_map[message.__class__]:
+                for cb in self._dispatch_map.get(message.__class__, []):
                     cb.observer_function(message)
             except KeyError:
                 pass  # No registered observers
