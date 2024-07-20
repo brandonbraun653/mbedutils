@@ -12,27 +12,22 @@
 Includes
 -----------------------------------------------------------------------------*/
 #include <mbedutils/drivers/rpc/builtin_services.hpp>
+#include <mbedutils/drivers/rpc/rpc_server.hpp>
 
 namespace mb::rpc::services
 {
   /*---------------------------------------------------------------------------
-  Classes
+  Ping Service
   ---------------------------------------------------------------------------*/
 
-  PingService::PingService() :
-      IRPCService( mbed_rpc_BuiltinService_SVC_PING, mbed_rpc_BuiltinMessage_MSG_PING, mbed_rpc_BuiltinMessage_MSG_PING,
-                   "PingService" )
+  ErrId PingService::processRequest( const void *req, void *rsp )
   {
-  }
+    // if( req.id != rsp.id )
+    // {
+    //   return mbed_rpc_ErrorCode_ERR_SVC_FAILED;
+    // }
 
-  ErrId PingService::processRequest( server::Server &server, const IRPCMessage &req, IRPCMessage &rsp )
-  {
-    if( req.id != rsp.id )
-    {
-      return mbed_rpc_ErrorCode_ERR_SVC_FAILED;
-    }
-
-    memcpy( rsp.data_impl, req.data_impl, req.max_data_size );
+    // memcpy( rsp.data_impl, req.data_impl, req.max_data_size );
     return mbed_rpc_ErrorCode_ERR_NO_ERROR;
   }
 

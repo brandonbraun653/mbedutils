@@ -19,5 +19,7 @@ Includes
 #include <mbedutils/drivers/rpc/builtin_services.hpp>
 #include <mbedutils/drivers/rpc/rpc_common.hpp>
 #include <mbedutils/drivers/rpc/rpc_server.hpp>
+#include <mbedutils/drivers/rpc/rpc_message.hpp>
+#include <mbedutils/drivers/rpc/rpc_service.hpp>
 
 #endif  /* !MBEDUTILS_RPC_HEADERS_HPP */

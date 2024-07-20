@@ -41,11 +41,14 @@ target_link_libraries(${RPC_CLIENT_LIB_NAME} PRIVATE
 file(GLOB RPC_PROTO_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/proto/*.c)
 set(RPC_PROTO_LIB_NAME ${PROJECT_NAME}_lib_rpc_proto)
 
-add_library(${RPC_PROTO_LIB_NAME} STATIC ${RPC_PROTO_SOURCES})
+add_library(${RPC_PROTO_LIB_NAME} STATIC
+    ${RPC_PROTO_SOURCES}
+    rpc_message.cpp
+)
 target_link_libraries(${RPC_PROTO_LIB_NAME} PRIVATE
+    ${PROJECT_NAME}_headers
     ${MBED_RPC_HEADERS}
 )
-
 
 # NanoPB Library
 set(NANOPB_LIB_NAME ${PROJECT_NAME}_lib_rpc_nanopb)
@@ -53,7 +56,6 @@ add_library(${NANOPB_LIB_NAME} STATIC ${NANOPB_SRCS})
 target_link_libraries(${NANOPB_LIB_NAME} PRIVATE
     ${MBED_RPC_HEADERS}
 )
-
 
 # COBS Library
 set(COBS_LIB_NAME ${PROJECT_NAME}_lib_rpc_cobs)

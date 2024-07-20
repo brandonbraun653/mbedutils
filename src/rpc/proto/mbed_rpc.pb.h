@@ -45,6 +45,7 @@ typedef enum _mbed_rpc_BuiltinMessage {
 } mbed_rpc_BuiltinMessage;
 
 typedef enum _mbed_rpc_BuiltinMessageVersion {
+    mbed_rpc_BuiltinMessageVersion_MSG_VER_NULL = 0,
     mbed_rpc_BuiltinMessageVersion_MSG_VER_ERROR = 0,
     mbed_rpc_BuiltinMessageVersion_MSG_VER_PING = 0,
     mbed_rpc_BuiltinMessageVersion_MSG_VER_ACK_NACK = 0,

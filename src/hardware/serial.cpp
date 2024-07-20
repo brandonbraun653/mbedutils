@@ -154,6 +154,18 @@ namespace mb::hw::serial
   }
 
 
+  void SerialDriver::enterCritical()
+  {
+    intf::disable_interrupts( mConfig.channel );
+  }
+
+
+  void SerialDriver::exitCritical()
+  {
+    intf::enable_interrupts( mConfig.channel );
+  }
+
+
   int SerialDriver::write( const void *const buffer, const size_t length )
   {
     /*-------------------------------------------------------------------------

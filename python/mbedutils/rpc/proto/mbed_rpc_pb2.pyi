@@ -137,6 +137,7 @@ class _BuiltinMessageVersion:
 
 class _BuiltinMessageVersionEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_BuiltinMessageVersion.ValueType], builtins.type):
     DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    MSG_VER_NULL: _BuiltinMessageVersion.ValueType  # 0
     MSG_VER_ERROR: _BuiltinMessageVersion.ValueType  # 0
     MSG_VER_PING: _BuiltinMessageVersion.ValueType  # 0
     MSG_VER_ACK_NACK: _BuiltinMessageVersion.ValueType  # 0
@@ -146,6 +147,7 @@ class _BuiltinMessageVersionEnumTypeWrapper(google.protobuf.internal.enum_type_w
 
 class BuiltinMessageVersion(_BuiltinMessageVersion, metaclass=_BuiltinMessageVersionEnumTypeWrapper): ...
 
+MSG_VER_NULL: BuiltinMessageVersion.ValueType  # 0
 MSG_VER_ERROR: BuiltinMessageVersion.ValueType  # 0
 MSG_VER_PING: BuiltinMessageVersion.ValueType  # 0
 MSG_VER_ACK_NACK: BuiltinMessageVersion.ValueType  # 0

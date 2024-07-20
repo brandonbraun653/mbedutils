@@ -41,6 +41,7 @@ enum BuiltinMessage {
 enum BuiltinMessageVersion {
   option allow_alias = true;
 
+  MSG_VER_NULL = 0;
   MSG_VER_ERROR = 0;
   MSG_VER_PING = 0;
   MSG_VER_ACK_NACK = 0;

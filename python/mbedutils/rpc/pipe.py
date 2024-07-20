@@ -1,9 +1,13 @@
 import copy
 import queue
+import struct
 import time
 
 import sys
 from pathlib import Path
+
+import crc
+
 nanopb_dir = Path(Path(__file__).parent.parent.parent.parent, "lib/nanopb/generator/proto")
 sys.path.append(f"{nanopb_dir.as_posix()}")
 
@@ -196,8 +200,12 @@ class SerialPipe(Publisher):
             except queue.Empty:
                 continue
 
+            # Add the CRC to the message
+            crc16 = crc.Calculator(crc.Crc16.XMODEM).checksum(raw_frame)
+            crc_bytes = struct.pack("<H", crc16)
+
             # Encode the frame w/termination byte, then transmit
-            encoded_frame = cobs.encode(raw_frame) + b'\x00'
+            encoded_frame = cobs.encode(crc_bytes + raw_frame) + b'\x00'
             self._serial.write(encoded_frame)
             logger.trace(f"Write {len(encoded_frame)} bytes: {repr(encoded_frame)}")
 
@@ -298,10 +306,19 @@ class SerialPipe(Publisher):
         Returns:
             Decoded protocol buffer message
         """
+        # Check the CRC of the frame
+        nano_pb_frame = frame[2:]
+        received_crc = struct.unpack("<H", frame[:2])[0]
+        crc16 = crc.Calculator(crc.Crc16.XMODEM).checksum(nano_pb_frame)
+
+        if crc16 != received_crc:
+            logger.error(f"CRC mismatch on frame. Expected {crc16}, got {received_crc}")
+            return None
+
         # Peek the header of the message
         try:
             base_msg = proto.BaseMessage()
-            base_msg.ParseFromString(frame)
+            base_msg.ParseFromString(nano_pb_frame)
             if base_msg.header.msgId not in self._message_descriptors.keys():
                 logger.error(f"Unsupported message ID: {base_msg.header.msgId}")
                 return None
@@ -312,7 +329,7 @@ class SerialPipe(Publisher):
         # Now do the full decode since the claimed type is supported
         full_msg = copy.deepcopy(self._message_descriptors[base_msg.header.msgId])
         try:
-            full_msg.deserialize(frame)
+            full_msg.deserialize(nano_pb_frame)
             return full_msg
         except CRCMismatchException:
             logger.error(f"CRC mismatch on {full_msg.name} type")

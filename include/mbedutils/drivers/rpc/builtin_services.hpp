@@ -15,11 +15,18 @@
 /*-----------------------------------------------------------------------------
 Includes
 -----------------------------------------------------------------------------*/
-#include <mbedutils/drivers/rpc/rpc_server.hpp>
+#include <mbedutils/drivers/rpc/rpc_service.hpp>
+#include <mbedutils/drivers/rpc/rpc_message.hpp>
 #include <mbed_rpc.pb.h>
 
 namespace mb::rpc::services
 {
+  /*---------------------------------------------------------------------------
+  Aliases
+  ---------------------------------------------------------------------------*/
+
+  using PingStorage = ServiceStorage<mbed_rpc_PingMessage, message::PingMessage::msg_id, mbed_rpc_PingMessage, message::PingMessage::msg_id>;
+
   /*---------------------------------------------------------------------------
   Classes
   ---------------------------------------------------------------------------*/
@@ -27,16 +34,16 @@ namespace mb::rpc::services
   /**
    * @brief Service for handling ping requests
    */
-  class PingService : public mb::rpc::server::IRPCService
+  class PingService : public mb::rpc::IService
   {
   public:
-    PingService();
+    PingService() = default;
     ~PingService() = default;
 
     /**
-     * @copydoc IRPCService::processRequest
+     * @copydoc IService::processRequest
      */
-    ErrId processRequest( server::Server &server, const IRPCMessage &req, IRPCMessage &rsp ) final override;
+    ErrId processRequest( const void *req, void *rsp ) final override;
   };
 
 }  // namespace mb::rpc::services

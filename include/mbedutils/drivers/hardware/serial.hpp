@@ -89,7 +89,23 @@ namespace mb::hw::serial
     virtual void close() = 0;
 
     /**
-     * @brief Writes data onto the wire
+     * @brief Enter a critical section where no ISR generated events can occurr.
+     *
+     * Must be accompanied by a call to exitCritical(). Keep code between these
+     * calls extremely short.
+     */
+    virtual void enterCritical() = 0;
+
+    /**
+     * @brief Exit a previous critical section.
+     */
+    virtual void exitCritical() = 0;
+
+    /**
+     * @brief Writes data onto the wire.
+     *
+     * This function is safe from ISR interruption while the data is being copied to
+     * internal buffers.
      *
      * @param buffer  Buffer to write
      * @param length  Number of bytes to write from the buffer
@@ -98,7 +114,10 @@ namespace mb::hw::serial
     virtual int write( const void *const buffer, const size_t length ) = 0;
 
     /**
-     * @brief Writes data onto the wire from a circular buffer
+     * @brief Writes data onto the wire from a circular buffer.
+     *
+     * This function is safe from ISR interruption while the data is being copied to
+     * internal buffers.
      *
      * @param buffer Buffer to write from
      * @param length Number of bytes to write from the buffer
@@ -195,6 +214,8 @@ namespace mb::hw::serial
     ~SerialDriver();
     bool   open( const Config &config ) final override;
     void   close() final override;
+    void   enterCritical() final override;
+    void   exitCritical() final override;
     int    write( const void *const buffer, const size_t length ) final override;
     int    write( etl::icircular_buffer<uint8_t> &buffer, const size_t length ) final override;
     size_t writeable() final override;
@@ -226,14 +247,14 @@ namespace mb::hw::serial
     TransferControl          mRXControl;
 
     etl::span<uint8_t> write_enter_critical( const size_t length );
-    int write_exit_critical( etl::span<uint8_t> &span );
+    int                write_exit_critical( etl::span<uint8_t> &span );
 
     etl::span<uint8_t> read_enter_critical( const size_t length, const size_t timeout );
-    int read_exit_critical( etl::span<uint8_t> &span );
+    int                read_exit_critical( etl::span<uint8_t> &span );
 
     size_t start_tx_transfer( const size_t num_bytes = std::numeric_limits<size_t>::max() );
-    void on_tx_complete_callback( const size_t channel, const size_t num_bytes );
-    void on_rx_complete_callback( const size_t channel, const size_t num_bytes );
+    void   on_tx_complete_callback( const size_t channel, const size_t num_bytes );
+    void   on_rx_complete_callback( const size_t channel, const size_t num_bytes );
   };
 }    // namespace mb::hw::serial
 

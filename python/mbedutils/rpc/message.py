@@ -1,9 +1,5 @@
 from __future__ import annotations
 
-import binascii
-import struct
-import crc
-from loguru import logger
 from threading import RLock
 from typing import TypeVar, Optional, Generic
 from mbedutils.utils import Singleton
@@ -12,35 +8,6 @@ from mbedutils.rpc.proto.mbed_rpc_pb2 import *
 
 class CRCMismatchException(Exception):
     pass
-
-
-# def crc16(data: bytes, poly: int = 0x8005, init=0x0000, refin=False, refout=True, xorout=0x0000) -> int:
-#     """
-#     Calculates the CRC-16 CCITT checksum of the given data.
-#     Args:
-#         data: Data buffer to compute the CRC of
-#         poly: Polynomial to use for the CRC calculation, default is 0x8005 (CRC-16 CCITT)
-#         init: Initial value of the CRC
-#         refin: Reflect input bits
-#         refout: Reflect output bits
-#         xorout: XOR value to apply to the final CRC
-#
-#     Returns:
-#         CRC-16 value
-#     """
-#     crc = init
-#     for byte in data:
-#         if refin:
-#             byte = int(binascii.hexlify(bytes([byte])), 16)
-#         for _ in range(8):
-#             if (crc ^ byte) & 0x0001:
-#                 crc = (crc >> 1) ^ poly
-#             else:
-#                 crc >>= 1
-#             byte >>= 1
-#     if refout:
-#         crc = (crc >> 8) | (crc << 8) & 0xFFFF
-#     return crc ^ xorout
 
 
 class SeqIdGenerator(metaclass=Singleton):
@@ -105,13 +72,6 @@ class BasePBMsg(Generic[PBMsgType]):
         Returns:
             How many bytes were parsed
         """
-        # Calculate the CRC of the message data and compare it to the received CRC
-        received_crc = struct.unpack("<H", serialized[:2])[0]
-        calculated_crc = crc16(serialized[2:])
-        if received_crc != calculated_crc:
-            logger.error(f"Received CRC: {received_crc}, Calculated CRC: {calculated_crc}")
-            raise CRCMismatchException()
-
         return self.pb_message.ParseFromString(serialized)
 
     def serialize(self) -> bytes:
@@ -122,14 +82,8 @@ class BasePBMsg(Generic[PBMsgType]):
         Returns:
             Serialized message
         """
-        # Grab the next logical sequence ID if it hasn't been set yet. This sets temporal ordering of messages.
         self._assign_seq_id_if_empty()
-
-        # All message modifications should be done, so calculate the CRC
-        serialized_data = self.pb_message.SerializeToString()
-        crc16 = crc.Calculator(crc.Crc16.XMODEM).checksum(serialized_data)
-
-        return struct.pack("<H", crc16) + serialized_data
+        return self.pb_message.SerializeToString()
 
     def _assign_seq_id_if_empty(self):
         """
