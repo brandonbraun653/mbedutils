@@ -35,7 +35,7 @@ namespace mb::thread
 
   Task &&create( const TaskConfig &cfg )
   {
-    return etl::move( Task() );
+    return etl::move( Task( 0 ) );
   }
 
 

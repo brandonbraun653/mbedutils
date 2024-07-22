@@ -16,28 +16,24 @@
 Includes
 -----------------------------------------------------------------------------*/
 #include <cstddef>
+#include <mbedutils/drivers/threading/thread.hpp>
 
 namespace mb::thread::intf
 {
   /*---------------------------------------------------------------------------
+  Aliases
+  ---------------------------------------------------------------------------*/
+
+
+  /*---------------------------------------------------------------------------
   Public Functions
   ---------------------------------------------------------------------------*/
 
-  /**
-   * @brief Total number of physical cores available.
-   * @note Expected to be provided by the integrating project.
-   *
-   * @return constexpr size_t
-   */
-  extern inline constexpr size_t num_cores();
+  TaskHandle_t create_task( const TaskConfig &cfg );
 
-  /**
-   * @brief Max number of threads the system can execute.
-   * @note Expected to be provided by the integrating project.
-   *
-   * @return constexpr size_t
-   */
-  extern inline constexpr size_t max_tasks();
+  void set_affinity( TaskHandle_t task, size_t coreId );
+
+  void start_scheduler();
 
 }  // namespace mb::thread::intf
 

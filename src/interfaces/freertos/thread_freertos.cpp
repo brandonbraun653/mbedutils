@@ -11,7 +11,31 @@
 /*-----------------------------------------------------------------------------
 Includes
 -----------------------------------------------------------------------------*/
+#include <FreeRTOS.h>
 #include <mbedutils/thread.hpp>
+
+
+namespace mb::thread::intf
+{
+  /*---------------------------------------------------------------------------
+  Public Functions
+  ---------------------------------------------------------------------------*/
+
+  TaskHandle_t create_task( const TaskConfig &cfg )
+  {
+    return nullptr;
+  }
+
+
+  void set_affinity( TaskHandle_t task, size_t coreId )
+  {
+  }
+
+
+  void start_scheduler()
+  {
+  }
+}
 
 namespace mb::thread
 {
@@ -19,7 +43,7 @@ namespace mb::thread
   Classes
   ---------------------------------------------------------------------------*/
 
-  Task::Task() noexcept : pimpl( nullptr )
+  Task::Task( const TaskId id ) noexcept : taskId( id ), pimpl( nullptr )
   {
   }
 

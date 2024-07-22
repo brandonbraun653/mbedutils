@@ -50,6 +50,7 @@ add_library(${PROJECT_NAME}_lib_freertos STATIC ${FREERTOS_INTF_SOURCES})
 target_link_libraries(${PROJECT_NAME}_lib_freertos PRIVATE
     ${PROJECT_NAME}_headers
     ${PROJECT_NAME}_internal_headers
+    freertos_config  # Standard FreeRTOS integration target. Defined by the project for headers.
 )
 
 # RPI Pico Based Library

@@ -37,6 +37,7 @@ namespace mb::thread
   Aliases
   ---------------------------------------------------------------------------*/
 
+  /* Mbedutils specific aliases */
   using TaskId       = size_t;
   using TaskMsgId    = size_t;
   using TaskPriority = uint8_t;
@@ -46,6 +47,9 @@ namespace mb::thread
   using TaskMsgPool  = etl::ipool *;
   using TaskMsgQueue = etl::iqueue<void *> *;
   using TaskCBMap    = etl::iflat_map<TaskId, TaskCB> *;
+
+  /* Implementation specific aliases */
+  using TaskHandle_t = void *;
 
   /*---------------------------------------------------------------------------
   Constants
@@ -77,6 +81,7 @@ namespace mb::thread
     // what I want is a condition variable? I need to get notified when
     // a queue element becomes free.
     CondVarMtx msg_queue_cv;
+    TaskHandle_t handle;
   };
 
   template<size_t N>
@@ -196,7 +201,8 @@ namespace mb::thread
   class Task
   {
   public:
-    Task() noexcept;
+    Task( const TaskId id ) noexcept;
+    Task() noexcept = default;
     ~Task();
 
     // Move assignment operator
@@ -244,7 +250,8 @@ namespace mb::thread
     bool joinable();
 
   private:
-    void *pimpl; /**< Implementation details */
+    TaskId taskId; /**< System identifier for the thread */
+    void  *pimpl;  /**< Implementation details */
   };
 
   namespace this_thread
