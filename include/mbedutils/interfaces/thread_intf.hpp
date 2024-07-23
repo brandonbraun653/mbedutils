@@ -29,11 +29,17 @@ namespace mb::thread::intf
   Public Functions
   ---------------------------------------------------------------------------*/
 
-  TaskHandle_t create_task( const TaskConfig &cfg );
+  void initialize();
 
-  void set_affinity( TaskHandle_t task, size_t coreId );
+  TaskHandle create_task( const TaskConfig &cfg );
+
+  void destroy_task( TaskHandle task );
+
+  void set_affinity( TaskHandle task, size_t coreId );
 
   void start_scheduler();
+
+  void on_stack_overflow();
 
 }  // namespace mb::thread::intf
 
