@@ -41,6 +41,10 @@ namespace mb::thread::intf
 
   void on_stack_overflow();
 
+  void on_idle();
+
+  void on_tick();
+
 }  // namespace mb::thread::intf
 
 #endif  /* !MBEDUTILS_THREADING_INTERFACE_HPP */

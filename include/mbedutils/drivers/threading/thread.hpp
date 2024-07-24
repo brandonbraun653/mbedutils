@@ -31,7 +31,7 @@ namespace mb::thread
   ---------------------------------------------------------------------------*/
 
   class Task;
-  struct TaskCB;
+  struct TaskControlBlock;
 
   /*---------------------------------------------------------------------------
   Aliases
@@ -45,7 +45,7 @@ namespace mb::thread
   using TaskName     = etl::string_view;
   using TaskMsgPool  = etl::ipool *;
   using TaskMsgQueue = etl::iqueue<void *> *;
-  using TaskCBMap    = etl::iflat_map<TaskId, TaskCB> *;
+  using TaskCBMap    = etl::iflat_map<TaskId, TaskControlBlock> *;
   using TaskHandle   = void *;
 
   /*---------------------------------------------------------------------------
@@ -71,18 +71,23 @@ namespace mb::thread
 
   /**
    * @brief Internal representation of a task control block.
+   *
+   * This normally would not be exposed to the user, but is here to allow for
+   * static allocation of memory.
    */
-  struct TaskCB
+  struct TaskControlBlock
   {
-    // Need a mutex for protecting message queue access. Actually, maybe
-    // what I want is a condition variable? I need to get notified when
-    // a queue element becomes free.
-    CondVarMtx msg_queue_cv;
-    TaskHandle handle;
+    TaskName             name;            /**< Name of the thread */
+    TaskHandle           handle;          /**< Implementation specific handle to the task */
+    TaskPriority         priority;        /**< System thread priority. Lower == more importance */
+    TaskMsgPool          msg_pool;        /**< Storage for allocating task messages */
+    TaskMsgQueue         msg_queue;       /**< Storage for queueing task messages */
+    ConditionVariable    msg_queue_cv;    /**< Condition variable for the message queue */
+    mb::osal::mb_mutex_t msg_queue_mutex; /**< Mutex for the message queue */
   };
 
   template<size_t N>
-  using TaskCBStorage = etl::flat_map<TaskId, TaskCB, N>;
+  using TaskControlBlockStorage = etl::flat_map<TaskId, TaskControlBlock, N>;
 
   /**
    * @brief Declares the expected storage for task messages.
@@ -199,8 +204,7 @@ namespace mb::thread
   class Task
   {
   public:
-    Task( const TaskId id ) noexcept;
-    Task() noexcept = default;
+    Task() noexcept;
     ~Task();
 
     // Move assignment operator
@@ -214,21 +218,6 @@ namespace mb::thread
      * @brief Starts the thread.
      */
     void start();
-
-    /**
-     * @brief Suspends the thread, assuming it's supported.
-     *
-     * This is mostly taken from real time operating systems (FreeRTOS) which
-     * can commonly suspend a single thread from execution.
-     */
-    void suspend();
-
-    /**
-     * @brief Resumes a previously suspended thread.
-     *
-     * Does nothing if thread suspension is not supported.
-     */
-    void resume();
 
     /**
      * @brief Sends a kills signal to the thread.
@@ -248,8 +237,10 @@ namespace mb::thread
     bool joinable();
 
   private:
-    TaskId taskId; /**< System identifier for the thread */
-    void  *pimpl;  /**< Implementation details */
+    friend ::mb::thread::Task &&create( const TaskConfig &cfg );
+
+    TaskId     taskId; /**< System identifier for the thread */
+    TaskHandle pimpl;  /**< Implementation details */
   };
 
   namespace this_thread

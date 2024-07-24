@@ -29,7 +29,7 @@ namespace mb::thread
   /**
    * @brief Standard condition variable implementation.
    */
-  class CondVar
+  class ConditionVariable
   {
   private:
     volatile uint32_t    waiters;
@@ -37,7 +37,7 @@ namespace mb::thread
     mb::osal::mb_smphr_t sem;
 
   public:
-    CondVar() : waiters( 0 ), mtx( nullptr ), sem( nullptr )
+    ConditionVariable() : waiters( 0 ), mtx( nullptr ), sem( nullptr )
     {
     }
 
@@ -110,7 +110,7 @@ namespace mb::thread
   /**
    * @brief Condition variable class with integrated shared mutex.
    */
-  class CondVarMtx
+  class ConditionVariableMutex
   {
   private:
     volatile uint32_t waiters;
@@ -119,7 +119,7 @@ namespace mb::thread
     mb::osal::mb_mutex_t shared_mutex;
 
   public:
-    CondVarMtx() : waiters( 0 ), mtx( nullptr ), sem( nullptr ), shared_mutex( nullptr )
+    ConditionVariableMutex() : waiters( 0 ), mtx( nullptr ), sem( nullptr ), shared_mutex( nullptr )
     {
     }
 

@@ -1,6 +1,6 @@
 /******************************************************************************
  *  File Name:
- *    thread_freertos.cpp
+ *    freertos_thread.cpp
  *
  *  Description:
  *    FreeRTOS based threading implementation
@@ -16,14 +16,19 @@ Includes
 #include <mbedutils/assert.hpp>
 #include <mbedutils/thread.hpp>
 #include <task.h>
+#include <limits>
 
 /*-----------------------------------------------------------------------------
-Validate user configuration parameters are in the project's FreeRTOSConfig.h
+Validate user configuration parameters from in the project's FreeRTOSConfig.h
 -----------------------------------------------------------------------------*/
 
 #if !defined( configMBEDUTILS_MAX_NUM_TASKS ) || ( configMBEDUTILS_MAX_NUM_TASKS <= 0 )
 #error "configMBEDUTILS_MAX_NUM_TASKS must be defined as > 0 in FreeRTOSConfig.h"
 #endif
+
+static_assert( configMAX_PRIORITIES >= std::numeric_limits<mb::thread::TaskPriority>::max(),
+               "configMAX_PRIORITIES incorrectly sized" );
+
 
 namespace mb::thread::intf
 {
@@ -33,8 +38,8 @@ namespace mb::thread::intf
 
   struct FreeRtosTaskMeta
   {
-    TaskHandle_t  handle;
-    StaticTask_t *task;
+    TaskHandle_t  handle; /**< FreeRTOS handle to the task */
+    StaticTask_t *task;   /**< (Optional) Static allocation parameters */
   };
 
   /*---------------------------------------------------------------------------
@@ -52,6 +57,7 @@ namespace mb::thread::intf
   {
     mbed_assert( mb::osal::buildMutexStrategy( s_task_mutex ) );
   }
+
 
   TaskHandle create_task( const TaskConfig &cfg )
   {
@@ -117,7 +123,7 @@ namespace mb::thread::intf
       {
         meta->task = s_task_pool.allocate();
 
-        if( cfg.affinity < 0 )
+        if( cfg.affinity < 0 || ( configUSE_CORE_AFFINITY != 1 ) )
         {
           meta->handle = xTaskCreateStatic( cfg.func, cfg.name.data(), cfg.stack_size, cfg.user_data, cfg.priority,
                                             cfg.stack_buf, meta->task );
@@ -130,6 +136,20 @@ namespace mb::thread::intf
         }
 #endif /* ( configNUMBER_OF_CORES > 1 ) && ( configUSE_CORE_AFFINITY == 1 ) */
       }
+    }
+
+    /*-------------------------------------------------------------------------
+    Clean up allocated resources should the task fail to create for some reason
+    -------------------------------------------------------------------------*/
+    if( meta->handle == nullptr )
+    {
+      if( meta->task && s_task_pool.is_in_pool( meta->task ) )
+      {
+        s_task_pool.release( meta->task );
+      }
+
+      s_task_meta_pool.release( meta );
+      return nullptr;
     }
 
     return static_cast<void *>( meta );
@@ -176,8 +196,27 @@ namespace mb::thread::intf
     }
   }
 
+
   void set_affinity( TaskHandle task, size_t coreId )
   {
+    #if configUSE_CORE_AFFINITY == 1
+    /*-------------------------------------------------------------------------
+    Input validation
+    -------------------------------------------------------------------------*/
+    if( task == nullptr )
+    {
+      return;
+    }
+
+    /*-------------------------------------------------------------------------
+    Set the core affinity for the task
+    -------------------------------------------------------------------------*/
+    auto meta = reinterpret_cast<FreeRtosTaskMeta *>( task );
+    if( meta->handle != nullptr )
+    {
+      vTaskCoreAffinitySet( meta->handle, coreId );
+    }
+    #endif  /* configUSE_CORE_AFFINITY */
   }
 
 
@@ -185,58 +224,92 @@ namespace mb::thread::intf
   {
     vTaskStartScheduler();
   }
+
+
+  __attribute__( ( weak ) ) void on_stack_overflow()
+  {
+    // Default implementation does nothing
+  }
+
+
+  __attribute__( ( weak ) ) void on_idle()
+  {
+    // Default implementation does nothing
+  }
+
+
+  __attribute__( ( weak ) ) void on_tick()
+  {
+    // Default implementation does nothing
+  }
 }    // namespace mb::thread::intf
 
-namespace mb::thread
+
+/*-----------------------------------------------------------------------------
+FreeRTOS Application Hooks
+-----------------------------------------------------------------------------*/
+
+extern "C"
 {
-  /*---------------------------------------------------------------------------
-  Classes
-  ---------------------------------------------------------------------------*/
-
-  Task::Task( const TaskId id ) noexcept : taskId( id ), pimpl( nullptr )
+#if( configCHECK_FOR_STACK_OVERFLOW != 0 )
+  void vApplicationStackOverflowHook( TaskHandle_t xTask, char *pcTaskName )
   {
+    mbed_assert_continue_msg( false, "Stack overflow detected on task: %s", pcTaskName );
+    mb::thread::intf::on_stack_overflow();
+  }
+#endif /* configCHECK_FOR_STACK_OVERFLOW */
+
+#if( configUSE_IDLE_HOOK == 1 )
+  void vApplicationIdleHook( void )
+  {
+    mb::thread::intf::on_idle();
+  }
+#endif /* configUSE_IDLE_HOOK */
+
+#if( configUSE_TICK_HOOK != 0 )
+  void vApplicationTickHook( void )
+  {
+    mb::thread::intf::on_tick();
+  }
+#endif /* configUSE_TICK_HOOK */
+
+
+#if( configSUPPORT_STATIC_ALLOCATION == 1 ) && ( configKERNEL_PROVIDED_STATIC_MEMORY == 0 )
+  void vApplicationGetIdleTaskMemory( StaticTask_t **ppxIdleTaskTCBBuffer, StackType_t **ppxIdleTaskStackBuffer,
+                                      configSTACK_DEPTH_TYPE *puxIdleTaskStackSize )
+  {
+    static StaticTask_t xIdleTaskTCB;
+    static StackType_t  uxIdleTaskStack[ configMINIMAL_STACK_SIZE ];
+
+    *ppxIdleTaskTCBBuffer   = &xIdleTaskTCB;
+    *ppxIdleTaskStackBuffer = uxIdleTaskStack;
+    *puxIdleTaskStackSize   = configMINIMAL_STACK_SIZE;
   }
 
-
-  Task::~Task()
+  void vApplicationGetTimerTaskMemory( StaticTask_t **ppxTimerTaskTCBBuffer, StackType_t **ppxTimerTaskStackBuffer,
+                                       uint32_t *pulTimerTaskStackSize )
   {
+    static StaticTask_t xTimerTaskTCB;
+    static StackType_t  uxTimerTaskStack[ configTIMER_TASK_STACK_DEPTH ];
+
+    *ppxTimerTaskTCBBuffer   = &xTimerTaskTCB;
+    *ppxTimerTaskStackBuffer = uxTimerTaskStack;
+    *pulTimerTaskStackSize   = configTIMER_TASK_STACK_DEPTH;
   }
 
-
-  Task &Task::operator=( Task &&other ) noexcept
+#if( configNUMBER_OF_CORES > 1 )
+  void vApplicationGetPassiveIdleTaskMemory( StaticTask_t **ppxIdleTaskTCBBuffer, StackType_t **ppxIdleTaskStackBuffer,
+                                             configSTACK_DEPTH_TYPE *puxIdleTaskStackSize, BaseType_t xPassiveIdleTaskIndex )
   {
-    return *this;
+    static StaticTask_t xIdleTaskTCB[ configNUMBER_OF_CORES - 1 ];
+    static StackType_t  uxIdleTaskStack[ configNUMBER_OF_CORES - 1 ][ configMINIMAL_STACK_SIZE ];
+
+    mbed_assert( xPassiveIdleTaskIndex >= configNUMBER_OF_CORES );
+
+    *ppxIdleTaskTCBBuffer   = &xIdleTaskTCB[ xPassiveIdleTaskIndex ];
+    *ppxIdleTaskStackBuffer = uxIdleTaskStack[ xPassiveIdleTaskIndex ];
+    *puxIdleTaskStackSize   = configMINIMAL_STACK_SIZE;
   }
-
-
-  void start()
-  {
-  }
-
-
-  void Task::suspend()
-  {
-  }
-
-
-  void Task::resume()
-  {
-  }
-
-
-  void Task::kill()
-  {
-  }
-
-
-  void Task::join()
-  {
-  }
-
-
-  bool Task::joinable()
-  {
-    return false;
-  }
-
-}    // namespace mb::thread
+#endif /* configNUMBER_OF_CORES > 1 */
+#endif /* configSUPPORT_STATIC_ALLOCATION */
+}
