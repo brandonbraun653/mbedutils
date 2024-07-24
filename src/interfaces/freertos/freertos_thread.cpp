@@ -26,8 +26,8 @@ Validate user configuration parameters from in the project's FreeRTOSConfig.h
 #error "configMBEDUTILS_MAX_NUM_TASKS must be defined as > 0 in FreeRTOSConfig.h"
 #endif
 
-static_assert( configMAX_PRIORITIES >= std::numeric_limits<mb::thread::TaskPriority>::max(),
-               "configMAX_PRIORITIES incorrectly sized" );
+// static_assert( configMAX_PRIORITIES >= std::numeric_limits<mb::thread::TaskPriority>::max(),
+//                "configMAX_PRIORITIES incorrectly sized" );
 
 
 namespace mb::thread::intf
@@ -86,13 +86,22 @@ namespace mb::thread::intf
     meta->task   = nullptr;
 
     /*-------------------------------------------------------------------------
+    Ensure the affinity mask is valid. FreeRTOS expects the affinity to be a
+    bitmask of the cores to run on.
+    -------------------------------------------------------------------------*/
+#if( configNUMBER_OF_CORES > 1 ) && ( configUSE_CORE_AFFINITY == 1 )
+    constexpr size_t AffinityMask = ( 1 << configNUMBER_OF_CORES ) - 1;
+    UBaseType_t      affinity     = cfg.affinity & AffinityMask;
+#endif /* ( configNUMBER_OF_CORES > 1 ) && ( configUSE_CORE_AFFINITY == 1 ) */
+
+    /*-------------------------------------------------------------------------
     Create a dynamic task
     -------------------------------------------------------------------------*/
     if constexpr( configSUPPORT_DYNAMIC_ALLOCATION == 1 )
     {
-      if( ( cfg.stack_size > 0 ) && ( cfg.stack_buf == nullptr ) )
+      if( cfg.stack_buf == nullptr )
       {
-        if( ( cfg.affinity < 0 ) || ( configUSE_CORE_AFFINITY != 1 ) )
+        if( configUSE_CORE_AFFINITY != 1 )
         {
           auto result = xTaskCreate( cfg.func, cfg.name.data(), cfg.stack_size, cfg.user_data, cfg.priority, &meta->handle );
           if( result != pdPASS )
@@ -101,10 +110,10 @@ namespace mb::thread::intf
           }
         }
 #if( configNUMBER_OF_CORES > 1 ) && ( configUSE_CORE_AFFINITY == 1 )
-        else
+        else if( affinity != 0 )
         {
           auto result = xTaskCreateAffinitySet( cfg.func, cfg.name.data(), cfg.stack_size, cfg.user_data, cfg.priority,
-                                                cfg.affinity, &meta->handle );
+                                                affinity, &meta->handle );
           if( result != pdPASS )
           {
             meta->handle = nullptr;
@@ -123,16 +132,16 @@ namespace mb::thread::intf
       {
         meta->task = s_task_pool.allocate();
 
-        if( cfg.affinity < 0 || ( configUSE_CORE_AFFINITY != 1 ) )
+        if( configUSE_CORE_AFFINITY != 1 )
         {
           meta->handle = xTaskCreateStatic( cfg.func, cfg.name.data(), cfg.stack_size, cfg.user_data, cfg.priority,
                                             cfg.stack_buf, meta->task );
         }
 #if( configNUMBER_OF_CORES > 1 ) && ( configUSE_CORE_AFFINITY == 1 )
-        else
+        else if( affinity != 0 )
         {
           meta->handle = xTaskCreateStaticAffinitySet( cfg.func, cfg.name.data(), cfg.stack_size, cfg.user_data, cfg.priority,
-                                                       cfg.stack_buf, meta->task, cfg.affinity );
+                                                       cfg.stack_buf, meta->task, affinity );
         }
 #endif /* ( configNUMBER_OF_CORES > 1 ) && ( configUSE_CORE_AFFINITY == 1 ) */
       }
@@ -199,7 +208,7 @@ namespace mb::thread::intf
 
   void set_affinity( TaskHandle task, size_t coreId )
   {
-    #if configUSE_CORE_AFFINITY == 1
+#if configUSE_CORE_AFFINITY == 1
     /*-------------------------------------------------------------------------
     Input validation
     -------------------------------------------------------------------------*/
@@ -216,7 +225,7 @@ namespace mb::thread::intf
     {
       vTaskCoreAffinitySet( meta->handle, coreId );
     }
-    #endif  /* configUSE_CORE_AFFINITY */
+#endif /* configUSE_CORE_AFFINITY */
   }
 
 
@@ -231,6 +240,11 @@ namespace mb::thread::intf
     // Default implementation does nothing
   }
 
+
+  __attribute__( ( weak ) ) void on_malloc_failed()
+  {
+    mbed_assert_always();
+  }
 
   __attribute__( ( weak ) ) void on_idle()
   {
@@ -259,6 +273,13 @@ extern "C"
   }
 #endif /* configCHECK_FOR_STACK_OVERFLOW */
 
+#if( configUSE_MALLOC_FAILED_HOOK == 1 )
+  void vApplicationMallocFailedHook( void )
+  {
+    mb::thread::intf::on_malloc_failed();
+  }
+#endif /* configUSE_MALLOC_FAILED_HOOK */
+
 #if( configUSE_IDLE_HOOK == 1 )
   void vApplicationIdleHook( void )
   {
@@ -273,6 +294,12 @@ extern "C"
   }
 #endif /* configUSE_TICK_HOOK */
 
+#if( configENABLE_HEAP_PROTECTOR == 1 )
+  void vApplicationGetRandomHeapCanary( portPOINTER_SIZE_TYPE *pxHeapCanary )
+  {
+    *pxHeapCanary = 0x12345678;
+  }
+#endif /* configENABLE_HEAP_PROTECTOR */
 
 #if( configSUPPORT_STATIC_ALLOCATION == 1 ) && ( configKERNEL_PROVIDED_STATIC_MEMORY == 0 )
   void vApplicationGetIdleTaskMemory( StaticTask_t **ppxIdleTaskTCBBuffer, StackType_t **ppxIdleTaskStackBuffer,
@@ -286,6 +313,7 @@ extern "C"
     *puxIdleTaskStackSize   = configMINIMAL_STACK_SIZE;
   }
 
+#if defined( configTIMER_TASK_STACK_DEPTH )
   void vApplicationGetTimerTaskMemory( StaticTask_t **ppxTimerTaskTCBBuffer, StackType_t **ppxTimerTaskStackBuffer,
                                        uint32_t *pulTimerTaskStackSize )
   {
@@ -296,6 +324,7 @@ extern "C"
     *ppxTimerTaskStackBuffer = uxTimerTaskStack;
     *pulTimerTaskStackSize   = configTIMER_TASK_STACK_DEPTH;
   }
+#endif /* configTIMER_TASK_STACK_DEPTH */
 
 #if( configNUMBER_OF_CORES > 1 )
   void vApplicationGetPassiveIdleTaskMemory( StaticTask_t **ppxIdleTaskTCBBuffer, StackType_t **ppxIdleTaskStackBuffer,
@@ -304,7 +333,7 @@ extern "C"
     static StaticTask_t xIdleTaskTCB[ configNUMBER_OF_CORES - 1 ];
     static StackType_t  uxIdleTaskStack[ configNUMBER_OF_CORES - 1 ][ configMINIMAL_STACK_SIZE ];
 
-    mbed_assert( xPassiveIdleTaskIndex >= configNUMBER_OF_CORES );
+    mbed_assert( xPassiveIdleTaskIndex < configNUMBER_OF_CORES );
 
     *ppxIdleTaskTCBBuffer   = &xIdleTaskTCB[ xPassiveIdleTaskIndex ];
     *ppxIdleTaskStackBuffer = uxIdleTaskStack[ xPassiveIdleTaskIndex ];

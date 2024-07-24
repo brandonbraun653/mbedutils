@@ -145,7 +145,7 @@ namespace mb::thread
     TaskId       id;         /**< System ID of the thread */
     TaskFunction func;       /**< Function to run as the task*/
     TaskPriority priority;   /**< System thread priority. Lower == more importance */
-    TaskAffinity affinity;   /**< (Optional) Core affinity (multi-core only) */
+    TaskAffinity affinity;   /**< (Optional) Core affinity bitmask (multi-core only) */
     TaskMsgPool  msg_pool;   /**< (Optional) Storage for allocating task messages */
     TaskMsgQueue msg_queue;  /**< (Optional) Storage for queueing task messages */
     uint32_t    *stack_buf;  /**< (Optional) Statically allocated stack */
