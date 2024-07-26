@@ -11,12 +11,15 @@
 /*-----------------------------------------------------------------------------
 Includes
 -----------------------------------------------------------------------------*/
+#include <etl/atomic.h>
 #include <etl/crc.h>
-#include <mbedutils/drivers/rpc/rpc_message.hpp>
+#include <inttypes.h>
 #include <mbedutils/assert.hpp>
+#include <mbedutils/osal.hpp>
+#include <mbedutils/drivers/rpc/rpc_common.hpp>
+#include <mbedutils/drivers/rpc/rpc_message.hpp>
 #include <pb_decode.h>
 #include <pb_encode.h>
-#include <inttypes.h>
 
 namespace mb::rpc::message
 {
@@ -34,6 +37,8 @@ namespace mb::rpc::message
   ---------------------------------------------------------------------------*/
 
   static DescriptorRegistry *s_msg_reg;
+  static volatile SeqId s_msg_uuid;
+  static mb::osal::mb_mutex_t s_msg_mutex;
 
 
   /*---------------------------------------------------------------------------
@@ -42,7 +47,23 @@ namespace mb::rpc::message
 
   void initialize( DescriptorRegistry *const msgReg )
   {
-    s_msg_reg = msgReg;
+    s_msg_reg  = msgReg;
+    s_msg_uuid = 0;
+
+    mbed_assert( mb::osal::buildMutexStrategy( s_msg_mutex ) );
+  }
+
+
+  SeqId next_seq_id()
+  {
+    mb::osal::enterCritical( s_msg_mutex );
+
+    SeqId next_id = s_msg_uuid;
+    s_msg_uuid    = ( s_msg_uuid + 1 ) % std::numeric_limits<SeqId>::max();
+
+    mb::osal::exitCritical( s_msg_mutex );
+
+    return next_id;
   }
 
 

@@ -38,6 +38,7 @@ namespace mb::hw::serial
   static constexpr uint32_t UARTx_FIFO_THR_16B = 2u;
   static constexpr uint32_t UARTx_FIFO_THR_24B = 3u;
   static constexpr uint32_t UARTx_FIFO_THR_28B = 4u;
+  static constexpr uint32_t AlarmTimeoutMax    = 0xFFFFFFFF;
 
   /*---------------------------------------------------------------------------
   Structures
@@ -52,6 +53,7 @@ namespace mb::hw::serial
     volatile bool            tx_in_progress;           /**< Flag to indicate if a TX operation is in progress */
     volatile bool            rx_in_progress;           /**< Flag to indicate if an RX operation is in progress */
     volatile alarm_id_t      rx_alarm_id;              /**< RX timeout alarm ID */
+    volatile uint32_t        rx_alarm_timeout;         /**< Last RX alarm timeout configuration */
     size_t                   rx_expect;                /**< Number of bytes expected to receive */
     volatile size_t          rx_actual;                /**< Actual number of bytes received */
     size_t                   rx_fifo_threshold;        /**< RX FIFO threshold */
@@ -73,6 +75,7 @@ namespace mb::hw::serial
       rx_active_tick           = 0;
       rx_actual                = 0;
       rx_alarm_id              = -1;
+      rx_alarm_timeout         = AlarmTimeoutMax;
       rx_buffer                = nullptr;
       rx_expect                = 0;
       rx_fifo_threshold        = 0;
@@ -251,6 +254,19 @@ namespace mb::hw::serial
     mbed_dbg_assert( s_driver_initialized == mb::DRIVER_INITIALIZED_KEY );
 
     auto cb = get_cb( channel );
+
+    /*-------------------------------------------------------------------------
+    Disable the RX alarm if it's running
+    -------------------------------------------------------------------------*/
+    if( cb->rx_in_progress && ( cb->rx_alarm_id >= 0 ) )
+    {
+      cancel_alarm( cb->rx_alarm_id );
+      cb->rx_alarm_id = -1;
+    }
+
+    /*-------------------------------------------------------------------------
+    Disable the UART peripheral interrupts
+    -------------------------------------------------------------------------*/
     cb->uart_irq_mask           = uart_get_hw( cb->hw )->imsc;
     uart_get_hw( cb->hw )->imsc = 0;
   }
@@ -261,7 +277,20 @@ namespace mb::hw::serial
     mbed_dbg_assert( s_driver_initialized == mb::DRIVER_INITIALIZED_KEY );
 
     auto cb = get_cb( channel );
+
+    /*-------------------------------------------------------------------------
+    Re-enable the UART peripheral interrupts
+    -------------------------------------------------------------------------*/
     uart_get_hw( cb->hw )->imsc = cb->uart_irq_mask;
+
+    /*-------------------------------------------------------------------------
+    If we're in the middle of an RX operation, re-enable the RX alarm
+    -------------------------------------------------------------------------*/
+    if( cb->rx_in_progress )
+    {
+      cb->rx_alarm_id = add_alarm_in_ms( cb->rx_alarm_timeout, rx_alarm_cb, cb, true );
+      mbed_assert_continue_msg( cb->rx_alarm_id >= 0, "Failed to re-enable RX alarm on channel %d", cb->usr_channel );
+    }
   }
 
 
@@ -437,9 +466,11 @@ namespace mb::hw::serial
     /*-------------------------------------------------------------------------
     Set up a timer to expire if we don't receive all the bytes in time
     -------------------------------------------------------------------------*/
-    cb->rx_alarm_id = add_alarm_in_ms( timeout, rx_alarm_cb, cb, true );
+    cb->rx_alarm_timeout = timeout;
+    cb->rx_alarm_id      = add_alarm_in_ms( timeout, rx_alarm_cb, cb, true );
     if( cb->rx_alarm_id < 0 )
     {
+      cb->rx_alarm_timeout = AlarmTimeoutMax;
       return -1;
     }
 

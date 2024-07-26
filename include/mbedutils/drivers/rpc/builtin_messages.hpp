@@ -41,6 +41,13 @@ namespace mb::rpc::message
   static constexpr Descriptor ErrorMessage{ mbed_rpc_BuiltinMessage_MSG_ERROR, mbed_rpc_BuiltinMessageVersion_MSG_VER_ERROR,
                                             mbed_rpc_ErrorMessage_fields, mbed_rpc_ErrorMessage_size };
 
+  /**
+   * @brief Console message descriptor
+   */
+  static constexpr Descriptor ConsoleMessage{ mbed_rpc_BuiltinMessage_MSG_CONSOLE,
+                                              mbed_rpc_BuiltinMessageVersion_MSG_VER_CONSOLE,
+                                              mbed_rpc_ConsoleMessage_fields, mbed_rpc_ConsoleMessage_size };
+
 }    // namespace mb::rpc::message
 
 #endif /* !MBEDUTILS_RPC_BUILTIN_MESSAGES_HPP */

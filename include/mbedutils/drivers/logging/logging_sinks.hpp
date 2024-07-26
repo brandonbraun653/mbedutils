@@ -127,7 +127,7 @@ namespace mb::logging
   };
 
   /**
-   * @brief Log messages to a serial channel
+   * @brief Log raw messages to a serial channel
    *
    * This is intended for use in a bare-metal environment where the typical
    * logging mechanism is some kind of serial interface.
@@ -146,14 +146,13 @@ namespace mb::logging
      * @brief Assigns the serial driver to use for logging
      *
      * @param serial Driver to attach for logging
-     * @param config Configuration to use for the driver
      */
-    void assignDriver( ::mb::hw::serial::ISerial &serial, const ::mb::hw::serial::Config &config );
+    void assignDriver( ::mb::hw::serial::ISerial &serial );
 
   private:
     ::mb::hw::serial::ISerial *mSerial; /**< Driver for logging messages */
-    ::mb::hw::serial::Config   mConfig; /**< Configuration to use for the driver */
   };
+
 }  // namespace mb::logging
 
 #endif  /* !MBEDUTILS_LOGGING_SINK_INTERFACE_HPP */

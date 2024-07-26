@@ -237,7 +237,7 @@ namespace mb::thread::intf
 
   __attribute__( ( weak ) ) void on_stack_overflow()
   {
-    // Default implementation does nothing
+    mbed_assert_always();
   }
 
 

@@ -84,6 +84,7 @@ namespace mb::rpc::server
 
     /* Messages */
     mbed_assert_continue( message::addDescriptor( message::PingMessage ) );
+    mbed_assert_continue( message::addDescriptor( message::ConsoleMessage ) );
 
     return true;
   }

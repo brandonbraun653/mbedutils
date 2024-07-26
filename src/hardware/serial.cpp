@@ -358,7 +358,7 @@ namespace mb::hw::serial
   int SerialDriver::write_exit_critical( etl::span<uint8_t> &span )
   {
     /*-------------------------------------------------------------------------
-    Commit the memory back to the buffer
+    Commit the memory back to the buffer with the updated span.
     -------------------------------------------------------------------------*/
     size_t actual_write_size = span.size();
     if( span.size() != 0 )
@@ -467,7 +467,8 @@ namespace mb::hw::serial
    */
   size_t SerialDriver::start_tx_transfer( const size_t num_bytes )
   {
-    int actual_write_size = 0;
+    int    actual_write_size = 0;
+    size_t reserve_size      = num_bytes;
 
     if( !mTXControl.in_progress )
     {
@@ -475,14 +476,15 @@ namespace mb::hw::serial
 
       mTXControl.in_progress = true;
       mTXControl.buffer      = mConfig.txBuffer->read_reserve( num_bytes );
-      actual_write_size      = intf::write_async( mConfig.channel, mTXControl.buffer.data(), mTXControl.buffer.size() );
+      reserve_size           = mTXControl.buffer.size();
+      actual_write_size      = intf::write_async( mConfig.channel, mTXControl.buffer.data(), reserve_size );
 
       /*-----------------------------------------------------------------------
       Due to how the write_async method is supposed to work, we should always
       be able to write the full buffer size. If we can't, something went wrong.
       Leave the data in the buffer so it can be re-transferred.
       -----------------------------------------------------------------------*/
-      if( ( actual_write_size < 0 ) || ( static_cast<size_t>( actual_write_size ) != mTXControl.buffer.size() ) )
+      if( ( actual_write_size < 0 ) || ( static_cast<size_t>( actual_write_size ) != reserve_size ) )
       {
         mbed_assert_continue_msg( false, "Failed to start TX of %d bytes on UART %d: %d", mTXControl.buffer.size(),
                                   mConfig.channel, actual_write_size );

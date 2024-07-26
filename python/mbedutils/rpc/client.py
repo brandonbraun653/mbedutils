@@ -50,6 +50,7 @@ class RPCClient:
         # Initialize the transport layer and add default messages
         self._transport = COBSerialPipe()
         self._transport.add_message_descriptor(PingPBMsg())
+        self._transport.add_message_descriptor(ConsolePBMsg())
 
         self._online = False
         self._time_last_online = 0

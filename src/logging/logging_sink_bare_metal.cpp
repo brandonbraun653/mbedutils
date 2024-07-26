@@ -24,7 +24,7 @@ namespace mb::logging
   UART Sink
   ---------------------------------------------------------------------------*/
 
-  SerialSink::SerialSink() : mSerial( nullptr ), mConfig( {} )
+  SerialSink::SerialSink() : mSerial( nullptr )
   {
   }
 
@@ -32,13 +32,12 @@ namespace mb::logging
   ErrCode SerialSink::open()
   {
     this->initLockable();
-    return mSerial->open( mConfig ) ? ErrCode::ERR_OK : ErrCode::ERR_FAIL;
+    return ErrCode::ERR_OK;
   }
 
 
   ErrCode SerialSink::close()
   {
-    mSerial->close();
     return ErrCode::ERR_OK;
   }
 
@@ -75,10 +74,9 @@ namespace mb::logging
   }
 
 
-  void SerialSink::assignDriver( ::mb::hw::serial::ISerial &serial, const ::mb::hw::serial::Config &config )
+  void SerialSink::assignDriver( ::mb::hw::serial::ISerial &serial )
   {
     mSerial = &serial;
-    mConfig = config;
   }
 
 }  // namespace mb::logging

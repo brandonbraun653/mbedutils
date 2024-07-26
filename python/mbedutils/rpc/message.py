@@ -168,6 +168,7 @@ class ConsolePBMsg(BasePBMsg[ConsoleMessage]):
         super().__init__()
         self._pb_msg = ConsoleMessage()
         self._pb_msg.header.msgId = BuiltinMessage.MSG_CONSOLE
+        self._pb_msg.header.version = BuiltinMessageVersion.MSG_VER_CONSOLE
 
     @property
     def frame_number(self) -> int:

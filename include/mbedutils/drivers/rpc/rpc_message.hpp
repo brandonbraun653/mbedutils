@@ -28,6 +28,11 @@ namespace mb::rpc
   ---------------------------------------------------------------------------*/
 
   /**
+   * @brief Sequence ID for a message
+   */
+  using SeqId = uint8_t;
+
+  /**
    * @brief Identifier for a unique message type
    */
   using MsgId = uint8_t;
@@ -147,6 +152,13 @@ namespace mb::rpc::message
    * @param reg Registry to use for storing message descriptors
    */
   void initialize( DescriptorRegistry *const reg );
+
+  /**
+   * @brief Get the next sequence ID for the system
+   *
+   * @return SeqId
+   */
+  SeqId next_seq_id();
 
   /**
    * @brief Register a message descriptor this module should know how to decode.

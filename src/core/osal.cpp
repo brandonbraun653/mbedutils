@@ -24,4 +24,24 @@ namespace mb::osal
     initMutexDriver();
     initSmphrDriver();
   }
+
+
+  void enterCritical( mb::osal::mb_mutex_t &lock )
+  {
+    if( !mb::irq::in_isr() )
+    {
+      mb::osal::lockMutex( lock );
+    }
+    mb::irq::disable_interrupts();
+  }
+
+
+  void exitCritical( mb::osal::mb_mutex_t &lock )
+  {
+    mb::irq::enable_interrupts();
+    if( !mb::irq::in_isr() )
+    {
+      mb::osal::unlockMutex( lock );
+    }
+  }
 }  // namespace mb::osal

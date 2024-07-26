@@ -151,6 +151,20 @@ namespace mb::thread
     uint32_t    *stack_buf;  /**< (Optional) Statically allocated stack */
     uint32_t     stack_size; /**< (Optional) Element count of stack buffer */
     void        *user_data;  /**< (Optional) User data to pass to the thread */
+
+    void reset()
+    {
+      name     = "";
+      id       = 0;
+      func     = nullptr;
+      priority = 0;
+      affinity = 0;
+      msg_pool = nullptr;
+      msg_queue = nullptr;
+      stack_buf = nullptr;
+      stack_size = 0;
+      user_data = nullptr;
+    }
   };
 
   /**
