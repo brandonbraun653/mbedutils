@@ -57,14 +57,51 @@ namespace mb::rpc::server
 
   /**
    * @brief Specifies the system resources consumed by the RPC server.
+   *
+   * These resources are required for the server to operate and must be
+   * provided by the user of the server. This could be static or dynamically
+   * allocated memory, but it must be available for the server to exclusively
+   * use.
    */
   struct Config
   {
-    mb::hw::serial::ISerial *iostream;  /**< Serial driver to use for communication */
-    StreamBuffer            *rxBuffer;  /**< Buffer for incoming data stream */
-    ServiceRegistry         *svcReg;    /**< Service descriptor storage */
-    etl::span<uint8_t>       txScratch; /**< Scratch buffer for encoding messages */
-    etl::span<uint8_t>       rxScratch; /**< Scratch buffer for decoding messages */
+    mb::hw::serial::ISerial *iostream;     /**< Serial driver to use for communication */
+    StreamBuffer            *streamBuffer; /**< Buffer for incoming data stream */
+    ServiceRegistry         *registry;     /**< Service descriptor storage */
+    etl::span<uint8_t>       encodeBuffer; /**< Scratch buffer for encoding messages */
+    etl::span<uint8_t>       decodeBuffer; /**< Scratch buffer for decoding messages */
+  };
+
+  /**
+   * @brief Statically allocate necessary storage for the server to operate.
+   *
+   * The buffers should be sized according to the largest possible message
+   * sent or received by one of the services. In particular, the stream buffer
+   * should hold several multiples of that message size to prevent overflow.
+   *
+   * @tparam NumServices  How many services may be registered at once
+   * @tparam RXStream     Size of the receive buffer for incoming data
+   * @tparam TXTranscode  Size of the scratch buffer for encoding ANY message
+   * @tparam RXTranscode  Size of the scratch buffer for decoding ANY message
+   */
+  template<size_t NumServices, size_t RXStream, size_t TXTranscode, size_t RXTranscode>
+  struct Storage
+  {
+    ServiceStorage<NumServices> registry;     /**< Service instance memory */
+    StreamStorage<RXStream>     streamBuffer; /**< Stream data buffer for accumulating frames */
+    ScratchStorage<TXTranscode> encodeBuffer; /**< Workspace for a single TX frame */
+    ScratchStorage<RXTranscode> decodeBuffer; /**< Workspace for a single RX frame */
+
+    /**
+     * @brief Helper method to create a configuration object for the server.
+     *
+     * @param iostream  Serial driver to use for communication
+     * @return Config
+     */
+    inline Config make_config( mb::hw::serial::ISerial &iostream )
+    {
+      return Config{ &iostream, &streamBuffer, &registry, encodeBuffer, decodeBuffer };
+    }
   };
 
   /*---------------------------------------------------------------------------
@@ -77,6 +114,11 @@ namespace mb::rpc::server
    * This is a stateless server, meaning that it does not maintain any connection history
    * or state between calls. Once it's open, it's ready to process requests and will do
    * so until it's closed by the host application.
+   *
+   * It is partially cooperative with the given IOStream object, meaning it will share
+   * the TX line with the rest of the system, however it requires exclusive access
+   * to the RX line. The user must ensure that the RX line is not emptied by other parts
+   * of the system while the server is running, else it may miss incoming requests.
    */
   class Server : mb::thread::Lockable<Server>
   {
@@ -148,9 +190,12 @@ namespace mb::rpc::server
   private:
     friend class ::mb::thread::Lockable<Server>;
 
-    bool                 mIsOpen;
-    Config               mCfg;
-    service::PingService mPingService;
+    bool   mIsOpen;
+    Config mCfg;
+
+    /* Builtin Services */
+    service::PingService      mPingService;
+    service::TestErrorService mTestErrorService;
 
     bool process_next_request();
     bool read_cobs_frame();

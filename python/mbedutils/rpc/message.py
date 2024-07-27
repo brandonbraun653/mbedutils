@@ -138,6 +138,16 @@ class AckNackPBMsg(BasePBMsg[AckNackMessage]):
         self._pb_msg.status_code = sc
 
 
+class NullPBMsg(BasePBMsg[NullMessage]):
+
+    def __init__(self):
+        super().__init__()
+        self._pb_msg = NullMessage()
+        self._pb_msg.header.msgId = BuiltinMessage.MSG_NULL
+        self._pb_msg.header.version = BuiltinMessageVersion.MSG_VER_NULL
+        self._pb_msg.header.seqId = 0
+
+
 class PingPBMsg(BasePBMsg[PingMessage]):
 
     def __init__(self):

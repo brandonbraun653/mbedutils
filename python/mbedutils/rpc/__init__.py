@@ -6,6 +6,7 @@ import nanopb
 __nanopb_path = os.path.dirname(nanopb.__file__)
 __generator_dir = os.path.join(__nanopb_path, "generator")
 __nanopb_proto_dir = os.path.join(__generator_dir, "proto")
+__mbedutils_proto_dir = os.path.join(os.path.dirname(__file__), "proto")
 
 # Add the nanopb generator directory to the system path.
 if __generator_dir not in sys.path:
@@ -14,3 +15,7 @@ if __generator_dir not in sys.path:
 # Add the nanopb proto directory to the system path.
 if __nanopb_proto_dir not in sys.path:
     sys.path.append(__nanopb_proto_dir)
+
+# Add this directory to the system path, for consumers of mbedutils.
+if __mbedutils_proto_dir not in sys.path:
+    sys.path.append(__mbedutils_proto_dir)

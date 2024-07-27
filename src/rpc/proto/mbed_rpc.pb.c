@@ -12,6 +12,9 @@ PB_BIND(mbed_rpc_Header, mbed_rpc_Header, AUTO)
 PB_BIND(mbed_rpc_BaseMessage, mbed_rpc_BaseMessage, AUTO)
 
 
+PB_BIND(mbed_rpc_NullMessage, mbed_rpc_NullMessage, AUTO)
+
+
 PB_BIND(mbed_rpc_ErrorMessage, mbed_rpc_ErrorMessage, 2)
 
 

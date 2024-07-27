@@ -25,7 +25,8 @@ enum ErrorCode {
 }
 
 enum BuiltinService {
-  SVC_PING = 0;
+  SVC_PING = 0;       // Accepts ping requests from clients
+  SVC_TEST_ERROR = 1; // Test error handling
 }
 
 enum BuiltinMessage {
@@ -62,6 +63,11 @@ message Header {
 
 // Root type that parsers can use to peek at messages and figure out what type the full message is.
 message BaseMessage {
+  required Header header = 1;
+}
+
+// Simple empty message type
+message NullMessage {
   required Header header = 1;
 }
 

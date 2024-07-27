@@ -92,7 +92,7 @@ class Publisher:
                 pass
 
     def get_subscription_data(self, unique_id: uuid.UUID, block: bool = True, flush: bool = True,
-                              terminate: bool = False) -> List[Any]:
+                              terminate: bool = True) -> List[Any]:
         """
         Gets all data associated with a subscription
         Args:

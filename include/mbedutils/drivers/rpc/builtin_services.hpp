@@ -47,6 +47,26 @@ namespace mb::rpc::service
     }
   };
 
+  /**
+   * @brief Service for testing error handling flow
+   */
+  class TestErrorService : public mb::rpc::BaseService<mbed_rpc_NullMessage, mbed_rpc_NullMessage>
+  {
+  public:
+    TestErrorService() :
+        BaseService<mbed_rpc_NullMessage, mbed_rpc_NullMessage>( "TestErrorService", mbed_rpc_BuiltinService_SVC_TEST_ERROR,
+                                                                 mbed_rpc_BuiltinMessage_MSG_NULL,
+                                                                 mbed_rpc_BuiltinMessage_MSG_NULL ){};
+    ~TestErrorService() = default;
+
+    /**
+     * @copydoc IService::processRequest
+     */
+    ErrId processRequest() final override
+    {
+      return mbed_rpc_ErrorCode_ERR_SVC_FAILED;
+    }
+  };
 }    // namespace mb::rpc::service
 
 #endif /* !MBEDUTILS_RPC_PING_SERVICE_HPP */

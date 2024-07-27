@@ -76,7 +76,7 @@ class RPCClient:
         """
         sub_id = self.com_pipe.subscribe(msg=PingPBMsg, qty=1, timeout=5.0)
         self.com_pipe.write(PingPBMsg())
-        responses = self.com_pipe.get_subscription_data(sub_id, terminate=True)
+        responses = self.com_pipe.get_subscription_data(sub_id)
         if not responses:
             logger.warning("Node did not respond to ping")
         return bool(responses)

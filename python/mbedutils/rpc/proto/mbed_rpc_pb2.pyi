@@ -100,10 +100,16 @@ class _BuiltinService:
 class _BuiltinServiceEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_BuiltinService.ValueType], builtins.type):
     DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
     SVC_PING: _BuiltinService.ValueType  # 0
+    """Accepts ping requests from clients"""
+    SVC_TEST_ERROR: _BuiltinService.ValueType  # 1
+    """Test error handling"""
 
 class BuiltinService(_BuiltinService, metaclass=_BuiltinServiceEnumTypeWrapper): ...
 
 SVC_PING: BuiltinService.ValueType  # 0
+"""Accepts ping requests from clients"""
+SVC_TEST_ERROR: BuiltinService.ValueType  # 1
+"""Test error handling"""
 global___BuiltinService = BuiltinService
 
 class _BuiltinMessage:
@@ -207,6 +213,25 @@ class BaseMessage(google.protobuf.message.Message):
     def ClearField(self, field_name: typing.Literal["header", b"header"]) -> None: ...
 
 global___BaseMessage = BaseMessage
+
+@typing.final
+class NullMessage(google.protobuf.message.Message):
+    """Simple empty message type"""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    HEADER_FIELD_NUMBER: builtins.int
+    @property
+    def header(self) -> global___Header: ...
+    def __init__(
+        self,
+        *,
+        header: global___Header | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["header", b"header"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["header", b"header"]) -> None: ...
+
+global___NullMessage = NullMessage
 
 @typing.final
 class ErrorMessage(google.protobuf.message.Message):

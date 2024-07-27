@@ -279,8 +279,19 @@ namespace mb::hw::serial
       return 0;
     }
 
-    mb::thread::RecursiveLockGuard _lock( mLockableMutex );
-    return mConfig.rxBuffer->size();
+    if( !mb::irq::in_isr() )
+    {
+      this->lock();
+    }
+
+    size_t buf_size = mConfig.rxBuffer->size();
+
+    if( !mb::irq::in_isr() )
+    {
+      this->unlock();
+    }
+
+    return buf_size;
   }
 
 

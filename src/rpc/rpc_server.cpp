@@ -39,10 +39,9 @@ namespace mb::rpc::server
     Validate the configuration
     -------------------------------------------------------------------------*/
     /* clang-format off */
-    if( mIsOpen                       || !config.iostream
-     || !config.rxBuffer              || !config.rxBuffer->available()
-     || !config.svcReg
-     || !config.txScratch.size()      || !config.rxScratch.size() )
+    if( mIsOpen || !config.iostream || !config.registry
+     || !config.streamBuffer        || !config.streamBuffer->available()
+     || !config.encodeBuffer.size() || !config.decodeBuffer.size() )
     { /* clang-format on */
       mbed_dbg_assert_continue_always();
       return false;
@@ -56,7 +55,7 @@ namespace mb::rpc::server
     /*-------------------------------------------------------------------------
     Bind the IO stream to the server
     -------------------------------------------------------------------------*/
-    if( !config.iostream->try_lock_for( 100 ) )
+    if( !config.iostream->try_lock_for( mb::thread::TIMEOUT_100MS ) )
     {
       mbed_assert_continue_msg( false, "Failed to acquire the IO stream" );
       return false;
@@ -69,10 +68,10 @@ namespace mb::rpc::server
     /*-------------------------------------------------------------------------
     Initialize the configuration memory
     -------------------------------------------------------------------------*/
-    config.svcReg->clear();
-    config.rxBuffer->clear();
-    memset( config.txScratch.data(), 0, config.txScratch.max_size() );
-    memset( config.rxScratch.data(), 0, config.rxScratch.max_size() );
+    config.registry->clear();
+    config.streamBuffer->clear();
+    memset( config.encodeBuffer.data(), 0, config.encodeBuffer.max_size() );
+    memset( config.decodeBuffer.data(), 0, config.decodeBuffer.max_size() );
 
     mCfg    = config;
     mIsOpen = true;
@@ -82,9 +81,12 @@ namespace mb::rpc::server
     -------------------------------------------------------------------------*/
     /* Services */
     mbed_assert_continue( addService( &mPingService ) );
+    mbed_assert_continue( addService( &mTestErrorService ) );
 
     /* Messages */
+    mbed_assert_continue( message::addDescriptor( message::NullMessage ) );
     mbed_assert_continue( message::addDescriptor( message::PingMessage ) );
+    mbed_assert_continue( message::addDescriptor( message::ErrorMessage ) );
     mbed_assert_continue( message::addDescriptor( message::ConsoleMessage ) );
 
     return true;
@@ -147,13 +149,13 @@ namespace mb::rpc::server
     /*-------------------------------------------------------------------------
     Inject the service
     -------------------------------------------------------------------------*/
-    if( mCfg.svcReg->full() )
+    if( mCfg.registry->full() )
     {
       mbed_assert_continue_msg( false, "Registry is full: %s", service->name );
       return false;
     }
 
-    mCfg.svcReg->insert( { service->svcId, service } );
+    mCfg.registry->insert( { service->svcId, service } );
     return true;
   }
 
@@ -173,7 +175,7 @@ namespace mb::rpc::server
     /*-------------------------------------------------------------------------
     Remove the service
     -------------------------------------------------------------------------*/
-    mCfg.svcReg->erase( id );
+    mCfg.registry->erase( id );
   }
 
 
@@ -217,7 +219,7 @@ namespace mb::rpc::server
 
     mb::thread::RecursiveLockGuard _lock( this->mLockableMutex );
 
-    if( mCfg.txScratch[ 0 ] != 0 )
+    if( mCfg.encodeBuffer[ 0 ] != 0 )
     {
       return false;
     }
@@ -225,7 +227,7 @@ namespace mb::rpc::server
     /*-------------------------------------------------------------------------
     Encode the message into the scratch tx buffer
     -------------------------------------------------------------------------*/
-    if( !message::encode_to_wire( id, data, mCfg.txScratch.data(), mCfg.txScratch.size() ) )
+    if( !message::encode_to_wire( id, data, mCfg.encodeBuffer.data(), mCfg.encodeBuffer.size() ) )
     {
       mbed_assert_continue_msg( false, "Failed to encode message %d", id );
       return false;
@@ -248,8 +250,10 @@ namespace mb::rpc::server
    */
   bool Server::process_next_request()
   {
-    mb::rpc::IService *service = nullptr;
-    mbed_rpc_Header   *header  = nullptr;
+    mb::rpc::IService *service    = nullptr;
+    mbed_rpc_Header   *req_header = nullptr;
+    const mb::rpc::message::Descriptor *msg_req_iter = nullptr;
+    const mb::rpc::message::Descriptor *msg_rsp_iter = nullptr;
 
     /*-------------------------------------------------------------------------
     Critical section to guard the RX scratch buffer access
@@ -268,7 +272,7 @@ namespace mb::rpc::server
       /*-----------------------------------------------------------------------
       Decode the message
       -----------------------------------------------------------------------*/
-      if( !message::decode_from_wire( mCfg.rxScratch.data(), mCfg.rxScratch.size() ) )
+      if( !message::decode_from_wire( mCfg.decodeBuffer.data(), mCfg.decodeBuffer.size() ) )
       {
         mbed_assert_continue_msg( false, "Failed to decode message" );
         return false;
@@ -277,29 +281,36 @@ namespace mb::rpc::server
       /*-----------------------------------------------------------------------
       Find the service associated with the message
       -----------------------------------------------------------------------*/
-      header        = reinterpret_cast<mbed_rpc_Header *>( mCfg.rxScratch.data() );
-      auto svc_iter = mCfg.svcReg->find( header->svcId );
+      req_header    = reinterpret_cast<mbed_rpc_Header *>( mCfg.decodeBuffer.data() );
+      auto svc_iter = mCfg.registry->find( req_header->svcId );
 
-      if( ( svc_iter == mCfg.svcReg->end() ) || !svc_iter->second )
+      if( ( svc_iter == mCfg.registry->end() ) || !svc_iter->second )
       {
-        mbed_assert_continue_msg( false, "Service not found: %d", header->svcId );
+        mbed_assert_continue_msg( false, "Service not found: %d", req_header->svcId );
         return false;
       }
 
       service = svc_iter->second;
-      if( service->reqId != header->msgId )
+      if( service->reqId != req_header->msgId )
       {
-        mbed_assert_continue_msg( false, "RPC %s does not handle message %d", service->name, header->msgId );
+        mbed_assert_continue_msg( false, "RPC %s does not handle message %d", service->name, req_header->msgId );
         return false;
       }
 
       /*-----------------------------------------------------------------------
       Copy the data from the scratch buffer into the service's memory
       -----------------------------------------------------------------------*/
-      auto msg_req_iter = message::getDescriptor( header->msgId );
+      msg_req_iter = message::getDescriptor( req_header->msgId );
       if( !msg_req_iter )
       {
-        mbed_assert_continue_msg( false, "Message descriptor not found: %d", header->msgId );
+        mbed_assert_continue_msg( false, "Request descriptor not found: %d", req_header->msgId );
+        return false;
+      }
+
+      msg_rsp_iter = message::getDescriptor( service->rspId );
+      if( !msg_rsp_iter )
+      {
+        mbed_assert_continue_msg( false, "Response descriptor not found: %d", service->rspId );
         return false;
       }
 
@@ -307,7 +318,7 @@ namespace mb::rpc::server
       size_t request_size = 0;
       service->getRequestData( request_data, request_size );
 
-      memcpy( request_data, mCfg.rxScratch.data(), request_size );
+      memcpy( request_data, mCfg.decodeBuffer.data(), request_size );
     } // End of critical section
 
     /*-------------------------------------------------------------------------
@@ -322,10 +333,23 @@ namespace mb::rpc::server
       /*-----------------------------------------------------------------------
       Nominal path. Service completed and wants to send a response.
       -----------------------------------------------------------------------*/
-      case mbed_rpc_ErrorCode_ERR_NO_ERROR:
+      case mbed_rpc_ErrorCode_ERR_NO_ERROR: {
         service->getResponseData( response_data, response_size );
+
+        /*---------------------------------------------------------------------
+        Update the header for the user. This is a static part of the protocol
+        and should not be modified by the service.
+        ---------------------------------------------------------------------*/
+        auto rsp_header = reinterpret_cast<mbed_rpc_Header *>( response_data );
+
+        rsp_header->seqId   = req_header->seqId;
+        rsp_header->msgId   = msg_rsp_iter->id;
+        rsp_header->svcId   = req_header->svcId;
+        rsp_header->version = msg_rsp_iter->version;
+
         publishMessage( service->rspId, response_data );
-        break;
+      }
+      break;
 
       /*-----------------------------------------------------------------------
       Do nothing, the service will send the response asynchronously
@@ -337,7 +361,7 @@ namespace mb::rpc::server
       Fall through for all other error cases generated by the service.
       -----------------------------------------------------------------------*/
       default:
-        throwError( header->seqId, status, nullptr );
+        throwError( req_header->seqId, status, nullptr );
         break;
     }
 
@@ -357,9 +381,9 @@ namespace mb::rpc::server
     Empty the RX buffer of any null bytes that may have been left over from
     a previous frame. New frames start on the first non-null byte.
     -------------------------------------------------------------------------*/
-    while( !mCfg.rxBuffer->empty() && ( mCfg.rxBuffer->front() == 0 ) )
+    while( !mCfg.streamBuffer->empty() && ( mCfg.streamBuffer->front() == 0 ) )
     {
-      mCfg.rxBuffer->pop();
+      mCfg.streamBuffer->pop();
     }
 
     /*-------------------------------------------------------------------------
@@ -367,9 +391,9 @@ namespace mb::rpc::server
     -------------------------------------------------------------------------*/
     size_t scratch_idx = 0;
 
-    for( auto iter = mCfg.rxBuffer->begin(); ( iter != mCfg.rxBuffer->end() ) && ( scratch_idx < mCfg.rxScratch.max_size() ); iter++ )
+    for( auto iter = mCfg.streamBuffer->begin(); ( iter != mCfg.streamBuffer->end() ) && ( scratch_idx < mCfg.decodeBuffer.max_size() ); iter++ )
     {
-      mCfg.rxScratch[ scratch_idx ] = *iter;
+      mCfg.decodeBuffer[ scratch_idx ] = *iter;
 
       if( *iter == 0 )
       {
@@ -382,11 +406,11 @@ namespace mb::rpc::server
     /*-------------------------------------------------------------------------
     Remove the frame data if a full COBS frame was found.
     -------------------------------------------------------------------------*/
-    if( ( scratch_idx != 0 ) && ( mCfg.rxScratch[ scratch_idx ] == 0 ) )
+    if( ( scratch_idx != 0 ) && ( mCfg.decodeBuffer[ scratch_idx ] == 0 ) )
     {
       for( size_t i = 0; i < scratch_idx; i++ )
       {
-        mCfg.rxBuffer->pop();
+        mCfg.streamBuffer->pop();
       }
 
       return true;
@@ -396,12 +420,12 @@ namespace mb::rpc::server
     If the buffer is full and no frame was found, then we have to flush it.
     This effectively means it's not possible to find a full frame anymore.
     -------------------------------------------------------------------------*/
-    else if( scratch_idx == mCfg.rxScratch.max_size() )
+    else if( scratch_idx == mCfg.decodeBuffer.max_size() )
     {
       mbed_assert_continue_msg( false, "RX buffer full with no COBS frame. Discarding %d bytes.", scratch_idx );
       for( size_t i = 0; i < scratch_idx; i++ )
       {
-        mCfg.rxBuffer->pop();
+        mCfg.streamBuffer->pop();
       }
     }
 
@@ -417,19 +441,27 @@ namespace mb::rpc::server
     /*-------------------------------------------------------------------------
     Ensure null termination of the buffer, then get the length of the frame.
     -------------------------------------------------------------------------*/
-    *mCfg.txScratch.end() = 0;
+    *mCfg.encodeBuffer.end() = 0;
 
-    size_t data_frame_size = strlen( reinterpret_cast<char *>( mCfg.txScratch.data() ) );
+    size_t data_frame_size = strlen( reinterpret_cast<char *>( mCfg.encodeBuffer.data() ) );
     size_t cobs_frame_size = data_frame_size + 1u;
     size_t iostream_size   = 0;
+
+    /*-------------------------------------------------------------------------
+    Acquire the lock on the iostream. We may not be the only one transmitting.
+    -------------------------------------------------------------------------*/
+    if( !mCfg.iostream->try_lock_for( mb::thread::TIMEOUT_10MS ) )
+    {
+      return false;
+    }
 
     /*-------------------------------------------------------------------------
     Write the frame to the wire directly if we can.
     -------------------------------------------------------------------------*/
     if( data_frame_size && ( mCfg.iostream->writeable() >= cobs_frame_size ) )
     {
-      iostream_size = mCfg.iostream->write( mCfg.txScratch.data(), cobs_frame_size );
-      mCfg.txScratch[ 0 ] = 0;
+      iostream_size = mCfg.iostream->write( mCfg.encodeBuffer.data(), cobs_frame_size );
+      mCfg.encodeBuffer[ 0 ] = 0;
 
       return iostream_size == cobs_frame_size;
     }
@@ -446,15 +478,15 @@ namespace mb::rpc::server
    */
   void Server::isr_on_io_read_complete()
   {
-    if( !mIsOpen || mCfg.rxBuffer->full() )
+    if( !mIsOpen || mCfg.streamBuffer->full() )
     {
       return;
     }
 
-    size_t read_size = etl::min<size_t>( mCfg.iostream->readable(), mCfg.rxBuffer->available() );
+    size_t read_size = etl::min<size_t>( mCfg.iostream->readable(), mCfg.streamBuffer->available() );
     if( read_size )
     {
-      size_t actual_size = mCfg.iostream->read( *mCfg.rxBuffer, read_size, 0 );
+      size_t actual_size = mCfg.iostream->read( *mCfg.streamBuffer, read_size, 0 );
       mbed_dbg_assert_continue_msg( read_size == actual_size, "Failed to read all bytes from the wire" );
     }
   }
