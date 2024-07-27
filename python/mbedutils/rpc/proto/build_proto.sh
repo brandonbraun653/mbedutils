@@ -20,12 +20,22 @@
 _cwd=$(pwd)
 
 SRC_DIR=$_cwd
-NPB_ROOT=$_cwd/../../../lib/nanopb
 NPB_INC=$NPB_ROOT/generator/proto
-PY_DST_DIR=$_cwd/../../../python/mbedutils/rpc/proto
+C_DST_DIR=$_cwd/../../../../src/rpc/proto
+PY_DST_DIR=$_cwd
+
+# Find the nanopb installation directory in the virtual environment
+NPB_ROOT=$(python -c "import os; import nanopb; print(os.path.dirname(nanopb.__file__))")
+if [ -z "$NPB_ROOT" ]; then
+    echo "Could not find nanopb installation directory. Make sure you have the nanopb package installed."
+    exit 1
+fi
+
+echo "Found nanopb: $NPB_ROOT"
+NPB_INC=$NPB_ROOT/generator/proto
 
 # Build the C bindings
-python "$NPB_ROOT"/generator/nanopb_generator.py --cpp-descriptors --output-dir="$SRC_DIR" --proto-path="$SRC_DIR" mbed_rpc.proto
+python "$NPB_ROOT"/generator/nanopb_generator.py --cpp-descriptors --output-dir="$C_DST_DIR" --proto-path="$SRC_DIR" mbed_rpc.proto
 
 
 # Build the Python bindings with mypy definitions

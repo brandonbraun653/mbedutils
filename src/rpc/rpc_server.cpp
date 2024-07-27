@@ -64,6 +64,7 @@ namespace mb::rpc::server
 
     auto read_cb = CompletionCallback::create<Server, &Server::isr_on_io_read_complete>( *this );
     config.iostream->onReadComplete( read_cb );
+    config.iostream->unlock();
 
     /*-------------------------------------------------------------------------
     Initialize the configuration memory
