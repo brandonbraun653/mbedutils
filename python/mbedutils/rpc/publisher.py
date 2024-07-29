@@ -160,8 +160,7 @@ class Publisher:
                 observer = self._registry[key]
 
                 if observer.timeout and ((time.time() - observer.start_time) > observer.timeout):
-                    logger.trace(f"Observer timeout of {observer.timeout} seconds for type "
-                                 f"{observer.msg_type}. Removing {str(key)}.")
+                    logger.trace(f"Observer {str(key)} expired. Removing.")
                     del self._registry[key]
                     removed_ids.append(key)
 

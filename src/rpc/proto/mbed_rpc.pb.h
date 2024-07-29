@@ -27,6 +27,7 @@ typedef enum _mbed_rpc_ErrorCode {
     mbed_rpc_ErrorCode_ERR_MSG_NOT_FOUND = 9, /* Message not found */
     mbed_rpc_ErrorCode_ERR_SVC_MSG = 10, /* Service does not support the message */
     mbed_rpc_ErrorCode_ERR_SVC_FAILED = 11, /* Service failed to process the message */
+    mbed_rpc_ErrorCode_ERR_SVC_NO_RSP = 12, /* Service has no response to the message */
     mbed_rpc_ErrorCode_ERR_MAX_ERROR = 255 /* Maximum error value */
 } mbed_rpc_ErrorCode;
 

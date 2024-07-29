@@ -60,6 +60,8 @@ class _ErrorCodeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._Enum
     """Service does not support the message"""
     ERR_SVC_FAILED: _ErrorCode.ValueType  # 11
     """Service failed to process the message"""
+    ERR_SVC_NO_RSP: _ErrorCode.ValueType  # 12
+    """Service has no response to the message"""
     ERR_MAX_ERROR: _ErrorCode.ValueType  # 255
     """Maximum error value"""
 
@@ -89,6 +91,8 @@ ERR_SVC_MSG: ErrorCode.ValueType  # 10
 """Service does not support the message"""
 ERR_SVC_FAILED: ErrorCode.ValueType  # 11
 """Service failed to process the message"""
+ERR_SVC_NO_RSP: ErrorCode.ValueType  # 12
+"""Service has no response to the message"""
 ERR_MAX_ERROR: ErrorCode.ValueType  # 255
 """Maximum error value"""
 global___ErrorCode = ErrorCode

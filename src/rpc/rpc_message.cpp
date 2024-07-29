@@ -77,12 +77,29 @@ namespace mb::rpc::message
       return false;
     }
 
-    /*-------------------------------------------------------------------------
-    Inject the message
-    -------------------------------------------------------------------------*/
     if( s_msg_reg->full() )
     {
-      mbed_assert_continue_msg( false, "Unable to add message %d, registry is full", dsc.id );
+      mbed_dbg_assert_continue_msg( false, "Unable to add message %d, registry is full", dsc.id );
+      return false;
+    }
+
+    /*-------------------------------------------------------------------------
+    Check for duplicate messages
+    -------------------------------------------------------------------------*/
+    auto msg_iter = s_msg_reg->find( dsc.id );
+    if( msg_iter != s_msg_reg->end() )
+    {
+      bool same_message = ( msg_iter->second.fields == dsc.fields ) && ( msg_iter->second.version == dsc.version );
+      mbed_dbg_assert_continue_msg( same_message, "Message %d already exists in the registry", dsc.id );
+      return same_message;
+    }
+
+    /*-------------------------------------------------------------------------
+    Validate the descriptor
+    -------------------------------------------------------------------------*/
+    if( ( dsc.fields == nullptr ) || ( dsc.transcode_size < MIN_TRANSCODE_SIZE ) )
+    {
+      mbed_dbg_assert_continue_always();
       return false;
     }
 

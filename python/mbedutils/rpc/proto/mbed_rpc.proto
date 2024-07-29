@@ -20,6 +20,7 @@ enum ErrorCode {
   ERR_MSG_NOT_FOUND = 9; // Message not found
   ERR_SVC_MSG       = 10; // Service does not support the message
   ERR_SVC_FAILED    = 11; // Service failed to process the message
+  ERR_SVC_NO_RSP    = 12; // Service has no response to the message
 
   ERR_MAX_ERROR     = 255; // Maximum error value
 }

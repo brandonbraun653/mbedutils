@@ -1,9 +1,27 @@
 from __future__ import annotations
 
 from threading import RLock
-from typing import TypeVar, Optional, Generic
+from typing import TypeVar, Optional, Generic, List, Type
 from mbedutils.utils import Singleton
 from mbedutils.rpc.proto.mbed_rpc_pb2 import *
+
+
+def get_module_messages(module_name: str) -> List[BasePBMsg]:
+    """
+    Given a module name, return a list of all the message classes defined within that module.
+
+    Args:
+        module_name: Name of the module to search for message classes
+
+    Returns:
+        List of message classes
+    """
+    import importlib
+    import inspect
+
+    module = importlib.import_module(module_name)
+    classes = inspect.getmembers(module, inspect.isclass)
+    return [cls() for name, cls in classes if issubclass(cls, BasePBMsg) and cls != BasePBMsg]
 
 
 class CRCMismatchException(Exception):

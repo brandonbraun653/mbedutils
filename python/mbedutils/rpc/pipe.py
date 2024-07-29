@@ -42,7 +42,7 @@ class COBSerialPipe(Publisher):
         # Dispatch resources
         self._dispatch_thread = Thread()
 
-    def add_message_descriptor(self, msg_type: BasePBMsg) -> None:
+    def add_message_descriptor(self, msg_type: Union[BasePBMsg, Type[BasePBMsg]]) -> None:
         """
         Adds a message descriptor to the publisher so that it can encode/decode messages
         Args:
@@ -102,7 +102,7 @@ class COBSerialPipe(Publisher):
         self._dispatch_thread.join() if self._dispatch_thread.is_alive() else None
 
         # Push any remaining information and then close out resources
-        if self._serial.is_open:
+        if self._serial and self._serial.is_open:
             self._serial.flush()
             self._serial.close()
 

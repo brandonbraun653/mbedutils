@@ -230,6 +230,7 @@ namespace mb::rpc::server
     if( !message::encode_to_wire( id, data, mCfg.encodeBuffer.data(), mCfg.encodeBuffer.size() ) )
     {
       mbed_assert_continue_msg( false, "Failed to encode message %d", id );
+      mCfg.encodeBuffer[ 0 ] = 0;
       return false;
     }
 
@@ -250,8 +251,8 @@ namespace mb::rpc::server
    */
   bool Server::process_next_request()
   {
-    mb::rpc::IService *service    = nullptr;
-    mbed_rpc_Header   *req_header = nullptr;
+    mb::rpc::IService                  *service      = nullptr;
+    mbed_rpc_Header                    *req_header   = nullptr;
     const mb::rpc::message::Descriptor *msg_req_iter = nullptr;
     const mb::rpc::message::Descriptor *msg_rsp_iter = nullptr;
 
@@ -314,18 +315,18 @@ namespace mb::rpc::server
         return false;
       }
 
-      void *request_data = nullptr;
+      void  *request_data = nullptr;
       size_t request_size = 0;
       service->getRequestData( request_data, request_size );
 
       memcpy( request_data, mCfg.decodeBuffer.data(), request_size );
-    } // End of critical section
+    }    // End of critical section
 
     /*-------------------------------------------------------------------------
     Invoke the service.
     -------------------------------------------------------------------------*/
-    auto status = service->processRequest();
-    void *response_data = nullptr;
+    auto   status        = service->processRequest();
+    void  *response_data = nullptr;
     size_t response_size = 0;
 
     switch( status )
@@ -352,9 +353,10 @@ namespace mb::rpc::server
       break;
 
       /*-----------------------------------------------------------------------
-      Do nothing, the service will send the response asynchronously
+      Do nothing, the service will send the response asynchronously, if at all.
       -----------------------------------------------------------------------*/
       case mbed_rpc_ErrorCode_ERR_SVC_ASYNC:
+      case mbed_rpc_ErrorCode_ERR_SVC_NO_RSP:
         break;
 
       /*-----------------------------------------------------------------------
@@ -391,7 +393,8 @@ namespace mb::rpc::server
     -------------------------------------------------------------------------*/
     size_t scratch_idx = 0;
 
-    for( auto iter = mCfg.streamBuffer->begin(); ( iter != mCfg.streamBuffer->end() ) && ( scratch_idx < mCfg.decodeBuffer.max_size() ); iter++ )
+    for( auto iter = mCfg.streamBuffer->begin();
+         ( iter != mCfg.streamBuffer->end() ) && ( scratch_idx < mCfg.decodeBuffer.max_size() ); iter++ )
     {
       mCfg.decodeBuffer[ scratch_idx ] = *iter;
 
@@ -458,15 +461,18 @@ namespace mb::rpc::server
     /*-------------------------------------------------------------------------
     Write the frame to the wire directly if we can.
     -------------------------------------------------------------------------*/
+    bool write_success = false;
+
     if( data_frame_size && ( mCfg.iostream->writeable() >= cobs_frame_size ) )
     {
-      iostream_size = mCfg.iostream->write( mCfg.encodeBuffer.data(), cobs_frame_size );
+      iostream_size          = mCfg.iostream->write( mCfg.encodeBuffer.data(), cobs_frame_size );
       mCfg.encodeBuffer[ 0 ] = 0;
 
-      return iostream_size == cobs_frame_size;
+      write_success = iostream_size == cobs_frame_size;
     }
 
-    return false;
+    mCfg.iostream->unlock();
+    return write_success;
   }
 
 

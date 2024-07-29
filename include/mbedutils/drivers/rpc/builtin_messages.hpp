@@ -27,7 +27,7 @@ namespace mb::rpc::message
    * @brief Null message descriptor
    */
   static constexpr Descriptor NullMessage{ mbed_rpc_BuiltinMessage_MSG_NULL, mbed_rpc_BuiltinMessageVersion_MSG_VER_NULL,
-                                           nullptr, 0 };
+                                           mbed_rpc_NullMessage_fields, mbed_rpc_NullMessage_size };
 
   /**
    * @brief Ping message descriptor
