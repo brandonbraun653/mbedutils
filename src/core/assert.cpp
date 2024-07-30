@@ -74,7 +74,7 @@ namespace mb::assert
     /*-------------------------------------------------------------------------
     Format the prefix of the message. This includes the time, file, and line.
     -------------------------------------------------------------------------*/
-    etl::string<MBEDUTILS_ASSERT_FMT_BUFFER_SIZE> fmt_buffer;
+    etl::array<char, MBEDUTILS_ASSERT_FMT_BUFFER_SIZE> fmt_buffer;
 
     const int bytes_written =
         npf_snprintf( fmt_buffer.data(), fmt_buffer.max_size(), "%u | %s:%u | ", time::millis(), file, line );
@@ -86,14 +86,16 @@ namespace mb::assert
     {
       va_list args;
       va_start( args, fmt );
-      npf_vsnprintf( fmt_buffer.data() + bytes_written, fmt_buffer.size(), fmt, args );
+      char  *write_offset = fmt_buffer.data() + bytes_written;
+      size_t remaining    = fmt_buffer.max_size() - bytes_written;
+      npf_vsnprintf( write_offset, remaining, fmt, args );
       va_end( args );
     }
 
     /*-------------------------------------------------------------------------
     Call the interface defined function to handle the failure
     -------------------------------------------------------------------------*/
-    on_assert_fail( halt, fmt_buffer );
+    on_assert_fail( halt, fmt_buffer.data() );
 
     /*-------------------------------------------------------------------------
     Unlock now that we're past all points that could throw another assertion
