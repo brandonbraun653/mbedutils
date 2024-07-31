@@ -131,6 +131,11 @@ namespace mb::osal
 
   void releaseSmphr( mb_smphr_t &s )
   {
+    if( xTaskGetSchedulerState() == taskSCHEDULER_NOT_STARTED )
+    {
+      return;
+    }
+
     mbed_dbg_assert( s != nullptr );
     xSemaphoreGive( static_cast<SemaphoreHandle_t>( s ) );
   }
@@ -138,6 +143,11 @@ namespace mb::osal
 
   void releaseSmphrFromISR( mb_smphr_t &s )
   {
+    if( xTaskGetSchedulerState() == taskSCHEDULER_NOT_STARTED )
+    {
+      return;
+    }
+
     /* Pico doesn't need to do anything fancy for this */
     mbed_dbg_assert( s != nullptr );
     BaseType_t higherPriorityTaskWoken = pdFALSE;
@@ -148,6 +158,11 @@ namespace mb::osal
 
   void acquireSmphr( mb_smphr_t &s )
   {
+    if( xTaskGetSchedulerState() == taskSCHEDULER_NOT_STARTED )
+    {
+      return;
+    }
+
     mbed_dbg_assert( s != nullptr );
     xSemaphoreTake( static_cast<SemaphoreHandle_t>( s ), portMAX_DELAY );
   }
@@ -155,6 +170,11 @@ namespace mb::osal
 
   bool tryAcquireSmphr( mb_smphr_t &s )
   {
+    if( xTaskGetSchedulerState() == taskSCHEDULER_NOT_STARTED )
+    {
+      return true;
+    }
+
     mbed_dbg_assert( s != nullptr );
     return xSemaphoreTake( static_cast<SemaphoreHandle_t>( s ), 0 ) == pdTRUE;
   }
@@ -162,6 +182,11 @@ namespace mb::osal
 
   bool tryAcquireSmphr( mb_smphr_t &s, const size_t timeout )
   {
+    if( xTaskGetSchedulerState() == taskSCHEDULER_NOT_STARTED )
+    {
+      return true;
+    }
+
     mbed_dbg_assert( s != nullptr );
     mbed_dbg_assert( timeout < std::numeric_limits<uint32_t>::max() );
     return xSemaphoreTake( static_cast<SemaphoreHandle_t>( s ), pdMS_TO_TICKS( timeout ) ) == pdTRUE;

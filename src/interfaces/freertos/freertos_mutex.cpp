@@ -137,6 +137,11 @@ namespace mb::osal
 
   void lockMutex( mb_mutex_t mutex )
   {
+    if( xTaskGetSchedulerState() == taskSCHEDULER_NOT_STARTED )
+    {
+      return;
+    }
+
     mbed_dbg_assert( mutex != nullptr );
     xSemaphoreTake( static_cast<SemaphoreHandle_t>( mutex ), portMAX_DELAY );
   }
@@ -144,6 +149,11 @@ namespace mb::osal
 
   bool tryLockMutex( mb_mutex_t mutex )
   {
+    if( xTaskGetSchedulerState() == taskSCHEDULER_NOT_STARTED )
+    {
+      return true;
+    }
+
     mbed_dbg_assert( mutex != nullptr );
     return xSemaphoreTake( static_cast<SemaphoreHandle_t>( mutex ), 0 ) == pdTRUE;
   }
@@ -151,6 +161,11 @@ namespace mb::osal
 
   bool tryLockMutex( mb_mutex_t mutex, const size_t timeout )
   {
+    if( xTaskGetSchedulerState() == taskSCHEDULER_NOT_STARTED )
+    {
+      return true;
+    }
+
     mbed_dbg_assert( mutex != nullptr );
     mbed_dbg_assert( timeout < std::numeric_limits<uint32_t>::max() );
     return xSemaphoreTake( static_cast<SemaphoreHandle_t>( mutex ), pdMS_TO_TICKS( timeout ) ) == pdTRUE;
@@ -159,6 +174,11 @@ namespace mb::osal
 
   void unlockMutex( mb_mutex_t mutex )
   {
+    if( xTaskGetSchedulerState() == taskSCHEDULER_NOT_STARTED )
+    {
+      return;
+    }
+
     mbed_dbg_assert( mutex != nullptr );
     xSemaphoreGive( static_cast<SemaphoreHandle_t>( mutex ) );
   }
@@ -211,6 +231,11 @@ namespace mb::osal
 
   void lockRecursiveMutex( mb_recursive_mutex_t mutex )
   {
+    if( xTaskGetSchedulerState() == taskSCHEDULER_NOT_STARTED )
+    {
+      return;
+    }
+
     mbed_dbg_assert( mutex != nullptr );
     xSemaphoreTakeRecursive( static_cast<SemaphoreHandle_t>( mutex ), portMAX_DELAY );
   }
@@ -218,6 +243,11 @@ namespace mb::osal
 
   bool tryLockRecursiveMutex( mb_recursive_mutex_t mutex )
   {
+    if( xTaskGetSchedulerState() == taskSCHEDULER_NOT_STARTED )
+    {
+      return true;
+    }
+
     mbed_dbg_assert( mutex != nullptr );
     return xSemaphoreTakeRecursive( static_cast<SemaphoreHandle_t>( mutex ), 0 ) == pdTRUE;
   }
@@ -225,6 +255,11 @@ namespace mb::osal
 
   bool tryLockRecursiveMutex( mb_recursive_mutex_t mutex, const size_t timeout )
   {
+    if( xTaskGetSchedulerState() == taskSCHEDULER_NOT_STARTED )
+    {
+      return true;
+    }
+
     mbed_dbg_assert( mutex != nullptr );
     mbed_dbg_assert( timeout < std::numeric_limits<uint32_t>::max() );
     return xSemaphoreTakeRecursive( static_cast<SemaphoreHandle_t>( mutex ), pdMS_TO_TICKS( timeout ) ) == pdTRUE;
@@ -233,6 +268,11 @@ namespace mb::osal
 
   void unlockRecursiveMutex( mb_recursive_mutex_t mutex )
   {
+    if( xTaskGetSchedulerState() == taskSCHEDULER_NOT_STARTED )
+    {
+      return;
+    }
+
     mbed_dbg_assert( mutex != nullptr );
     xSemaphoreGiveRecursive( static_cast<SemaphoreHandle_t>( mutex ) );
   }
