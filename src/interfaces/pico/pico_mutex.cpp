@@ -3,7 +3,8 @@
  *    pico_mutex.cpp
  *
  *  Description:
- *    RPI Pico SDK implementation of the mutex interface
+ *    RPI Pico SDK implementation of the mutex interface. This is meant to be
+ *    used in a bare metal application with no RTOS.
  *
  *  2024 | Brandon Braun | brandonbraun653@protonmail.com
  *****************************************************************************/
@@ -18,6 +19,8 @@ Includes
 #include <mbedutils/interfaces/mutex_intf.hpp>
 #include <pico/sync.h>
 
+/* These drivers conflict with FreeRTOS based mutexes */
+#if !__has_include( "FreeRTOS.h" )
 namespace mb::osal
 {
   /*---------------------------------------------------------------------------
@@ -215,3 +218,5 @@ namespace mb::osal
     recursive_mutex_exit( static_cast<recursive_mutex_t *>( mutex ) );
   }
 }    // namespace mb::osal
+
+#endif /* !has_include( "FreeRTOS.h" ) */

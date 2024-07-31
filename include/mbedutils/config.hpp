@@ -70,21 +70,21 @@ OSAL Library Configuration
 /**
  * @brief Number of mutexes to preallocate in the pool
  */
-#define MBEDUTILS_OSAL_MUTEX_POOL_SIZE ( 0 )
+#define MBEDUTILS_OSAL_MUTEX_POOL_SIZE ( 1 )
 #endif
 
 #if !defined( MBEDUTILS_OSAL_RECURSIVE_MUTEX_POOL_SIZE )
 /**
  * @brief Number of recursive mutexes to preallocate in the pool
  */
-#define MBEDUTILS_OSAL_RECURSIVE_MUTEX_POOL_SIZE ( 0 )
+#define MBEDUTILS_OSAL_RECURSIVE_MUTEX_POOL_SIZE ( 1 )
 #endif
 
 #if !defined( MBEDUTILS_OSAL_SEMAPHORE_POOL_SIZE )
 /**
  * @brief Number of semaphores to preallocate in the pool
  */
-#define MBEDUTILS_OSAL_SEMAPHORE_POOL_SIZE ( 0 )
+#define MBEDUTILS_OSAL_SEMAPHORE_POOL_SIZE ( 1 )
 #endif
 
 #endif  /* !MBEDUTILS_CONFIG_HPP */

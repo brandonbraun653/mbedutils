@@ -1,10 +1,9 @@
 /******************************************************************************
  *  File Name:
- *    pico_smphr.cpp
+ *    freertos_mutex.cpp
  *
  *  Description:
- *    RPI Pico SDK implementation of the semaphore interface. This is meant to
- *    be used in a bare metal application with no RTOS.
+ *    FreeRTOS implementation of the mutex interface
  *
  *  2024 | Brandon Braun | brandonbraun653@protonmail.com
  *****************************************************************************/
@@ -17,21 +16,31 @@ Includes
 #include <mbedutils/assert.hpp>
 #include <mbedutils/config.hpp>
 #include <mbedutils/interfaces/smphr_intf.hpp>
-#include <pico/sync.h>
 
-/* These drivers conflict with FreeRTOS based semaphores */
-#if !__has_include( "FreeRTOS.h" )
+#include <FreeRTOS.h>
+#include "semphr.h"
+
 namespace mb::osal
 {
+  /*---------------------------------------------------------------------------
+  Structures
+  ---------------------------------------------------------------------------*/
+
+  struct StaticSemaphore
+  {
+    StaticSemaphore_t data;
+    SemaphoreHandle_t handle;
+  };
+
   /*---------------------------------------------------------------------------
   Static Data
   ---------------------------------------------------------------------------*/
 
 #if MBEDUTILS_OSAL_SEMAPHORE_POOL_SIZE > 0
-  using smphr_array = etl::array<semaphore_t, MBEDUTILS_OSAL_SEMAPHORE_POOL_SIZE>;
+  using smphr_array = etl::array<StaticSemaphore, MBEDUTILS_OSAL_SEMAPHORE_POOL_SIZE>;
   static smphr_array        s_smphr_pool;
   static size_t             s_smphr_pool_index;
-  static critical_section_t s_smphr_pool_cs;
+  static StaticSemaphore    s_smphr_pool_cs;
 #endif    // MBEDUTILS_OSAL_SEMAPHORE_POOL_SIZE > 0
 
   /*---------------------------------------------------------------------------
@@ -42,7 +51,13 @@ namespace mb::osal
   {
 #if MBEDUTILS_OSAL_SEMAPHORE_POOL_SIZE > 0
     s_smphr_pool_index = 0;
-    critical_section_init( &s_smphr_pool_cs );
+    s_smphr_pool_cs.handle = xSemaphoreCreateMutexStatic( &s_smphr_pool_cs.data );
+
+    // Initialize the pool of semaphores
+    for( auto &sem : s_smphr_pool )
+    {
+      sem.handle = nullptr;
+    }
 #endif    // MBEDUTILS_OSAL_SEMAPHORE_POOL_SIZE > 0
   }
 
@@ -53,14 +68,13 @@ namespace mb::osal
     mbed_dbg_assert( maxCount < std::numeric_limits<int16_t>::max() );
     mbed_dbg_assert( initialCount < std::numeric_limits<int16_t>::max() );
 
-    auto tmp = new semaphore_t();
+    SemaphoreHandle_t tmp = xSemaphoreCreateCounting( maxCount, initialCount );
     if( tmp == nullptr )
     {
       mbed_assert_continue_msg( false, "Failed to allocate semaphore" );
       return false;
     }
 
-    sem_init( tmp, initialCount, maxCount );
     s = reinterpret_cast<mb_smphr_t>( tmp );
     return true;
   }
@@ -69,7 +83,7 @@ namespace mb::osal
   void destroySmphr( mb_smphr_t &s )
   {
     mbed_dbg_assert( s != nullptr );
-    delete static_cast<semaphore_t *>( s );
+    vSemaphoreDelete( reinterpret_cast<SemaphoreHandle_t>( s ) );
     s = nullptr;
   }
 
@@ -82,17 +96,18 @@ namespace mb::osal
     mbed_dbg_assert( initialCount < std::numeric_limits<int16_t>::max() );
 
 #if MBEDUTILS_OSAL_SEMAPHORE_POOL_SIZE > 0
-    critical_section_enter_blocking( &s_smphr_pool_cs );
+    xSemaphoreTake( s_smphr_pool_cs.handle, portMAX_DELAY );
     {
       if( s_smphr_pool_index < s_smphr_pool.size() )
       {
-        sem_init( &s_smphr_pool[ s_smphr_pool_index ], initialCount, maxCount );
-        s = reinterpret_cast<mb_smphr_t>( &s_smphr_pool[ s_smphr_pool_index ] );
+        StaticSemaphore *sem = &s_smphr_pool[ s_smphr_pool_index ];
+        sem->handle = xSemaphoreCreateCountingStatic( maxCount, initialCount, &sem->data );
         s_smphr_pool_index++;
+        s = reinterpret_cast<mb_smphr_t>( sem->handle );
         allocated = true;
       }
     }
-    critical_section_exit( &s_smphr_pool_cs );
+    xSemaphoreGive( s_smphr_pool_cs.handle );
 #endif    // MBEDUTILS_OSAL_SEMAPHORE_POOL_SIZE > 0
 
     return allocated;
@@ -110,14 +125,14 @@ namespace mb::osal
   size_t getSmphrAvailable( mb_smphr_t &s )
   {
     mbed_dbg_assert( s != nullptr );
-    return static_cast<size_t>( sem_available( static_cast<semaphore_t *>( s ) ) );
+    return static_cast<size_t>( uxSemaphoreGetCount( static_cast<SemaphoreHandle_t>( s ) ) );
   }
 
 
   void releaseSmphr( mb_smphr_t &s )
   {
     mbed_dbg_assert( s != nullptr );
-    sem_release( static_cast<semaphore_t *>( s ) );
+    xSemaphoreGive( static_cast<SemaphoreHandle_t>( s ) );
   }
 
 
@@ -125,21 +140,23 @@ namespace mb::osal
   {
     /* Pico doesn't need to do anything fancy for this */
     mbed_dbg_assert( s != nullptr );
-    sem_release( static_cast<semaphore_t *>( s ) );
+    BaseType_t higherPriorityTaskWoken = pdFALSE;
+    xSemaphoreGiveFromISR( static_cast<SemaphoreHandle_t>( s ), &higherPriorityTaskWoken );
+    portYIELD_FROM_ISR( higherPriorityTaskWoken );
   }
 
 
   void acquireSmphr( mb_smphr_t &s )
   {
     mbed_dbg_assert( s != nullptr );
-    sem_acquire_blocking( static_cast<semaphore_t *>( s ) );
+    xSemaphoreTake( static_cast<SemaphoreHandle_t>( s ), portMAX_DELAY );
   }
 
 
   bool tryAcquireSmphr( mb_smphr_t &s )
   {
     mbed_dbg_assert( s != nullptr );
-    return sem_acquire_timeout_ms( static_cast<semaphore_t *>( s ), 0 );
+    return xSemaphoreTake( static_cast<SemaphoreHandle_t>( s ), 0 ) == pdTRUE;
   }
 
 
@@ -147,8 +164,6 @@ namespace mb::osal
   {
     mbed_dbg_assert( s != nullptr );
     mbed_dbg_assert( timeout < std::numeric_limits<uint32_t>::max() );
-    return sem_acquire_timeout_ms( static_cast<semaphore_t *>( s ), static_cast<uint32_t>( timeout ) );
+    return xSemaphoreTake( static_cast<SemaphoreHandle_t>( s ), pdMS_TO_TICKS( timeout ) ) == pdTRUE;
   }
-}    // namespace mb::osal
-
-#endif /* !__has_include( "FreeRTOS.h" ) */
+}  // namespace mb::osal
