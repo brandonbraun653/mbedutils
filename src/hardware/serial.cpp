@@ -123,7 +123,7 @@ namespace mb::hw::serial
     if( mConfig.rxBuffer )
     {
       mRXControl.in_progress = true;
-      mRXControl.buffer      = mConfig.rxBuffer->write_reserve_optimal();
+      mRXControl.buffer      = mConfig.rxBuffer->write_reserve( mConfig.rxBuffer->available() );
 
       auto start_error =
           intf::read_async( mConfig.channel, mRXControl.buffer.data(), mRXControl.buffer.size(), RX_SCAN_TIMEOUT_MS );
@@ -443,7 +443,7 @@ namespace mb::hw::serial
    *
    * @param span Memory span that was returned from read_enter_critical
    */
-  int SerialDriver::read_exit_critical(etl::span<uint8_t> &span )
+  int SerialDriver::read_exit_critical( etl::span<uint8_t> &span )
   {
     /*-------------------------------------------------------------------------
     Commit the memory back to the buffer
@@ -602,20 +602,30 @@ namespace mb::hw::serial
     -------------------------------------------------------------------------*/
     if( num_bytes > 0 )
     {
-      etl::span<uint8_t> actual_data = mRXControl.buffer.subspan( 0, num_bytes );
-      mConfig.rxBuffer->write_commit( actual_data );
-
-      mRXControl.buffer = mConfig.rxBuffer->write_reserve_optimal();
+      mConfig.rxBuffer->write_commit( mRXControl.buffer.subspan( 0, num_bytes ) );
+      mRXControl.buffer = mConfig.rxBuffer->write_reserve( mConfig.rxBuffer->available() );
     }
 
     /*-------------------------------------------------------------------------
     Restart the RX operation
     -------------------------------------------------------------------------*/
-    auto start_error =
-        intf::read_async( mConfig.channel, mRXControl.buffer.data(), mRXControl.buffer.size(), RX_SCAN_TIMEOUT_MS );
+    size_t new_size    = mRXControl.buffer.size();
+    int    start_error = -1;
+
+    if( new_size <= mConfig.rxBuffer->max_size() )
+    {
+      start_error = intf::read_async( mConfig.channel, mRXControl.buffer.data(), mRXControl.buffer.size(), RX_SCAN_TIMEOUT_MS );
+    }
+
+    /*-------------------------------------------------------------------------
+    If this happens, we've lost data. The serial pipe will need to be closed
+    and re-opened again to clear memory and restart the RX operation.
+    -------------------------------------------------------------------------*/
     if( start_error < 0 )
     {
-      mbed_assert_continue_msg( false, "Failed to start UART %d RX: %d", mConfig.channel, start_error );
+      mbed_dbg_assert( new_size <= mConfig.rxBuffer->max_size() );
+
+      mbed_assert_continue_msg( false, "RX read_async failure on channel %d. Please close and reopen pipe.", mConfig.channel );
       mRXControl.in_progress = false;
       mRXControl.buffer      = {};
     }
