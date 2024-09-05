@@ -83,7 +83,7 @@ namespace mb::hw::serial
       rx_inactive_timeout      = 0;
       tx_expect                = 0;
       tx_in_progress           = false;
-      usr_channel              = 0;
+      usr_channel              = std::numeric_limits<size_t>::max();
       usr_rx_complete_callback = {};
       usr_tx_complete_callback = {};
       uart_irq_mask            = 0;
@@ -766,7 +766,7 @@ namespace mb::hw::serial
       }
 
       mbed_dbg_assert( ( write_address + write_length ) <= ( cb->rx_buffer + cb->rx_expect ) );
-      cb->rx_actual += write_length;
+      cb->rx_actual = cb->rx_actual + write_length;
 
       /*-----------------------------------------------------------------------
       Configure the DMA channel to read the RX FIFO
