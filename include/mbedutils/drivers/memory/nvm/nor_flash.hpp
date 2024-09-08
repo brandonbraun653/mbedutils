@@ -19,10 +19,10 @@ Includes
 #include <mbedutils/drivers/memory/block_device.hpp>
 #include <mbedutils/interfaces/gpio_intf.hpp>
 #include <mbedutils/interfaces/spi_intf.hpp>
-#include <mbedutils/memory/memory_types.hpp>
-#include <mbedutils/memory/nvm/jedec_cfi_cmds.hpp>
-#include <mbedutils/threading/asyncio.hpp>
-#include <mbedutils/threading/lock.hpp>
+#include <mbedutils/drivers/memory/memory_types.hpp>
+#include <mbedutils/drivers/memory/nvm/jedec_cfi_cmds.hpp>
+#include <mbedutils/drivers/threading/asyncio.hpp>
+#include <mbedutils/drivers/threading/lock.hpp>
 
 namespace mb::memory::nor
 {
@@ -55,8 +55,8 @@ namespace mb::memory::nor
    * This is a low level driver for interfacing with NOR flash memory devices.
    */
   class DeviceDriver : public block_device::IBlockDeviceDriver,
-                       public mb::thread::LockableInterface<DeviceDriver>,
-                       public mb::thread::AsyncIOInterface<DeviceDriver>
+                       public mb::thread::Lockable<DeviceDriver>,
+                       public mb::thread::AsyncIO<DeviceDriver>
   {
   public:
     DeviceDriver();
@@ -112,8 +112,8 @@ namespace mb::memory::nor
     void transfer( const void *const cmd, void *const output, const size_t size );
 
   private:
-    friend class mb::thread::LockableInterface<DeviceDriver>;
-    friend class mb::thread::AsyncIOInterface<DeviceDriver>;
+    friend class mb::thread::Lockable<DeviceDriver>;
+    friend class mb::thread::AsyncIO<DeviceDriver>;
 
     DeviceConfig                          mConfig;    /**< Device configuration attributes */
     bool                                  mIsOpen;    /**< Status flag for driver operability */

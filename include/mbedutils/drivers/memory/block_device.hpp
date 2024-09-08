@@ -17,9 +17,9 @@ Includes
 -----------------------------------------------------------------------------*/
 #include <cstdint>
 #include <cstddef>
-#include <mbedutils/memory/memory_types.hpp>
-#include <mbedutils/threading/asyncio.hpp>
-#include <mbedutils/threading/lock.hpp>
+#include <mbedutils/drivers/memory/memory_types.hpp>
+#include <mbedutils/drivers/threading/asyncio.hpp>
+#include <mbedutils/drivers/threading/lock.hpp>
 
 namespace mb::memory::block_device
 {
@@ -55,10 +55,10 @@ namespace mb::memory::block_device
    * requires the driver implementation to take advantage of the provided
    * locking and async IO mechanisms.
    */
-  class IBlockDeviceDriver : public virtual mb::thread::LockableInterface, public virtual mb::thread::AsyncIOInterface
+  class IBlockDeviceDriver
   {
   public:
-    virtual IBlockDeviceDriver() = default;
+    virtual ~IBlockDeviceDriver() = default;
 
     /**
      * @brief Writes data into the given block.

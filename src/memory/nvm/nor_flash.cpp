@@ -12,8 +12,8 @@
 Includes
 -----------------------------------------------------------------------------*/
 #include <mbedutils/drivers/memory/nvm/nor_flash.hpp>
-#include <mbedutils/drivers/interfaces/gpio_intf.hpp>
-#include <mbedutils/drivers/interfaces/spi_intf.hpp>
+#include <mbedutils/interfaces/gpio_intf.hpp>
+#include <mbedutils/interfaces/spi_intf.hpp>
 
 namespace mb::memory::nor
 {
@@ -52,43 +52,43 @@ namespace mb::memory::nor
 
   Status DeviceDriver::write( const size_t block_idx, const size_t offset, const void *const data, const size_t length )
   {
-    return Status::NOT_SUPPORTED;
+    return Status::ERR_NOT_SUPPORTED;
   }
 
 
   Status DeviceDriver::write( const uint64_t address, const void *const data, const size_t length )
   {
-    return Status::NOT_SUPPORTED;
+    return Status::ERR_NOT_SUPPORTED;
   }
 
 
   Status DeviceDriver::read( const size_t block_idx, const size_t offset, void *const data, const size_t length )
   {
-    return Status::NOT_SUPPORTED;
+    return Status::ERR_NOT_SUPPORTED;
   }
 
 
   Status DeviceDriver::read( const uint64_t address, void *const data, const size_t length )
   {
-    return Status::NOT_SUPPORTED;
+    return Status::ERR_NOT_SUPPORTED;
   }
 
 
   Status DeviceDriver::erase( const size_t block_idx )
   {
-    return Status::NOT_SUPPORTED;
+    return Status::ERR_NOT_SUPPORTED;
   }
 
 
   Status DeviceDriver::erase()
   {
-    return Status::NOT_SUPPORTED;
+    return Status::ERR_NOT_SUPPORTED;
   }
 
 
   Status DeviceDriver::flush()
   {
-    return Status::NOT_SUPPORTED;
+    return Status::ERR_NOT_SUPPORTED;
   }
 
 }  // namespace mb::memory::nor
