@@ -52,7 +52,7 @@ namespace mb::memory::nor
 
   Status DeviceDriver::write( const size_t block_idx, const size_t offset, const void *const data, const size_t length )
   {
-    return Status::ERR_NOT_SUPPORTED;
+    return this->write( block_idx * mConfig.dev_attr.block_size + offset, data, length );
   }
 
 
