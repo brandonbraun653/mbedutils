@@ -107,7 +107,6 @@ namespace mb::memory::nor::device
     switch ( event )
     {
       case Event::MEM_ERASE_COMPLETE:
-      case Event::MEM_READ_COMPLETE:
       case Event::MEM_WRITE_COMPLETE:
         eventBitMask = SR_RDY_BUSY;
         break;
