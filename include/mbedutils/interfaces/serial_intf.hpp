@@ -130,7 +130,7 @@ namespace mb::hw::serial::intf
    * @param channel  The channel to register the callback for
    * @param callback The function to call when the TX completes
    */
-  void on_tx_complete( const size_t channel, TXCompleteCallback callback );
+  void on_tx_complete( const size_t channel, mb::hw::serial::intf::TXCompleteCallback callback );
 
   /**
    * @brief Reset mechanism to clear out any pending TX operations.
@@ -175,7 +175,7 @@ namespace mb::hw::serial::intf
    * @param channel  The channel to register the callback for
    * @param callback The function to call when the RX completes
    */
-  void on_rx_complete( const size_t channel, RXCompleteCallback callback );
+  void on_rx_complete( const size_t channel, mb::hw::serial::intf::RXCompleteCallback callback );
 
   /**
    * @brief Reset mechanism to clear out any pending RX operations.

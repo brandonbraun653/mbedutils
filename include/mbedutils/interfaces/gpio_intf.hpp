@@ -30,10 +30,19 @@ namespace mb::hw::gpio
   using Speed_t     = uint32_t;                      /**< GPIO speed configuration */
   using Drive_t     = uint32_t;                      /**< GPIO drive configuration */
   using Mode_t      = uint32_t;                      /**< GPIO mode configuration */
-  using State_t     = uint32_t;                      /**< GPIO pin state */
   using Alternate_t = uint32_t;                      /**< GPIO alternate function */
   using Trigger_t   = uint32_t;                      /**< GPIO interrupt edge trigger */
   using Callback_t  = etl::delegate<void( void  *)>; /**< GPIO interrupt callback */
+
+  /*---------------------------------------------------------------------------
+  Enumerations
+  ---------------------------------------------------------------------------*/
+
+  enum class State_t : uint32_t
+  {
+    STATE_LOW  = 0, /**< GPIO pin low state */
+    STATE_HIGH = 1  /**< GPIO pin high state */
+  };
 
   /*---------------------------------------------------------------------------
   Structures
@@ -73,7 +82,7 @@ namespace mb::hw::gpio::intf
    * @return true     If the configuration was successful
    * @return false    If the configuration failed
    */
-  bool init( const PinConfig &config );
+  bool init( const mb::hw::gpio::PinConfig &config );
 
   /**
    * @brief Writes the state of a GPIO pin.
@@ -82,7 +91,7 @@ namespace mb::hw::gpio::intf
    * @param pin     GPIO pin number
    * @param state   Desired state of the pin
    */
-  void write( const Port_t port, const Pin_t pin, const State_t state );
+  void write( const mb::hw::gpio::Port_t port, const mb::hw::gpio::Pin_t pin, const mb::hw::gpio::State_t state );
 
   /**
    * @brief Toggles the state of a GPIO pin.
@@ -90,7 +99,7 @@ namespace mb::hw::gpio::intf
    * @param port    GPIO port number
    * @param pin     GPIO pin number
    */
-  void toggle( const Port_t port, const Pin_t pin );
+  void toggle( const mb::hw::gpio::Port_t port, const mb::hw::gpio::Pin_t pin );
 
   /**
    * @brief Reads the current state of a GPIO pin.
@@ -99,7 +108,7 @@ namespace mb::hw::gpio::intf
    * @param pin     GPIO pin number
    * @return State of the pin
    */
-  State_t read( const Port_t port, const Pin_t pin );
+  mb::hw::gpio::State_t read( const mb::hw::gpio::Port_t port, const mb::hw::gpio::Pin_t pin );
 
   /**
    * @brief Configures the alternate function of a GPIO pin.
@@ -108,7 +117,7 @@ namespace mb::hw::gpio::intf
    * @param pin       GPIO pin number
    * @param alternate Desired alternate function
    */
-  void setAlternate( const Port_t port, const Pin_t pin, const Alternate_t alternate );
+  void setAlternate( const mb::hw::gpio::Port_t port, const mb::hw::gpio::Pin_t pin, const mb::hw::gpio::Alternate_t alternate );
 
   /**
    * @brief Configures the pull configuration of a GPIO pin.
@@ -117,7 +126,7 @@ namespace mb::hw::gpio::intf
    * @param pin   GPIO pin number
    * @param pull  Desired pull configuration
    */
-  void setPull( const Port_t port, const Pin_t pin, const Pull_t pull );
+  void setPull( const mb::hw::gpio::Port_t port, const mb::hw::gpio::Pin_t pin, const mb::hw::gpio::Pull_t pull );
 
   /**
    * @brief Configures the drive strength of a GPIO pin.
@@ -126,7 +135,7 @@ namespace mb::hw::gpio::intf
    * @param pin   GPIO pin number
    * @param drive Desired drive strength
    */
-  void setDrive( const Port_t port, const Pin_t pin, const Drive_t drive );
+  void setDrive( const mb::hw::gpio::Port_t port, const mb::hw::gpio::Pin_t pin, const mb::hw::gpio::Drive_t drive );
 
   /**
    * @brief Configures the speed of a GPIO pin.
@@ -135,7 +144,7 @@ namespace mb::hw::gpio::intf
    * @param pin   GPIO pin number
    * @param speed Desired speed setting
    */
-  void setSpeed( const Port_t port, const Pin_t pin, const Speed_t speed );
+  void setSpeed( const mb::hw::gpio::Port_t port, const mb::hw::gpio::Pin_t pin, const mb::hw::gpio::Speed_t speed );
 
   /**
    * @brief Sets the mode of a GPIO pin.
@@ -144,7 +153,7 @@ namespace mb::hw::gpio::intf
    * @param pin   GPIO pin number
    * @param mode  Desired mode setting
    */
-  void setMode( const Port_t port, const Pin_t pin, const Mode_t mode );
+  void setMode( const mb::hw::gpio::Port_t port, const mb::hw::gpio::Pin_t pin, const mb::hw::gpio::Mode_t mode );
 
   /**
    * @brief Configures the GPIO pin to trigger an interrupt on a specific edge.
@@ -154,7 +163,7 @@ namespace mb::hw::gpio::intf
    * @param trigger   Desired edge trigger
    * @param callback  Function to call when the interrupt is triggered
    */
-  void attachInterrupt( const Port_t port, const Pin_t pin, const Trigger_t trigger, const Callback_t &callback );
+  void attachInterrupt( const mb::hw::gpio::Port_t port, const mb::hw::gpio::Pin_t pin, const mb::hw::gpio::Trigger_t trigger, const mb::hw::gpio::Callback_t &callback );
 
   /**
    * @brief Detaches the interrupt from a GPIO pin.
@@ -162,7 +171,7 @@ namespace mb::hw::gpio::intf
    * @param port  GPIO port number
    * @param pin   GPIO pin number
    */
-  void detachInterrupt( const Port_t port, const Pin_t pin );
+  void detachInterrupt( const mb::hw::gpio::Port_t port, const mb::hw::gpio::Pin_t pin );
 
   /**
    * @brief Retrieves the interrupt line number for a specific GPIO pin.
@@ -171,7 +180,7 @@ namespace mb::hw::gpio::intf
    * @param pin   GPIO pin number
    * @return uint32_t
    */
-  uint32_t getInterruptLine( const Port_t port, const Pin_t pin );
+  uint32_t getInterruptLine( const mb::hw::gpio::Port_t port, const mb::hw::gpio::Pin_t pin );
 }    // namespace mb::hw::gpio::intf
 
 #endif /* !MBEDUTILS_GPIO_INTF_HPP */

@@ -36,9 +36,9 @@ namespace mb::memory::block_device
   struct Attributes
   {
     uint64_t size;          /**< Total size of the block device in bytes */
-    uint32_t read_size;     /**< Optimal read size in bytes */
-    uint32_t write_size;    /**< Optimal write size in bytes */
-    uint32_t erase_size;    /**< Optimal erase size in bytes */
+    uint32_t read_size;     /**< Optimal block read size in bytes */
+    uint32_t write_size;    /**< Optimal block write size in bytes */
+    uint32_t erase_size;    /**< Optimal block erase size in bytes */
     uint32_t erase_latency; /**< Time in microseconds to erase a block */
     uint32_t block_size;    /**< Size of a block in bytes */
   };

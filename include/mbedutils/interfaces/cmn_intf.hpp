@@ -49,7 +49,7 @@ namespace mb::hw
    * @param driver Which driver interface to query
    * @return size_t
    */
-  size_t max_drivers( const Driver driver );
+  size_t max_drivers( const mb::hw::Driver driver );
 
   /**
    * @brief Returns the highest index available for a specific driver.
@@ -60,7 +60,7 @@ namespace mb::hw
    * @param driver Which driver interface to query
    * @return size_t
    */
-  size_t max_driver_index( const Driver driver );
+  size_t max_driver_index( const mb::hw::Driver driver );
 
   /**
    * @brief Checks to see if a specific driver instance exists.
@@ -69,7 +69,7 @@ namespace mb::hw
    * @param channel Which channel to check for availability
    * @return bool True if the driver is available, false otherwise
    */
-  bool is_driver_available( const Driver driver, const size_t channel );
+  bool is_driver_available( const mb::hw::Driver driver, const size_t channel );
 
 }  // namespace mb::hw
 

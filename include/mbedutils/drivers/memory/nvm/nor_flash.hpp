@@ -27,6 +27,86 @@ Includes
 namespace mb::memory::nor
 {
   /*---------------------------------------------------------------------------
+  Forward Declarations
+  ---------------------------------------------------------------------------*/
+
+  struct DeviceConfig;
+
+  /*---------------------------------------------------------------------------
+  Constants
+  ---------------------------------------------------------------------------*/
+  /*-------------------------------------------------------------------
+  Address Byte Positions
+  -------------------------------------------------------------------*/
+
+  static constexpr size_t ADDRESS_BYTE_1_POS = 0;
+  static constexpr size_t ADDRESS_BYTE_1_MSK = 0x000000FF;
+  static constexpr size_t ADDRESS_BYTE_2_POS = 8;
+  static constexpr size_t ADDRESS_BYTE_2_MSK = 0x0000FF00;
+  static constexpr size_t ADDRESS_BYTE_3_POS = 16;
+  static constexpr size_t ADDRESS_BYTE_3_MSK = 0x00FF0000;
+
+  /*-------------------------------------------------------------------
+  Manufacturer ID Bit Masks
+  -------------------------------------------------------------------*/
+
+  static constexpr uint8_t MFR_MSK          = 0xFF;
+  static constexpr uint8_t FAMILY_CODE_POS  = 5;
+  static constexpr uint8_t FAMILY_CODE_MSK  = 0x07;
+  static constexpr uint8_t DENSITY_CODE_POS = 0;
+  static constexpr uint8_t DENSITY_CODE_MSK = 0x1F;
+  static constexpr uint8_t SUB_CODE_POS     = 5;
+  static constexpr uint8_t SUB_CODE_MSK     = 0x07;
+  static constexpr uint8_t PROD_VERSION_POS = 0;
+  static constexpr uint8_t PROD_VERSION_MSK = 0x1F;
+
+  /*-------------------------------------------------------------------
+  Common Block Sizes
+  -------------------------------------------------------------------*/
+
+  static constexpr size_t BLOCK_SIZE_256 = 256;
+  static constexpr size_t BLOCK_SIZE_4K  = 4 * 1024;
+  static constexpr size_t BLOCK_SIZE_32K = 32 * 1024;
+  static constexpr size_t BLOCK_SIZE_64K = 64 * 1024;
+
+  /*---------------------------------------------------------------------------
+  Enumerations
+  ---------------------------------------------------------------------------*/
+
+  /**
+   * @brief Common events that can be triggered by the NOR driver.
+   */
+  enum Event : uint32_t
+  {
+    MEM_WRITE_COMPLETE = 0,
+    MEM_READ_COMPLETE,
+    MEM_ERASE_COMPLETE,
+    MEM_ERROR
+  };
+
+  /*---------------------------------------------------------------------------
+  Aliases
+  ---------------------------------------------------------------------------*/
+
+  /**
+   * @brief Device specific callback for handling NOR flash events.
+   *
+   * Most chips have a non-standard set of registers that need to be read to
+   * determine the status of a pending operation. This callback is used to
+   * provide that functionality to the driver.
+   *
+   * It's safe to assume that any resources needed to perform the callback
+   * (aka SPI, GPIO, etc) are already locked by the driver and can be used
+   * directly.
+   *
+   * @param cfg      Configuration information for the NOR device
+   * @param event    Event that is pending
+   * @param timeout  Maximum time to wait for the event to complete in milliseconds
+   * @return Status  Result of the event operation, ERR_OK if successful.
+   */
+  using PendEventFunc_t = Status ( * )( const DeviceConfig &cfg, const Event event, const size_t timeout );
+
+  /*---------------------------------------------------------------------------
   Structures
   ---------------------------------------------------------------------------*/
 
@@ -34,16 +114,36 @@ namespace mb::memory::nor
    * @brief Configuration information for a NOR flash device.
    *
    * Provides all the necessary information to initialize and communicate with
-   * a generic NOR flash device.
+   * a generic NOR flash device. Some of this information is specific to the
+   * target device and must be provided by the user, especially the device
+   * pending event callback.
    */
   struct DeviceConfig
   {
-    block_device::Attributes dev_attr;    /**< NOR device descriptor */
-    mb::hw::spi::Port_t      spi_port;    /**< Which SPI device to use */
-    mb::hw::gpio::Pin_t      spi_cs_pin;  /**< Chip select IO line */
-    bool                     use_hs_read; /**< Use high speed read mode */
+    block_device::Attributes dev_attr;      /**< NOR device descriptor */
+    mb::hw::spi::Port_t      spi_port;      /**< Which SPI device to use */
+    mb::hw::gpio::Port_t     spi_cs_port;   /**< Chip select IO port */
+    mb::hw::gpio::Pin_t      spi_cs_pin;    /**< Chip select IO line */
+    bool                     use_hs_read;   /**< Use high speed read mode */
+    PendEventFunc_t          pend_event_cb; /**< Event callback function */
   };
 
+
+  /*---------------------------------------------------------------------------
+  Public Functions
+  ---------------------------------------------------------------------------*/
+  namespace device
+  {
+    /**
+     * @brief Waits for a specific event to complete on an Adesto NOR device.
+     *
+     * @param cfg     Configuration information for the NOR device
+     * @param event   Event that is pending
+     * @param timeout Maximum time to wait for the event to complete in milliseconds
+     * @return Status
+     */
+    Status adesto_at25sfxxx_pend_event( const DeviceConfig &cfg, const Event event, const size_t timeout );
+  }
 
   /*---------------------------------------------------------------------------
   Classes
@@ -53,10 +153,11 @@ namespace mb::memory::nor
    * @brief NOR Flash Memory Driver
    *
    * This is a low level driver for interfacing with NOR flash memory devices.
+   * All operations are blocking for the current thread, but the driver is
+   * thread safe and can be used in a multi-threaded environment.
    */
   class DeviceDriver : public block_device::IBlockDeviceDriver,
-                       public mb::thread::Lockable<DeviceDriver>,
-                       public mb::thread::AsyncIO<DeviceDriver>
+                       public mb::thread::Lockable<DeviceDriver>
   {
   public:
     DeviceDriver();
@@ -88,10 +189,8 @@ namespace mb::memory::nor
      * have been properly initialized before calling.
      *
      * @param cfg  Configuration information for the NOR device
-     * @return true   If the configuration was successful
-     * @return false  If the configuration failed
      */
-    bool open( const DeviceConfig &cfg );
+    void open( const DeviceConfig &cfg );
 
     /**
      * @brief Tears down the driver and releases any resources.
@@ -113,10 +212,8 @@ namespace mb::memory::nor
 
   private:
     friend class mb::thread::Lockable<DeviceDriver>;
-    friend class mb::thread::AsyncIO<DeviceDriver>;
 
     DeviceConfig                          mConfig;    /**< Device configuration attributes */
-    bool                                  mIsOpen;    /**< Status flag for driver operability */
     etl::array<uint8_t, cfi::MAX_CMD_LEN> mCmdBuffer; /**< Command buffer for NOR operations */
   };
 }  // namespace mb::memory::nor

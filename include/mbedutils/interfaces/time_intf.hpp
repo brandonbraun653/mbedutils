@@ -37,6 +37,20 @@ namespace mb::time
    */
   size_t micros();
 
+  /**
+   * @brief Delays the current thread for a specified number of milliseconds
+   *
+   * @param val Number of milliseconds to delay
+   */
+  void delayMilliseconds( const size_t val );
+
+  /**
+   * @brief Delays the current thread for a specified number of microseconds
+   *
+   * @param val Number of microseconds to delay
+   */
+  void delayMicroseconds( const size_t val );
+
 }  // namespace mb::time
 
 #endif  /* !MBEDUTILS_TIME_HPP */

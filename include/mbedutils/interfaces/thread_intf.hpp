@@ -21,21 +21,16 @@ Includes
 namespace mb::thread::intf
 {
   /*---------------------------------------------------------------------------
-  Aliases
-  ---------------------------------------------------------------------------*/
-
-
-  /*---------------------------------------------------------------------------
   Public Functions
   ---------------------------------------------------------------------------*/
 
   void initialize();
 
-  TaskHandle create_task( const TaskConfig &cfg );
+  mb::thread::TaskHandle create_task( const mb::thread::TaskConfig &cfg );
 
-  void destroy_task( TaskHandle task );
+  void destroy_task( mb::thread::TaskHandle task );
 
-  void set_affinity( TaskHandle task, size_t coreId );
+  void set_affinity( mb::thread::TaskHandle task, size_t coreId );
 
   void start_scheduler();
 
