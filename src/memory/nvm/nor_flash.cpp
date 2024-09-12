@@ -69,6 +69,8 @@ namespace mb::memory::nor
 
   void DeviceDriver::close()
   {
+    mConfig = DeviceConfig();
+    mCmdBuffer.fill( 0 );
   }
 
 
