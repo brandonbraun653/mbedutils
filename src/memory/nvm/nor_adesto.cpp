@@ -14,6 +14,7 @@ Includes
 #include <cstdint>
 #include <etl/array.h>
 #include <mbedutils/drivers/memory/nvm/nor_flash.hpp>
+#include <mbedutils/drivers/memory/nvm/nor_flash_device.hpp>
 #include <mbedutils/drivers/threading/thread.hpp>
 #include <mbedutils/interfaces/time_intf.hpp>
 

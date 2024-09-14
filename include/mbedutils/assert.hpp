@@ -29,7 +29,7 @@ Macros
  * @param expr Predicate to check. Halts system if false.
  */
 #define mbed_assert( expr ) \
-  ::mb::assert::format_and_log_assert_failure( ( expr ), true, __SHORT_FILE__, __LINE__, nullptr )
+  ::mb::assert::log_assert_failure( ( expr ), true, __SHORT_FILE__, __LINE__ )
 
 
 /**
@@ -47,7 +47,7 @@ Macros
  * @brief Throw an assertion failure and immediately halt the system.
  */
 #define mbed_assert_always() \
-  ::mb::assert::format_and_log_assert_failure( false, true, __SHORT_FILE__, __LINE__, nullptr )
+  ::mb::assert::log_assert_failure( false, true, __SHORT_FILE__, __LINE__ )
 
 /**
  * @brief Throw an assertion failure and immediately halt the system.
@@ -79,7 +79,7 @@ Macros
  * @return bool Result of the assertion
  */
 #define mbed_assert_continue( expr ) \
-  ::mb::assert::format_and_log_assert_failure( ( expr ), false, __SHORT_FILE__, __LINE__, nullptr )
+  ::mb::assert::log_assert_failure( ( expr ), false, __SHORT_FILE__, __LINE__ )
 
 /**
  * @brief Throws an assertion and then continues normal operation.
@@ -89,7 +89,7 @@ Macros
  * @return bool Result of the assertion
  */
 #define mbed_assert_continue_always() \
-  ::mb::assert::format_and_log_assert_failure( false, false, __SHORT_FILE__, __LINE__, nullptr )
+  ::mb::assert::log_assert_failure( false, false, __SHORT_FILE__, __LINE__ )
 
 #if !defined( DEBUG )
 
@@ -104,13 +104,13 @@ Macros
 #else /* DEBUG */
 
 #define mbed_dbg_assert( expr ) \
-  ::mb::assert::format_and_log_assert_failure( ( expr ), true, __SHORT_FILE__, __LINE__, nullptr )
+  ::mb::assert::log_assert_failure( ( expr ), true, __SHORT_FILE__, __LINE__ )
 
 #define mbed_dbg_assert_msg( expr, fmt, ... ) \
   ::mb::assert::format_and_log_assert_failure( ( expr ), true, __SHORT_FILE__, __LINE__, fmt, ##__VA_ARGS__ )
 
 #define mbed_dbg_assert_always() \
-  ::mb::assert::format_and_log_assert_failure( false, true, __SHORT_FILE__, __LINE__, nullptr )
+  ::mb::assert::log_assert_failure( false, true, __SHORT_FILE__, __LINE__ )
 
 #define mbed_dbg_assert_always_msg( fmt, ... ) \
   ::mb::assert::format_and_log_assert_failure( false, true, __SHORT_FILE__, __LINE__, fmt, ##__VA_ARGS__ )
@@ -119,10 +119,10 @@ Macros
   ::mb::assert::format_and_log_assert_failure( ( expr ), false, __SHORT_FILE__, __LINE__, fmt, ##__VA_ARGS__ )
 
 #define mbed_dbg_assert_continue( expr ) \
-  ::mb::assert::format_and_log_assert_failure( ( expr ), false, __SHORT_FILE__, __LINE__, nullptr )
+  ::mb::assert::log_assert_failure( ( expr ), false, __SHORT_FILE__, __LINE__ )
 
 #define mbed_dbg_assert_continue_always() \
-  ::mb::assert::format_and_log_assert_failure( false, false, __SHORT_FILE__, __LINE__, nullptr )
+  ::mb::assert::log_assert_failure( false, false, __SHORT_FILE__, __LINE__ )
 
 #endif /* !DEBUG */
 
@@ -150,6 +150,18 @@ namespace mb::assert
    * @return size_t
    */
   size_t num_recurse_events();
+
+  /**
+   * @brief Logs an assertion failure if the predicate is false.
+   *
+   * @param predicate   Assertion to check
+   * @param halt    Should the system halt on failure. This indicates a critical error.
+   * @param file  Which file the assertion occurred in
+   * @param line  Which line the assertion occurred on
+   * @return true     If the assertion failed
+   * @return false  If the assertion passed
+   */
+  bool log_assert_failure( const bool predicate, const bool halt, const char *const file, const int line );
 
   /**
    * @brief Logs an assertion failure if the predicate is false.

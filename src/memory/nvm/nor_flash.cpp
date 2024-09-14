@@ -59,7 +59,7 @@ namespace mb::memory::nor
 
   void DeviceDriver::open( const DeviceConfig &cfg )
   {
-    mbed_assert( cfg.pend_event_cb );
+    mbed_assert( cfg.pend_event_cb != nullptr );
 
     mConfig = cfg;
     mCmdBuffer.fill( 0 );

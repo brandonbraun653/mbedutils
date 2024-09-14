@@ -130,22 +130,6 @@ namespace mb::memory::nor
 
 
   /*---------------------------------------------------------------------------
-  Public Functions
-  ---------------------------------------------------------------------------*/
-  namespace device
-  {
-    /**
-     * @brief Waits for a specific event to complete on an Adesto NOR device.
-     *
-     * @param cfg     Configuration information for the NOR device
-     * @param event   Event that is pending
-     * @param timeout Maximum time to wait for the event to complete in milliseconds
-     * @return Status
-     */
-    Status adesto_at25sfxxx_pend_event( const DeviceConfig &cfg, const Event event, const size_t timeout );
-  }
-
-  /*---------------------------------------------------------------------------
   Classes
   ---------------------------------------------------------------------------*/
 
