@@ -104,6 +104,11 @@ namespace mb::memory::nor
 
   Status DeviceDriver::write( const size_t block_idx, const size_t offset, const void *const data, const size_t length )
   {
+    if( offset > mConfig.dev_attr.block_size )
+    {
+      return Status::ERR_BAD_ARG;
+    }
+
     return this->write( ( block_idx * mConfig.dev_attr.block_size + offset ), data, length );
   }
 
@@ -118,7 +123,7 @@ namespace mb::memory::nor
     Input Protection
     -------------------------------------------------------------------------*/
     LockGuard _driverLock( this->mLockableMutex );
-    if( !data || !length || ( ( address + length ) > mConfig.dev_attr.size ) )
+    if( !data || !length || ( ( address + length ) > mConfig.dev_attr.size ) || ( length > mConfig.dev_attr.write_size ) )
     {
       return Status::ERR_BAD_ARG;
     }
