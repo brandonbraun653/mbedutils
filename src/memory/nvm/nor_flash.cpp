@@ -47,7 +47,7 @@ namespace mb::memory::nor
   Classes
   ---------------------------------------------------------------------------*/
 
-  DeviceDriver::DeviceDriver() : mConfig(), mCmdBuffer()
+  DeviceDriver::DeviceDriver() : mReadyStatus( ~DRIVER_INITIALIZED_KEY ), mConfig(), mCmdBuffer()
   {
   }
 
@@ -59,22 +59,32 @@ namespace mb::memory::nor
 
   void DeviceDriver::open( const DeviceConfig &cfg )
   {
-    mbed_assert( cfg.pend_event_cb != nullptr );
-
-    mConfig = cfg;
-    mCmdBuffer.fill( 0 );
-    this->initLockable();
+    if( ( mReadyStatus != DRIVER_INITIALIZED_KEY ) && cfg.is_valid() )
+    {
+      mReadyStatus = DRIVER_INITIALIZED_KEY;
+      mConfig      = cfg;
+      mCmdBuffer.fill( 0 );
+      this->initLockable();
+    }
+    else
+    {
+      mbed_assert_continue_msg( false, "Unable to open NOR device, invalid state" );
+    }
   }
 
 
   void DeviceDriver::close()
   {
-    mConfig = DeviceConfig();
-    mCmdBuffer.fill( 0 );
+    if( mReadyStatus == DRIVER_INITIALIZED_KEY )
+    {
+      mReadyStatus = ~DRIVER_INITIALIZED_KEY;
+      mConfig      = DeviceConfig();
+      mCmdBuffer.fill( 0 );
+    }
   }
 
 
-  void DeviceDriver::transfer( const void *const cmd, void *const output, const size_t size )
+  Status DeviceDriver::transfer( const void *const cmd, void *const output, const size_t size )
   {
     using namespace mb::hw;
     using namespace mb::memory;
@@ -83,9 +93,14 @@ namespace mb::memory::nor
     /*-------------------------------------------------------------------------
     Input Protection
     -------------------------------------------------------------------------*/
+    if( mReadyStatus != DRIVER_INITIALIZED_KEY )
+    {
+      return Status::ERR_BAD_STATE;
+    }
+
     if( !cmd || !output || !size )
     {
-      return;
+      return Status::ERR_BAD_ARG;
     }
 
     /*-------------------------------------------------------------------------
@@ -99,17 +114,19 @@ namespace mb::memory::nor
       gpio::intf::write( mConfig.spi_cs_port, mConfig.spi_cs_pin, gpio::State_t::STATE_HIGH );
     }
     spi::intf::unlock( mConfig.spi_port );
+
+    return Status::ERR_OK;
   }
 
 
   Status DeviceDriver::write( const size_t block_idx, const size_t offset, const void *const data, const size_t length )
   {
-    if( offset > mConfig.dev_attr.block_size )
+    if( offset > mConfig.dev_attr.write_size )
     {
       return Status::ERR_BAD_ARG;
     }
 
-    return this->write( ( block_idx * mConfig.dev_attr.block_size + offset ), data, length );
+    return this->write( ( ( block_idx * mConfig.dev_attr.write_size ) + offset ), data, length );
   }
 
 
@@ -122,6 +139,11 @@ namespace mb::memory::nor
     /*-------------------------------------------------------------------------
     Input Protection
     -------------------------------------------------------------------------*/
+    if( mReadyStatus != DRIVER_INITIALIZED_KEY )
+    {
+      return Status::ERR_BAD_STATE;
+    }
+
     LockGuard _driverLock( this->mLockableMutex );
     if( !data || !length || ( ( address + length ) > mConfig.dev_attr.size ) || ( length > mConfig.dev_attr.write_size ) )
     {
@@ -155,13 +177,18 @@ namespace mb::memory::nor
     /*-------------------------------------------------------------------------
     Wait for the hardware to finish the operation
     -------------------------------------------------------------------------*/
-    return mConfig.pend_event_cb( mConfig, Event::MEM_WRITE_COMPLETE, TIMEOUT_BLOCK );
+    return mConfig.pend_event_cb( mConfig, Event::MEM_WRITE_COMPLETE, mConfig.dev_attr.write_latency );
   }
 
 
   Status DeviceDriver::read( const size_t block_idx, const size_t offset, void *const data, const size_t length )
   {
-    return this->read( ( block_idx * mConfig.dev_attr.read_size + offset ), data, length );
+    if( offset > mConfig.dev_attr.read_size )
+    {
+      return Status::ERR_BAD_ARG;
+    }
+
+    return this->read( ( ( block_idx * mConfig.dev_attr.read_size ) + offset ), data, length );
   }
 
 
@@ -174,6 +201,11 @@ namespace mb::memory::nor
     /*-------------------------------------------------------------------------
     Input Protection
     -------------------------------------------------------------------------*/
+    if( mReadyStatus != DRIVER_INITIALIZED_KEY )
+    {
+      return Status::ERR_BAD_STATE;
+    }
+
     LockGuard _driverLock( this->mLockableMutex );
     if( !data || !length || ( ( address + length ) > mConfig.dev_attr.size ) )
     {
@@ -214,10 +246,15 @@ namespace mb::memory::nor
     /*-------------------------------------------------------------------------
     Input Protection
     -------------------------------------------------------------------------*/
+    if( mReadyStatus != DRIVER_INITIALIZED_KEY )
+    {
+      return Status::ERR_BAD_STATE;
+    }
+
     LockGuard _driverLock( this->mLockableMutex );
 
-    uint32_t address = block_idx * mConfig.dev_attr.block_size;
-    if( ( address + mConfig.dev_attr.block_size ) > mConfig.dev_attr.size )
+    uint32_t address = block_idx * mConfig.dev_attr.erase_size;
+    if( ( address + mConfig.dev_attr.erase_size ) > mConfig.dev_attr.size )
     {
       return Status::ERR_BAD_ARG;
     }
@@ -225,8 +262,7 @@ namespace mb::memory::nor
     /*-------------------------------------------------------------------------
     Determine the op-code to use based on the requested chunk size to erase.
     -------------------------------------------------------------------------*/
-    size_t eraseOpsLen = cfi::BLOCK_ERASE_OPS_LEN;
-    switch( mConfig.dev_attr.block_size )
+    switch( mConfig.dev_attr.erase_size )
     {
       case BLOCK_SIZE_4K:
         mCmdBuffer[ 0 ] = cfi::BLOCK_ERASE_4K;
@@ -240,9 +276,8 @@ namespace mb::memory::nor
         mCmdBuffer[ 0 ] = cfi::BLOCK_ERASE_64K;
         break;
 
-      default:    // Weird erase size
-        mbed_assert_always();
-        break;
+      default:    // Weird erase size, bail out
+        return Status::ERR_BAD_CFG;
     }
 
     /*-------------------------------------------------------------------------
@@ -260,12 +295,12 @@ namespace mb::memory::nor
     {
       issue_write_enable( mConfig );
       gpio::intf::write( mConfig.spi_cs_port, mConfig.spi_cs_pin, gpio::State_t::STATE_LOW );
-      spi::intf::write( mConfig.spi_port, mCmdBuffer.data(), eraseOpsLen );
+      spi::intf::write( mConfig.spi_port, mCmdBuffer.data(), cfi::BLOCK_ERASE_OPS_LEN );
       gpio::intf::write( mConfig.spi_cs_port, mConfig.spi_cs_pin, gpio::State_t::STATE_HIGH );
     }
     spi::intf::unlock( mConfig.spi_port );
 
-    return mConfig.pend_event_cb( mConfig, Event::MEM_ERASE_COMPLETE, TIMEOUT_BLOCK );
+    return mConfig.pend_event_cb( mConfig, Event::MEM_ERASE_COMPLETE, mConfig.dev_attr.erase_latency );
   }
 
 
@@ -274,6 +309,11 @@ namespace mb::memory::nor
     using namespace mb::hw;
     using namespace mb::memory;
     using namespace mb::thread;
+
+    if( mReadyStatus != DRIVER_INITIALIZED_KEY )
+    {
+      return Status::ERR_BAD_STATE;
+    }
 
     LockGuard _driverLock( this->mLockableMutex );
 
@@ -289,12 +329,17 @@ namespace mb::memory::nor
     }
     spi::intf::unlock( mConfig.spi_port );
 
-    return mConfig.pend_event_cb( mConfig, Event::MEM_ERASE_COMPLETE, TIMEOUT_BLOCK );
+    return mConfig.pend_event_cb( mConfig, Event::MEM_ERASE_COMPLETE, mConfig.dev_attr.erase_chip_latency );
   }
 
 
   Status DeviceDriver::flush()
   {
+    if( mReadyStatus != DRIVER_INITIALIZED_KEY )
+    {
+      return Status::ERR_BAD_STATE;
+    }
+
     return Status::ERR_OK;
   }
 

@@ -126,6 +126,14 @@ namespace mb::memory::nor
     mb::hw::gpio::Pin_t      spi_cs_pin;    /**< Chip select IO line */
     bool                     use_hs_read;   /**< Use high speed read mode */
     PendEventFunc_t          pend_event_cb; /**< Event callback function */
+
+    bool is_valid() const
+    {
+      bool validity = dev_attr.is_valid();
+      validity &= ( pend_event_cb != nullptr );
+
+      return validity;
+    }
   };
 
 
@@ -192,13 +200,14 @@ namespace mb::memory::nor
      * @param output  Buffer to read in the RX half of the transfer
      * @param size    Size of both buffers (must be the same)
      */
-    void transfer( const void *const cmd, void *const output, const size_t size );
+    Status transfer( const void *const cmd, void *const output, const size_t size );
 
   private:
     friend class mb::thread::Lockable<DeviceDriver>;
 
-    DeviceConfig                          mConfig;    /**< Device configuration attributes */
-    etl::array<uint8_t, cfi::MAX_CMD_LEN> mCmdBuffer; /**< Command buffer for NOR operations */
+    size_t                                mReadyStatus; /**< Status of the device */
+    DeviceConfig                          mConfig;      /**< Device configuration attributes */
+    etl::array<uint8_t, cfi::MAX_CMD_LEN> mCmdBuffer;   /**< Command buffer for NOR operations */
   };
 }  // namespace mb::memory::nor
 

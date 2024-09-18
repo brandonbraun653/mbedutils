@@ -28,23 +28,25 @@ namespace mb::memory
    */
   enum Status : uint8_t
   {
-    ERR_OK,
-    ERR_BAD_ARG,
-    ERR_DRIVER_ERR,
-    ERR_HF_INIT_FAIL,
-    ERR_NOT_PAGE_ALIGNED,
-    ERR_FAIL,
-    ERR_OUT_OF_MEMORY,
-    ERR_OVERRUN,
-    ERR_PGM_ALIGNMENT,
-    ERR_PGM_PARALLEL,
-    ERR_PGM_SEQUENCE,
-    ERR_READ_PROTECT,
-    ERR_TIMEOUT,
-    ERR_UNALIGNED_MEM,
-    ERR_UNKNOWN_JEDEC,
-    ERR_NOT_SUPPORTED,
-    ERR_WRITE_PROTECT,
+    ERR_OK,                 /**< No error occurred */
+    ERR_BAD_ARG,            /**< A bad value was passed as a parameter */
+    ERR_BAD_CFG,            /**< An invalid configuration setting was used */
+    ERR_BAD_STATE,          /**< The driver is in an invalid state */
+    ERR_DRIVER_ERR,         /**< A generic driver error occurred */
+    ERR_HF_INIT_FAIL,       /**< High frequency initialization failed */
+    ERR_NOT_PAGE_ALIGNED,   /**< Memory address is not page aligned */
+    ERR_FAIL,               /**< A general failure occurred */
+    ERR_OUT_OF_MEMORY,      /**< Not enough memory available */
+    ERR_OVERRUN,            /**< Data overrun occurred */
+    ERR_PGM_ALIGNMENT,      /**< Program alignment error */
+    ERR_PGM_PARALLEL,       /**< Parallel programming error */
+    ERR_PGM_SEQUENCE,       /**< Programming sequence error */
+    ERR_READ_PROTECT,       /**< Read protection error */
+    ERR_TIMEOUT,            /**< Operation timed out */
+    ERR_UNALIGNED_MEM,      /**< Unaligned memory access */
+    ERR_UNKNOWN_JEDEC,      /**< Unknown JEDEC ID */
+    ERR_NOT_SUPPORTED,      /**< Operation not supported */
+    ERR_WRITE_PROTECT,      /**< Write protection error */
   };
 
 }  // namespace mb::memory

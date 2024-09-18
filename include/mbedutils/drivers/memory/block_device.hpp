@@ -35,12 +35,33 @@ namespace mb::memory::block_device
    */
   struct Attributes
   {
-    uint64_t size;          /**< Total size of the block device in bytes */
-    uint32_t read_size;     /**< Optimal block read size in bytes */
-    uint32_t write_size;    /**< Optimal block write size in bytes */
-    uint32_t erase_size;    /**< Optimal block erase size in bytes */
-    uint32_t erase_latency; /**< Time in microseconds to erase a block */
-    uint32_t block_size;    /**< Size of a block in bytes */
+    uint64_t size;               /**< Total size of the block device in bytes */
+    uint32_t read_size;          /**< Optimal block read size in bytes */
+    uint32_t write_size;         /**< Optimal block write size in bytes */
+    uint32_t erase_size;         /**< Optimal block erase size in bytes */
+    uint32_t block_size;         /**< Size of a block in bytes */
+    size_t   erase_latency;      /**< Upper bound in milliseconds to erase a block */
+    size_t   erase_chip_latency; /**< Upper bound in milliseconds to erase the entire chip */
+    size_t   write_latency;      /**< Upper bound in milliseconds to write a 'write_size'-ed block */
+
+    bool is_valid() const
+    {
+      /* Base validity is non-zero values */
+      bool validity = ( size && read_size && write_size && erase_size && erase_latency && erase_chip_latency && write_latency &&
+                        block_size );
+
+      /* Ensure erase size is a power of two */
+      validity &= ( ( erase_size & ( erase_size - 1 ) ) == 0 );
+
+      /* Ensure multiples of block size */
+      if( validity )
+      {
+        validity &= ( ( size % block_size ) == 0 );
+        validity &= ( ( erase_size % block_size ) == 0 );
+      }
+
+      return validity;
+    }
   };
 
 
