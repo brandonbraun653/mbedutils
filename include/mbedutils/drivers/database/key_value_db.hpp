@@ -15,9 +15,18 @@
 /*-----------------------------------------------------------------------------
 Includes
 -----------------------------------------------------------------------------*/
+#include <cstdint>
 #include <cstddef>
-#include <mbedutils/drivers/memory/block_device.hpp>
+#include <etl/string.h>
+#include <etl/list.h>
+#include <mbedutils/drivers/database/db_intf.hpp>
+#include <mbedutils/drivers/database/db_types.hpp>
+
+extern "C"
+{
+#include <fal.h>
 #include <flashdb.h>
+}
 
 namespace mb::db
 {
@@ -29,25 +38,23 @@ namespace mb::db
    * @brief A flash memory backed key-value database
    *
    */
-  class KVDBFlash
+  class PersistentKVDB : public virtual IDatabase
   {
   public:
     struct Config
     {
-      mb::memory::block_device::IBlockDeviceDriver *block_device;
-      fdb_default_kv_node * default_kv_table;
-      size_t default_kv_table_size;
+      etl::string<FAL_DEV_NAME_MAX> dev_name;         /**< Which device is being accessed */
+      etl::string<FAL_DEV_NAME_MAX> partition_name;   /**< Sub-partition being accessed */
+      etl::ivector<KVNode_t>        kv_descriptors;   /**< Descriptors for KV pairs located on the device/partition */
     };
 
-    KVDBFlash();
-    ~KVDBFlash();
+    PersistentKVDB();
+    ~PersistentKVDB();
+
+    bool init( Config &config );
 
   private:
-    struct State
-    {
-      fdb_kvdb db;
-
-    } mState;
+    fdb_kvdb mDB;
   };
 }  // namespace mb::db
 

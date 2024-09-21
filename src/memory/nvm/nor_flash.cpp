@@ -237,7 +237,7 @@ namespace mb::memory::nor
   }
 
 
-  Status DeviceDriver::erase( const size_t block_idx )
+  Status DeviceDriver::erase( const uint64_t address, const size_t size )
   {
     using namespace mb::hw;
     using namespace mb::memory;
@@ -253,8 +253,7 @@ namespace mb::memory::nor
 
     LockGuard _driverLock( this->mLockableMutex );
 
-    uint32_t address = block_idx * mConfig.dev_attr.erase_size;
-    if( ( address + mConfig.dev_attr.erase_size ) > mConfig.dev_attr.size )
+    if( ( address + size ) > mConfig.dev_attr.size )
     {
       return Status::ERR_BAD_ARG;
     }
@@ -262,7 +261,7 @@ namespace mb::memory::nor
     /*-------------------------------------------------------------------------
     Determine the op-code to use based on the requested chunk size to erase.
     -------------------------------------------------------------------------*/
-    switch( mConfig.dev_attr.erase_size )
+    switch( size )
     {
       case BLOCK_SIZE_4K:
         mCmdBuffer[ 0 ] = cfi::BLOCK_ERASE_4K;
@@ -301,6 +300,23 @@ namespace mb::memory::nor
     spi::intf::unlock( mConfig.spi_port );
 
     return mConfig.pend_event_cb( mConfig, Event::MEM_ERASE_COMPLETE, mConfig.dev_attr.erase_latency );
+  }
+
+
+  Status DeviceDriver::erase( const size_t block_idx )
+  {
+    using namespace mb::thread;
+
+    /*-------------------------------------------------------------------------
+    Input Protection
+    -------------------------------------------------------------------------*/
+    if( mReadyStatus != DRIVER_INITIALIZED_KEY )
+    {
+      return Status::ERR_BAD_STATE;
+    }
+
+    LockGuard _driverLock( this->mLockableMutex );
+    return this->erase( ( block_idx * mConfig.dev_attr.erase_size ), mConfig.dev_attr.erase_size );
   }
 
 

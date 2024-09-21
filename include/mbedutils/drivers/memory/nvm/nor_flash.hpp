@@ -158,13 +158,14 @@ namespace mb::memory::nor
     /*-------------------------------------------------------------------------
     Block Device Interface
     -------------------------------------------------------------------------*/
-    Status write( const size_t block_idx, const size_t offset, const void *const data, const size_t length ) final override;
-    Status write( const uint64_t address, const void *const data, const size_t length ) final override;
-    Status read( const size_t block_idx, const size_t offset, void *const data, const size_t length ) final override;
-    Status read( const uint64_t address, void *const data, const size_t length ) final override;
-    Status erase( const size_t block_idx ) final override;
-    Status erase() final override;
-    Status flush() final override;
+    mb::memory::Status write( const size_t block_idx, const size_t offset, const void *const data, const size_t length ) final override;
+    mb::memory::Status write( const uint64_t address, const void *const data, const size_t length ) final override;
+    mb::memory::Status read( const size_t block_idx, const size_t offset, void *const data, const size_t length ) final override;
+    mb::memory::Status read( const uint64_t address, void *const data, const size_t length ) final override;
+    mb::memory::Status erase( const uint64_t address, const size_t size ) final override;
+    mb::memory::Status erase( const size_t block_idx ) final override;
+    mb::memory::Status erase() final override;
+    mb::memory::Status flush() final override;
 
     /*-------------------------------------------------------------------------
     NOR Driver Interface
@@ -182,7 +183,7 @@ namespace mb::memory::nor
      *
      * @param cfg  Configuration information for the NOR device
      */
-    void open( const DeviceConfig &cfg );
+    void open( const mb::memory::nor::DeviceConfig &cfg );
 
     /**
      * @brief Tears down the driver and releases any resources.
@@ -200,13 +201,13 @@ namespace mb::memory::nor
      * @param output  Buffer to read in the RX half of the transfer
      * @param size    Size of both buffers (must be the same)
      */
-    Status transfer( const void *const cmd, void *const output, const size_t size );
+    mb::memory::Status transfer( const void *const cmd, void *const output, const size_t size );
 
   private:
-    friend class mb::thread::Lockable<DeviceDriver>;
+    friend class mb::thread::Lockable<mb::memory::nor::DeviceDriver>;
 
     size_t                                mReadyStatus; /**< Status of the device */
-    DeviceConfig                          mConfig;      /**< Device configuration attributes */
+    mb::memory::nor::DeviceConfig         mConfig;      /**< Device configuration attributes */
     etl::array<uint8_t, cfi::MAX_CMD_LEN> mCmdBuffer;   /**< Command buffer for NOR operations */
   };
 }  // namespace mb::memory::nor

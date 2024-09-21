@@ -124,6 +124,17 @@ namespace mb::memory::block_device
     virtual Status read( const uint64_t address, void *const data, const size_t length ) = 0;
 
     /**
+     * @brief Erase a range of memory.
+     *
+     * This must be aligned with the erase size of the device.
+     *
+     * @param address Address to start erasing from
+     * @param size    Number of bytes to erase
+     * @return Status
+     */
+    virtual Status erase( const uint64_t address, const size_t size ) = 0;
+
+    /**
      * @brief Erase an entire block of memory.
      *
      * @param block Which block to erase
