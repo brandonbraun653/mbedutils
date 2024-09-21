@@ -6,7 +6,6 @@ project(mbedutils VERSION 0.0.1 LANGUAGES CXX)
 set(NANOPB_SRC_ROOT_FOLDER "${CMAKE_CURRENT_SOURCE_DIR}/lib/nanopb")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${NANOPB_SRC_ROOT_FOLDER}/extra)
 
-
 # --------------------------------------------------------------------------------
 # Use this library to reference all the headers. For integrating project defined
 # headers, the project should extend the target_include_directories with the
@@ -17,6 +16,8 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${NANOPB_SRC_ROOT_FOLDER}/extra)
 add_library(${PROJECT_NAME}_headers INTERFACE)
 target_include_directories(${PROJECT_NAME}_headers INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/lib/flashdb/inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/lib/flashdb/port/fal/inc
 )
 
 # --------------------------------------------------------------------------------
@@ -33,6 +34,7 @@ target_include_directories(${PROJECT_NAME}_internal_headers INTERFACE
 # Sub-Libraries
 # --------------------------------------------------------------------------------
 add_subdirectory(src/core)
+add_subdirectory(src/database)
 add_subdirectory(src/logging)
 add_subdirectory(src/hardware)
 add_subdirectory(src/rpc)
