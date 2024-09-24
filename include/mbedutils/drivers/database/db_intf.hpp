@@ -16,7 +16,7 @@
 Includes
 -----------------------------------------------------------------------------*/
 #include <cstdint>
-#include <mbedutils/drivers/database/db_types.hpp>
+#include <mbedutils/drivers/database/db_parameter.hpp>
 
 
 namespace mb::db
@@ -25,24 +25,74 @@ namespace mb::db
   Classes
   ---------------------------------------------------------------------------*/
 
+  /**
+   * @brief High level interface to a database instance.
+   *
+   * This is written from the perspective of an embedded systems database that
+   * really is simple key-value storage. The interface is designed to be as
+   * generic as possible to allow for different underlying storage mechanisms.
+   */
   class IDatabase
   {
   public:
     virtual ~IDatabase() = default;
 
+    /**
+     * @brief Prepare the database for use
+     *
+     * @return true   The database was initialized successfully
+     * @return false  The database failed to initialize
+     */
     virtual bool init() = 0;
-    virtual bool deinit() = 0;
+
+    /**
+     * @brief Tear down the database, putting into a safe state for power off.
+     */
+    virtual void deinit() = 0;
 
     /**
      * @brief If any keys are dirty, flush them to the underlying storage.
      */
     virtual void flush() = 0;
 
-    virtual bool exists( const KVKey_t key ) = 0;
-    virtual int read( const KVKey_t key, void *data, const size_t size ) = 0;
-    virtual int write( const KVKey_t key, const void *data, const size_t size ) = 0;
-    virtual int erase( const KVKey_t key ) = 0;
+    /**
+     * @brief Checks if a key exists in the database
+     *
+     * @param key     The key to check for
+     * @return true   The key exists in the database
+     * @return false  The key does not exist in the database
+     */
+    virtual bool exists( const HashKey key ) = 0;
 
+    /**
+     * @brief Read the data associated with a key
+     *
+     * @param key         The key to read
+     * @param data        Buffer to read the data into
+     * @param data_size   Size of the data buffer
+     * @param size        Number of bytes to read
+     * @return int        Error code if negative, number of bytes read if positive
+     */
+    virtual int read( const HashKey key, void *data, const size_t data_size, const size_t size ) = 0;
+
+    /**
+     * @brief Writes data to a key in the database
+     *
+     * @param key         The key to write to
+     * @param data        Data to write
+     * @param data_size   Size of the data buffer
+     * @param size        Number of bytes to write
+     * @return int        Error code if negative, number of bytes written if positive
+     */
+    virtual int write( const HashKey key, const void *data, const size_t data_size, const size_t size ) = 0;
+
+    /**
+     * @brief Erases a key from the database
+     *
+     * @param key   The key to erase
+     * @return int  Error code if negative, 0 if successful
+     */
+    virtual int erase( const HashKey key ) = 0;
   };
 }  // namespace mb::db
 
