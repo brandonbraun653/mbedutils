@@ -115,10 +115,9 @@ namespace mb::db
     /**
      * @brief Erases a key from the database
      *
-     * @param key   The key to erase
-     * @return int  Error code if negative, 0 if successful
+     * @param key The key to remove
      */
-    virtual int erase( const HashKey key ) = 0;
+    virtual void remove( const HashKey key ) = 0;
   };
 }  // namespace mb::db
 

@@ -22,6 +22,7 @@ Includes
 #include <etl/delegate.h>
 #include <etl/string.h>
 #include <etl/vector.h>
+#include <mbedutils/interfaces/mutex_intf.hpp>
 #include <pb.h>
 
 namespace mb::db
@@ -262,6 +263,7 @@ namespace mb::db
    * Allows for discrete control of parameter storage, retrieval, introspection,
    * and modification.
    */
+
   class KVParamStorageManager
   {
   public:
@@ -307,7 +309,8 @@ namespace mb::db
     void visit_dirty_nodes( NodeVisitorFunc &visitor );
 
   private:
-    KVParamNodeIVector *mParams;  /**< External storage of parameter nodes */
+    mb::osal::mb_recursive_mutex_t mRMutex;  /**< Mutex for thread safety */
+    KVParamNodeIVector            *mParams;  /**< External storage of parameter nodes */
   };
 }  // namespace mb::db
 

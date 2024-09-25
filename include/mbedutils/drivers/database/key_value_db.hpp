@@ -96,7 +96,7 @@ namespace mb::db
     bool exists( const HashKey key ) override;
     int read( const HashKey key, void *data, const size_t data_size, const size_t size ) override;
     int write( const HashKey key, const void *data, const size_t data_size, const size_t size ) override;
-    int erase( const HashKey key ) override;
+    void remove( const HashKey key ) override;
 
   protected:
 

@@ -84,9 +84,8 @@ namespace mb::db
   }
 
 
-  int PersistentKVDB::erase( const HashKey key )
+  void PersistentKVDB::remove( const HashKey key )
   {
-    return -1;
   }
 
 
