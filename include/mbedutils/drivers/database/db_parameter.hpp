@@ -19,6 +19,7 @@ Includes
 -----------------------------------------------------------------------------*/
 #include <cstddef>
 #include <cstdint>
+#include <etl/delegate.h>
 #include <etl/string.h>
 #include <etl/vector.h>
 #include <pb.h>
@@ -41,6 +42,17 @@ namespace mb::db
   using HashKey = uint32_t;
 
   /**
+   * @brief Vector of parameter nodes.
+   */
+  template<size_t N>
+  using KVParamNodeVector = etl::vector<KVParamNode, N>;
+
+  /**
+   * @brief Size independent vector of parameter nodes.
+   */
+  using KVParamNodeIVector = etl::ivector<KVParamNode>;
+
+  /**
    * @brief Custom updator function for a given KV node.
    *
    * Update the cached state of the parameter data. Used when a binary copy
@@ -50,8 +62,10 @@ namespace mb::db
    * @param data  Pointer to the data containing the update
    * @param size  Size of the new data
    * @param valid Flag indicating if the data is valid
+   * @return true Data was updated
+   * @return false Data was not updated
    */
-  using UpdateFunc = etl::delegate<void( const KVParamNode &node, const void *data, const size_t size, const bool valid )>;
+  using UpdateFunc = etl::delegate<bool( const KVParamNode &node, const void *data, const size_t size, const bool valid )>;
 
   /**
    * @brief Validation function for a given KV node.
@@ -78,6 +92,35 @@ namespace mb::db
    */
   using SanitizeFunc = etl::delegate<void( const KVParamNode &node )>;
 
+  /**
+   * @brief Serialize the data in a KV node's RAM cache to a binary format.
+   *
+   * @param node Reference to the node being serialized
+   * @param data Output pointer to store the serialized data into
+   * @param size Size of the output buffer
+   * @return true Serialization was successful
+   * @return false Serialization failed
+   */
+  using SerializeFunc = etl::delegate<bool( const KVParamNode &node, void *const data, const size_t size )>;
+
+  /**
+   * @brief Deserialize the given data into the KV node's RAM cache.
+   *
+   * @param node Reference to the node being deserialized
+   * @param data Input pointer to the serialized data
+   * @param size Size of the input buffer/data
+   * @return true Deserialization was successful
+   * @return false Deserialization failed
+   */
+  using DeserializeFunc = etl::delegate<bool( KVParamNode &node, const void *const data, const size_t size )>;
+
+  /**
+   * @brief Visitor function for traversing the KV parameter database.
+   *
+   * @param node Reference to the node being visited
+   */
+  using NodeVisitorFunc = etl::delegate<void( KVParamNode &node )>;
+
   /*---------------------------------------------------------------------------
   Enumerations
   ---------------------------------------------------------------------------*/
@@ -98,6 +141,39 @@ namespace mb::db
   };
 
   /*---------------------------------------------------------------------------
+  Public Functions
+  ---------------------------------------------------------------------------*/
+
+  /**
+   * @brief Shared deserialization function for KV parameter nodes.
+   *
+   * @param node  Reference to the node being deserialized
+   * @param data  Pointer to the serialized data
+   * @param size  Size of the serialized data
+   * @return true   Deserialization was successful
+   * @return false  Deserialization failed
+   */
+  bool cmn_param_deserializer( KVParamNode &node, const void *const data, const size_t size );
+
+  /**
+   * @brief Shared serialization function for KV parameter nodes.
+   *
+   * @param node  Reference to the node being serialized
+   * @param data  Pointer to the buffer to store the serialized data
+   * @param size  Size of the buffer
+   * @return true   Serialization was successful
+   * @return false  Serialization failed
+   */
+  bool cmn_param_serializer( const KVParamNode &node, void *const data, const size_t size );
+
+  /*---------------------------------------------------------------------------
+  Public Data
+  ---------------------------------------------------------------------------*/
+
+  static constexpr auto DefaultDeserializer = DeserializeFunc::create<cmn_param_deserializer>();
+  static constexpr auto DefaultSerializer   = SerializeFunc::create<cmn_param_serializer>();
+
+  /*---------------------------------------------------------------------------
   Structures
   ---------------------------------------------------------------------------*/
 
@@ -108,28 +184,72 @@ namespace mb::db
    * of a single parameter in a database, such as storage location, validation,
    * and serialization.
    */
-  class KVParamNode
+  struct KVParamNode
   {
-  public:
     HashKey             hashKey;      /**< Software enumeration/hash tied to parameter */
     UpdateFunc          updator;      /**< Function to update the data */
     ValidateFunc        validator;    /**< Function to validate the data */
     SanitizeFunc        sanitizer;    /**< Function to clean the data before writing */
+    SerializeFunc       serializer;   /**< Function to serialize the data */
+    DeserializeFunc     deserializer; /**< Function to deserialize the data */
     void               *pbRAMCopy;    /**< Where the data lives. Must be the NanoPB type. */
     const pb_msgdesc_t *pbDescriptor; /**< Nanopb descriptor for the data type */
     uint16_t            pbSize;       /**< Size of the nanopb data type */
     uint16_t            flags;        /**< Flags to control behavior */
 
-    KVParamNode() = default;
-
-
-    int write( const void *data, const size_t size, const bool valid );
-
-    int read( void *data, const size_t size );
-
+    /**
+     * @brief Sanitize the data in the KV node.
+     */
     void sanitize();
 
-    bool validate();
+    /**
+     * @brief Checks for validity of the data in the KV node.
+     *
+     * @return true   Data is valid
+     * @return false  Data is invalid
+     */
+    bool is_valid();
+
+    /**
+     * @brief Writes the given data to the KV node.
+     *
+     * @param data  Pointer to the data to write
+     * @param size  Size of the data to write
+     * @param valid Flag indicating if the data is valid
+     * @return true The write was successful
+     * @return false The write failed
+     */
+    bool write( const void *data, const size_t size, const bool valid );
+
+    /**
+     * @brief Reads the data from the KV node.
+     *
+     * @param data  Pointer to the buffer to read the data into
+     * @param size  Size of the buffer
+     * @return true   The read was successful
+     * @return false  The read failed
+     */
+    bool read( void *data, const size_t size );
+
+    /**
+     * @brief Serialize the data in the KV node to a binary format.
+     *
+     * @param data Pointer to the buffer to store the serialized data
+     * @param size Size of the buffer
+     * @return true Serialization was successful
+     * @return false Serialization failed
+     */
+    bool serialize( void *const data, const size_t size );
+
+    /**
+     * @brief Deserialize the given data into the KV node.
+     *
+     * @param data Pointer to the serialized data
+     * @param size Size of the serialized data
+     * @return true Deserialization was successful
+     * @return false Deserialization failed
+     */
+    bool deserialize( const void *const data, const size_t size );
   };
 
   /*---------------------------------------------------------------------------
@@ -151,9 +271,25 @@ namespace mb::db
     /**
      * @brief Initialize the manager
      *
-     * @param params Base storage for the parameter nodes
+     * @param params Base storage for the parameter nodes (persistent)
      */
-    void init( etl::ivector<KVParamNode> &params );
+    void init( KVParamNodeIVector &params );
+
+    /**
+     * @brief Adds a new parameter node to the storage manager.
+     *
+     * @param node  Node to add
+     * @return true   Node was added
+     * @return false  Node was not added
+     */
+    bool insert( const KVParamNode &node );
+
+    /**
+     * @brief Remove a parameter node from the storage manager.
+     *
+     * @param key Key of the node to remove
+     */
+    void remove( const HashKey key );
 
     /**
      * @brief Retrieve a parameter node by key
@@ -164,18 +300,14 @@ namespace mb::db
     KVParamNode *find( const HashKey key );
 
     /**
-     * @brief Retrieve a parameter node by key string name
+     * @brief Applies a visitor function to all dirty nodes.
      *
-     * @param key
-     * @return KVParamNode*
+     * @param visitor Function to call on each dirty node
      */
-    KVParamNode *find( const etl::string_view &key );
-
-
-    // Add some iterators for dirty bits, etc
+    void visit_dirty_nodes( NodeVisitorFunc &visitor );
 
   private:
-    etl::ivector<KVParamNode> *mParams;  /**< External storage of parameter nodes */
+    KVParamNodeIVector *mParams;  /**< External storage of parameter nodes */
   };
 }  // namespace mb::db
 

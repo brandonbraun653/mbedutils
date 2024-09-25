@@ -22,6 +22,27 @@ Includes
 namespace mb::db
 {
   /*---------------------------------------------------------------------------
+  Public Functions
+  ---------------------------------------------------------------------------*/
+
+  /**
+   * @brief Hashes a string into a 32-bit key
+   *
+   * @param key String to hash
+   * @return HashKey 32-bit hash key
+   */
+  HashKey hash( etl::string_view &key );
+
+  /**
+   * @brief Hashes a binary buffer into a 32-bit key
+   *
+   * @param key Pointer to the buffer
+   * @param size Size of the buffer
+   * @return HashKey 32-bit hash key
+   */
+  HashKey hash( const void *key, const size_t size );
+
+  /*---------------------------------------------------------------------------
   Classes
   ---------------------------------------------------------------------------*/
 
@@ -49,6 +70,11 @@ namespace mb::db
      * @brief Tear down the database, putting into a safe state for power off.
      */
     virtual void deinit() = 0;
+
+    /**
+     * @brief Synchronize the local database with the underlying storage, if any.
+     */
+    virtual void sync() = 0;
 
     /**
      * @brief If any keys are dirty, flush them to the underlying storage.
