@@ -16,7 +16,7 @@
 Includes
 -----------------------------------------------------------------------------*/
 #include <mbedutils/drivers/database/db_intf.hpp>
-#include <mbedutils/drivers/database/db_parameter.hpp>
-#include <mbedutils/drivers/database/key_value_db.hpp>
+#include <mbedutils/drivers/database/db_kv_node.hpp>
+#include <mbedutils/drivers/database/db_kv_mgr.hpp>
 
 #endif  /* !MBEDUTILS_DATABASE_HEADERS_HPP */
