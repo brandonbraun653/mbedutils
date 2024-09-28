@@ -36,21 +36,30 @@ namespace mb::db
   ---------------------------------------------------------------------------*/
 
   /**
-   * @brief Helper struct to declare storage data for a RAM based KVDB
-   *
-   * @tparam N Number of KV pairs to manage (elements)
-   * @tparam M Size of the transcode buffer (bytes)
+   * @brief RAM based Key-Value database with no persistent storage.
    */
-  template<size_t N, size_t M>
-  struct RamKVDBStorage
-  {
-    KVNodeVector<N>        nodes;            /**< Storage for KV pair descriptors */
-    etl::array<uint8_t, M> transcode_buffer; /**< Storage for encoding/decoding largest data */
-  };
-
   class RamKVDB : public virtual IKVDatabase
   {
   public:
+
+    /**
+     * @brief Helper struct to declare storage data for a RAM based KVDB
+     *
+     * @tparam N Number of KV pairs to manage (elements)
+     * @tparam M Size of the transcode buffer (bytes)
+     */
+    template<size_t N, size_t M>
+    struct Storage
+    {
+      KVNodeVector<N>        nodes;            /**< Storage for KV pair descriptors */
+      etl::array<uint8_t, M> transcode_buffer; /**< Storage for encoding/decoding largest data */
+    };
+
+    /**
+     * @brief Configuration data for the RAM based KVDB
+     *
+     * This should be built via binding to the Storage struct members.
+     */
     struct Config
     {
       KVNodeIVector     *node_storage;     /**< External storage of parameter nodes */
@@ -96,21 +105,6 @@ namespace mb::db
     Config                         mConfig; /**< Configuration data for the instance */
   };
 
-
-/**
-   * @brief Helper struct to declare storage data for a persistent KVDB
-   *
-   * @tparam N Number of KV pairs to manage (elements)
-   * @tparam M Size of the transcode buffer (bytes)
-   */
-  template<size_t N, size_t M>
-  struct NvmKVDBStorage
-  {
-    RamKVDB                ramdb;          /**< RAM manager for KV pair cache */
-    KVNodeVector<N>        nodes;            /**< Storage for KV pair descriptors */
-    etl::array<uint8_t, M> transcode_buffer; /**< Storage for encoding/decoding largest data */
-  };
-
   /**
    * @brief A non-volatile memory backed key-value database with RAM caching.
    *
@@ -121,6 +115,26 @@ namespace mb::db
   class NvmKVDB : public virtual IKVDatabase
   {
   public:
+
+    /**
+     * @brief Helper struct to declare storage data for a persistent KVDB
+     *
+     * @tparam N Number of KV pairs to manage (elements)
+     * @tparam M Size of the transcode buffer (bytes)
+     */
+    template<size_t N, size_t M>
+    struct Storage
+    {
+      RamKVDB                ramdb;          /**< RAM manager for KV pair cache */
+      KVNodeVector<N>        nodes;            /**< Storage for KV pair descriptors */
+      etl::array<uint8_t, M> transcode_buffer; /**< Storage for encoding/decoding largest data */
+    };
+
+    /**
+     * @brief Configuration data for the NVM based KVDB
+     *
+     * This should be built via binding to the Storage struct members.
+     */
     struct Config
     {
       etl::string<FAL_DEV_NAME_MAX> dev_name;         /**< Which device is being accessed */

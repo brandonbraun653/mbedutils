@@ -42,10 +42,10 @@ namespace mb::db
       return DB_ERR_BAD_ARG;
     }
 
-    /* Make sure the transcode buffer can handle all encode/decode ops */
+    /* Make sure the transcode buffer can handle all known encode/decode ops */
     for ( auto &node : *config.node_storage )
     {
-      if ( node.pbFields && ( node.pbSize > config.transcode_buffer.max_size() ) )
+      if ( node.pbFields && ( node.dataSize > config.transcode_buffer.max_size() ) )
       {
         return DB_ERR_TRANSCODE_BUFFER_TOO_SMALL;
       }

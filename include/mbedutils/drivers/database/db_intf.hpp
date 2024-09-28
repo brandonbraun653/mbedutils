@@ -148,7 +148,7 @@ namespace mb::db
      * @brief Encodes value data with the NanoPB serializer.
      *
      * Used when communicating with an external system over a shared format. It's expected
-     * that the underlying KV storage `datacache` matches the `pbFields` and `pbSize` fields
+     * that the underlying KV storage `datacache` matches the `pbFields` and `dataSize` fields
      * of the KVNode object.
      *
      * @param key       The key to encode

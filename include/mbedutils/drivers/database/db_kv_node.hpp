@@ -103,7 +103,7 @@ namespace mb::db
    * @param data Pointer to the data to sanitize
    * @param size Size of the data to sanitize
    */
-  using SanitizeFunc = etl::delegate<void( const KVNode &node )>;
+  using SanitizeFunc = etl::delegate<void( KVNode &node )>;
 
   /**
    * @brief Visitor function for traversing the KV parameter database.
@@ -147,13 +147,13 @@ namespace mb::db
    * @brief KV node writer function that uses a memcpy operation.
    * @see ::mb::db::WriteFunc
    */
-  bool kv_writer_memcpy( KVNode &node, const void *const data, const size_t size, const bool valid );
+  bool kv_writer_memcpy( KVNode &node, const void *data, const size_t size, const bool valid );
 
   /**
    * @brief KV node writer that accepts etl::string data types.
    * @see ::mb::db::WriteFunc
    */
-  bool kv_writer_etl_string( KVNode &node, const void *const data, const size_t size, const bool valid );
+  bool kv_writer_etl_string( KVNode &node, const void *data, const size_t size, const bool valid );
 
   /**
    * @brief KV node reader using memcpy
@@ -201,10 +201,10 @@ namespace mb::db
     WriteFunc           writer    = {};           /**< Specify how to write data into the datacache */
     ReadFunc            reader    = {};           /**< Specify how to read data from the datacache */
     ValidateFunc        validator = {};           /**< Specify how the data is validated */
-    SanitizeFunc        sanitizer = {};           /**< Specify data sanitization behavior  */
+    SanitizeFunc        sanitizer = {};           /**< Specify data sanitization behavior */
     void               *datacache = nullptr;      /**< Where the data lives in memory */
-    const pb_msgdesc_t *pbFields  = nullptr;      /**< NanoPB descriptor if serialization support is desired*/
-    uint16_t            pbSize    = 0;            /**< Size of the NanoPB data type */
+    const pb_msgdesc_t *pbFields  = nullptr;      /**< NanoPB "<obj>_fields" descriptor if serialization support is desired */
+    uint16_t            dataSize  = 0;            /**< Size of the datacache. If NanoPB, use the "<obj>_size" literal. */
     uint16_t            flags     = 0;            /**< Flags to control behavior */
   };
 
@@ -249,7 +249,7 @@ namespace mb::db
    * @return true   The read was successful
    * @return false  The read failed
    */
-  bool read( KVNode &node, void *data, const size_t size );
+  bool read( const KVNode &node, void *data, const size_t size );
 
   /**
    * @brief Serialize the data in the KV node to a binary format.
@@ -260,7 +260,7 @@ namespace mb::db
    * @return true Serialization was successful
    * @return false Serialization failed
    */
-  bool serialize( KVNode &node, void *const data, const size_t size );
+  bool serialize( const KVNode &node, void *const data, const size_t size );
 
   /**
    * @brief Deserialize the given data into the KV node.
@@ -271,7 +271,7 @@ namespace mb::db
    * @return true Deserialization was successful
    * @return false Deserialization failed
    */
-  bool deserialize( KVNode &node, const void *const data, const size_t size );
+  bool deserialize( KVNode &node, const void *data, const size_t size );
 
 }  // namespace mb::db
 
