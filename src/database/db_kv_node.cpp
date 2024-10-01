@@ -113,14 +113,14 @@ namespace mb::db
   }
 
 
-  bool serialize( const KVNode &node, void *const data, const size_t size )
+  int serialize( const KVNode &node, void *const data, const size_t size )
   {
     /*-------------------------------------------------------------------------
     Input protection
     -------------------------------------------------------------------------*/
     if( !data || !size || !node.pbFields )
     {
-      return false;
+      return -1;
     }
 
     /*-------------------------------------------------------------------------
@@ -129,10 +129,11 @@ namespace mb::db
     pb_ostream_t stream = pb_ostream_from_buffer( static_cast<pb_byte_t *>( data ), size );
     if( !pb_encode( &stream, node.pbFields, node.datacache ) )
     {
-      return false;
+      mbed_assert_continue_msg( false, "KVNode %d encode failure: %s", node.hashKey, stream.errmsg );
+      return -1;
     }
 
-    return true;
+    return static_cast<int>( stream.bytes_written );
   }
 
 
@@ -141,7 +142,7 @@ namespace mb::db
     /*-------------------------------------------------------------------------
     Input protection
     -------------------------------------------------------------------------*/
-    if( !data || !size || !node.pbFields )
+    if( !data || !node.pbFields || !node.datacache )
     {
       return false;
     }

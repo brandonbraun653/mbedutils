@@ -257,19 +257,21 @@ namespace mb::db
    * @param node Reference to the node being serialized
    * @param data Pointer to the buffer to store the serialized data
    * @param size Size of the buffer
-   * @return true Serialization was successful
-   * @return false Serialization failed
+   * @return Size of the serialized data. Negative on error.
    */
-  bool serialize( const KVNode &node, void *const data, const size_t size );
+  int serialize( const KVNode &node, void *const data, const size_t size );
 
   /**
-   * @brief Deserialize the given data into the KV node.
+   * @brief Deserialize the given NanoPB data into the KV node.
+   *
+   * This method decodes NanoPB serialized data into the underlying KVNode
+   * RAM storage, if it exists. This expects the exact length of serialized
+   * data to decode, due to the possibility of variable length serialization.
    *
    * @param node Reference to the node being deserialized
-   * @param data Pointer to the serialized data
-   * @param size Size of the serialized data
-   * @return true Deserialization was successful
-   * @return false Deserialization failed
+   * @param data Pointer to the serialized data. Must be NanoPB encoded.
+   * @param size Exact size of the serialized data.
+   * @return Success or failure
    */
   bool deserialize( KVNode &node, const void *data, const size_t size );
 
