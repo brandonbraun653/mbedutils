@@ -63,8 +63,7 @@ namespace mb::db
    * @param data  Pointer to the data containing the update
    * @param size  Size of the new data
    * @param valid Flag indicating if the data is valid
-   * @return true Data was updated
-   * @return false Data was not updated
+   * @return True if the write was successful, false otherwise
    */
   using WriteFunc = etl::delegate<bool( KVNode &node, const void *data, const size_t size, const bool valid )>;
 
@@ -75,10 +74,10 @@ namespace mb::db
    *
    * @param node  Reference to the node being read
    * @param data  Pointer to the output buffer to read the data into
-   * @param size  Size of the output buffer
-   * @return bool Validity state of the data
+   * @param size  Number of bytes to read into the buffer
+   * @return Number of bytes read, negative on error
    */
-  using ReadFunc = etl::delegate<bool( const KVNode &node, void *data, const size_t size )>;
+  using ReadFunc = etl::delegate<int( const KVNode &node, void *data, const size_t size )>;
 
   /**
    * @brief Validation function for a given KV node.
@@ -89,8 +88,7 @@ namespace mb::db
    * @param node Reference to the node being validated
    * @param data Pointer to the data to validate
    * @param size Size of the data to validate
-   * @return true Data is valid
-   * @return false Data is invalid
+   * @return Data validity status
    */
   using ValidateFunc = etl::delegate<bool( const KVNode &node )>;
 
@@ -150,22 +148,22 @@ namespace mb::db
   bool kv_writer_memcpy( KVNode &node, const void *data, const size_t size, const bool valid );
 
   /**
-   * @brief KV node writer that accepts etl::string data types.
+   * @brief KV node writer from char* -> etl::string.
    * @see ::mb::db::WriteFunc
    */
-  bool kv_writer_etl_string( KVNode &node, const void *data, const size_t size, const bool valid );
+  bool kv_writer_char_to_etl_string( KVNode &node, const void *data, const size_t size, const bool valid );
 
   /**
    * @brief KV node reader using memcpy
    * @see ::mb::db::ReadFunc
    */
-  bool kv_reader_memcpy( const KVNode &node, void *data, const size_t size );
+  int kv_reader_memcpy( const KVNode &node, void *data, const size_t size );
 
   /**
-   * @brief KV node reader that accepts etl::string data types.
+   * @brief KV node reader from etl::string -> char *.
    * @see ::mb::db::ReadFunc
    */
-  bool kv_reader_etl_string( const KVNode &node, void *data, const size_t size );
+  int kv_reader_etl_string_to_char( const KVNode &node, void *data, const size_t size );
 
 
   /*---------------------------------------------------------------------------
@@ -174,11 +172,11 @@ namespace mb::db
 
   /* Writers */
   static constexpr auto KVWriter_Memcpy    = WriteFunc::create<kv_writer_memcpy>();
-  static constexpr auto KVWriter_EtlString = WriteFunc::create<kv_writer_etl_string>();
+  static constexpr auto KVWriter_EtlString = WriteFunc::create<kv_writer_char_to_etl_string>();
 
   /* Readers */
   static constexpr auto KVReader_Memcpy    = ReadFunc::create<kv_reader_memcpy>();
-  static constexpr auto KVReader_EtlString = ReadFunc::create<kv_reader_etl_string>();
+  static constexpr auto KVReader_EtlString = ReadFunc::create<kv_reader_etl_string_to_char>();
 
   /* Validators */
 
@@ -226,7 +224,7 @@ namespace mb::db
    * @return true   Data is valid
    * @return false  Data is invalid
    */
-  bool is_valid( KVNode &node );
+  bool is_valid( const KVNode &node );
 
   /**
    * @brief Writes the given data to the KV node.
@@ -245,11 +243,10 @@ namespace mb::db
    *
    * @param node  Reference to the node being read from
    * @param data  Pointer to the buffer to read the data into
-   * @param size  Size of the buffer
-   * @return true   The read was successful
-   * @return false  The read failed
+   * @param size  Number of bytes to read into the buffer
+   * @return Number of bytes read, negative on error
    */
-  bool read( const KVNode &node, void *data, const size_t size );
+  int read( const KVNode &node, void *data, const size_t size );
 
   /**
    * @brief Serialize the data in the KV node to a binary format.

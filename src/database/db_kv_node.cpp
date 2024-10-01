@@ -24,11 +24,33 @@ namespace mb::db
 
   bool kv_writer_memcpy( KVNode &node, const void *const data, const size_t size, const bool valid )
   {
-    return false;
+    /*-------------------------------------------------------------------------
+    Input protection
+    -------------------------------------------------------------------------*/
+    if( !data || !size || !node.datacache || ( node.dataSize < size ) )
+    {
+      return false;
+    }
+
+    /*-------------------------------------------------------------------------
+    Update the data and flags
+    -------------------------------------------------------------------------*/
+    memcpy( node.datacache, data, size );
+
+    if( valid )
+    {
+      node.flags |= KV_FLAG_VALID;
+    }
+    else
+    {
+      node.flags &= ~KV_FLAG_VALID;
+    }
+
+    return true;
   }
 
 
-  bool kv_writer_etl_string( KVNode &node, const void *data, const size_t size, const bool valid )
+  bool kv_writer_char_to_etl_string( KVNode &node, const void *data, const size_t size, const bool valid )
   {
     /*-------------------------------------------------------------------------
     Input protection
@@ -39,7 +61,7 @@ namespace mb::db
     }
 
     /*-------------------------------------------------------------------------
-    Update the data
+    Update the data and flags
     -------------------------------------------------------------------------*/
     auto val = reinterpret_cast<etl::istring *>( node.datacache );
     val->assign( reinterpret_cast<const char *>( data ), size );
@@ -57,17 +79,43 @@ namespace mb::db
   }
 
 
-  bool kv_reader_memcpy( const KVNode &node, void *data, const size_t size )
+  int kv_reader_memcpy( const KVNode &node, void *data, const size_t size )
   {
-    return false;
+    /*-------------------------------------------------------------------------
+    Input protection
+    -------------------------------------------------------------------------*/
+    if( !data || !size || !node.datacache )
+    {
+      return -1;
+    }
+
+    /*-------------------------------------------------------------------------
+    Copy the data
+    -------------------------------------------------------------------------*/
+    const size_t copy_size = node.dataSize > size ? size : node.dataSize;
+    memcpy( data, node.datacache, copy_size );
+    return static_cast<int>( copy_size );
   }
 
 
-  bool kv_reader_etl_string( const KVNode &node, void *data, const size_t size )
+  int kv_reader_etl_string_to_char( const KVNode &node, void *data, const size_t size )
   {
-    // auto val      = reinterpret_cast<etl::istring *>( value );
-    // val->assign( string_buffer );
-    return false;
+    /*-------------------------------------------------------------------------
+    Input protection
+    -------------------------------------------------------------------------*/
+    if( !data || !size || !node.datacache )
+    {
+      return -1;
+    }
+
+    /*-------------------------------------------------------------------------
+    Copy the data and return its validity
+    -------------------------------------------------------------------------*/
+    const auto   val       = reinterpret_cast<const etl::istring *>( node.datacache );
+    const size_t copy_size = val->size() > size ? size : val->size();
+
+    memcpy( data, val->c_str(), copy_size );
+    return static_cast<int>( copy_size );
   }
 
 
@@ -80,14 +128,14 @@ namespace mb::db
   }
 
 
-  bool is_valid( KVNode &node )
+  bool is_valid( const KVNode &node )
   {
     if( node.validator )
     {
       return node.validator( node );
     }
 
-    return false;
+    return static_cast<bool>( node.flags & KV_FLAG_VALID );
   }
 
 
@@ -102,14 +150,14 @@ namespace mb::db
   }
 
 
-  bool read( const KVNode &node, void *data, const size_t size )
+  int read( const KVNode &node, void *data, const size_t size )
   {
     if( node.reader )
     {
       return node.reader( node, data, size );
     }
 
-    return false;
+    return 0;
   }
 
 
