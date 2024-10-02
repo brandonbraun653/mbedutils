@@ -57,13 +57,18 @@ namespace mb::db
 
   bool RamKVDB::init()
   {
-    return false;
+    /*-------------------------------------------------------------------------
+    Integration requirement. Nothing needs to occur.
+    -------------------------------------------------------------------------*/
+    return true;
   }
 
 
   void RamKVDB::deinit()
   {
-    // flush
+    /*-------------------------------------------------------------------------
+    Integration requirement. Nothing needs to occur.
+    -------------------------------------------------------------------------*/
   }
 
 
