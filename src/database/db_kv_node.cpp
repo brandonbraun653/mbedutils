@@ -22,7 +22,7 @@ namespace mb::db
   Public Functions
   ---------------------------------------------------------------------------*/
 
-  bool kv_writer_memcpy( KVNode &node, const void *const data, const size_t size, const bool valid )
+  bool kv_writer_memcpy( KVNode &node, const void *const data, const size_t size )
   {
     /*-------------------------------------------------------------------------
     Input protection
@@ -33,24 +33,14 @@ namespace mb::db
     }
 
     /*-------------------------------------------------------------------------
-    Update the data and flags
+    Update the data
     -------------------------------------------------------------------------*/
     memcpy( node.datacache, data, size );
-
-    if( valid )
-    {
-      node.flags |= KV_FLAG_VALID;
-    }
-    else
-    {
-      node.flags &= ~KV_FLAG_VALID;
-    }
-
     return true;
   }
 
 
-  bool kv_writer_char_to_etl_string( KVNode &node, const void *data, const size_t size, const bool valid )
+  bool kv_writer_char_to_etl_string( KVNode &node, const void *data, const size_t size )
   {
     /*-------------------------------------------------------------------------
     Input protection
@@ -61,19 +51,10 @@ namespace mb::db
     }
 
     /*-------------------------------------------------------------------------
-    Update the data and flags
+    Update the data
     -------------------------------------------------------------------------*/
     auto val = reinterpret_cast<etl::istring *>( node.datacache );
     val->assign( reinterpret_cast<const char *>( data ), size );
-
-    if( valid )
-    {
-      node.flags |= KV_FLAG_VALID;
-    }
-    else
-    {
-      node.flags &= ~KV_FLAG_VALID;
-    }
 
     return true;
   }
@@ -128,8 +109,16 @@ namespace mb::db
   }
 
 
-  bool is_valid( const KVNode &node )
+  bool data_is_valid( const KVNode &node )
   {
+    /*-------------------------------------------------------------------------
+    Perform basic checks
+    -------------------------------------------------------------------------*/
+    if( !node_is_valid( node ) )
+    {
+      return false;
+    }
+
     if( node.validator )
     {
       return node.validator( node );
@@ -139,18 +128,28 @@ namespace mb::db
   }
 
 
-  bool write( KVNode &node, const void *data, const size_t size, const bool valid )
+  bool node_is_valid( const KVNode &node )
+  {
+    return ( node.datacache                      /* Must have memory backing */
+             || node.dataSize                    /* Memory backing must have some size */
+             || ( node.hashKey != MAX_HASH_KEY ) /* Hash key must be valid */
+             || ( node.writer || node.reader )   /* Has at least a writer or reader */
+    );
+  }
+
+
+  bool node_write( KVNode &node, const void *data, const size_t size )
   {
     if( node.writer )
     {
-      return node.writer( node, data, size, valid );
+      return node.writer( node, data, size );
     }
 
     return false;
   }
 
 
-  int read( const KVNode &node, void *data, const size_t size )
+  int node_read( const KVNode &node, void *data, const size_t size )
   {
     if( node.reader )
     {
@@ -161,7 +160,7 @@ namespace mb::db
   }
 
 
-  int serialize( const KVNode &node, void *const data, const size_t size )
+  int node_serialize( const KVNode &node, void *const data, const size_t size )
   {
     /*-------------------------------------------------------------------------
     Input protection
@@ -185,7 +184,7 @@ namespace mb::db
   }
 
 
-  bool deserialize( KVNode &node, const void *data, const size_t size )
+  bool node_deserialize( KVNode &node, const void *data, const size_t size )
   {
     /*-------------------------------------------------------------------------
     Input protection

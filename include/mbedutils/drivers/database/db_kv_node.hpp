@@ -62,10 +62,9 @@ namespace mb::db
    * @param node  Reference to the node being updated
    * @param data  Pointer to the data containing the update
    * @param size  Size of the new data
-   * @param valid Flag indicating if the data is valid
    * @return True if the write was successful, false otherwise
    */
-  using WriteFunc = etl::delegate<bool( KVNode &node, const void *data, const size_t size, const bool valid )>;
+  using WriteFunc = etl::delegate<bool( KVNode &node, const void *data, const size_t size )>;
 
   /**
    * @brief Custom reader function for a given KV node.
@@ -145,13 +144,13 @@ namespace mb::db
    * @brief KV node writer function that uses a memcpy operation.
    * @see ::mb::db::WriteFunc
    */
-  bool kv_writer_memcpy( KVNode &node, const void *data, const size_t size, const bool valid );
+  bool kv_writer_memcpy( KVNode &node, const void *data, const size_t size );
 
   /**
    * @brief KV node writer from char* -> etl::string.
    * @see ::mb::db::WriteFunc
    */
-  bool kv_writer_char_to_etl_string( KVNode &node, const void *data, const size_t size, const bool valid );
+  bool kv_writer_char_to_etl_string( KVNode &node, const void *data, const size_t size );
 
   /**
    * @brief KV node reader using memcpy
@@ -221,10 +220,17 @@ namespace mb::db
    * @brief Checks for validity of the data in the KV node.
    *
    * @param node Reference to the node being checked
-   * @return true   Data is valid
-   * @return false  Data is invalid
+   * @return True if the data is valid, false otherwise
    */
-  bool is_valid( const KVNode &node );
+  bool data_is_valid( const KVNode &node );
+
+  /**
+   * @brief Checks if the node configuration is valid.
+   *
+   * @param node  Reference to the node being checked
+   * @return True if the node is valid, false otherwise
+   */
+  bool node_is_valid( const KVNode &node );
 
   /**
    * @brief Writes the given data to the KV node.
@@ -232,11 +238,9 @@ namespace mb::db
    * @param node  Reference to the node being written to
    * @param data  Pointer to the data to write
    * @param size  Size of the data to write
-   * @param valid Flag indicating if the data is valid
-   * @return true The write was successful
-   * @return false The write failed
+   * @return True if the write was successful, false otherwise
    */
-  bool write( KVNode &node, const void *data, const size_t size, const bool valid );
+  bool node_write( KVNode &node, const void *data, const size_t size );
 
   /**
    * @brief Reads the data from the KV node.
@@ -246,7 +250,7 @@ namespace mb::db
    * @param size  Number of bytes to read into the buffer
    * @return Number of bytes read, negative on error
    */
-  int read( const KVNode &node, void *data, const size_t size );
+  int node_read( const KVNode &node, void *data, const size_t size );
 
   /**
    * @brief Serialize the data in the KV node to a binary format.
@@ -256,7 +260,7 @@ namespace mb::db
    * @param size Size of the buffer
    * @return Size of the serialized data. Negative on error.
    */
-  int serialize( const KVNode &node, void *const data, const size_t size );
+  int node_serialize( const KVNode &node, void *const data, const size_t size );
 
   /**
    * @brief Deserialize the given NanoPB data into the KV node.
@@ -270,7 +274,7 @@ namespace mb::db
    * @param size Exact size of the serialized data.
    * @return Success or failure
    */
-  bool deserialize( KVNode &node, const void *data, const size_t size );
+  bool node_deserialize( KVNode &node, const void *data, const size_t size );
 
 }  // namespace mb::db
 
