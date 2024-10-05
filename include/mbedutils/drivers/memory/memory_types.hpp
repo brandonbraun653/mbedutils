@@ -47,6 +47,8 @@ namespace mb::memory
     ERR_UNKNOWN_JEDEC,      /**< Unknown JEDEC ID */
     ERR_NOT_SUPPORTED,      /**< Operation not supported */
     ERR_WRITE_PROTECT,      /**< Write protection error */
+    ERR_NOT_READY,          /**< Device is not ready */
+    ERR_GENERIC,            /**< Generic uncategorized error */
   };
 
 }  // namespace mb::memory

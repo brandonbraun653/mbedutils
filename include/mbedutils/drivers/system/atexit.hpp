@@ -30,6 +30,15 @@ namespace mb::system::atexit
   using Callback = etl::delegate<void( void )>;
 
   /*---------------------------------------------------------------------------
+  Constants
+  ---------------------------------------------------------------------------*/
+
+  static constexpr uint32_t HIGHEST_PRIORITY = 0;
+  static constexpr uint32_t HIGH_PRIORITY    = std::numeric_limits<uint32_t>::max() / 4;
+  static constexpr uint32_t NORMAL_PRIORITY  = std::numeric_limits<uint32_t>::max() / 2;
+  static constexpr uint32_t LOW_PRIORITY     = std::numeric_limits<uint32_t>::max();
+
+  /*---------------------------------------------------------------------------
   Public Functions
   ---------------------------------------------------------------------------*/
 

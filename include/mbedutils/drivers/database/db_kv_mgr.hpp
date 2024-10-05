@@ -41,7 +41,6 @@ namespace mb::db
   class RamKVDB : public virtual IKVDatabase
   {
   public:
-
     /**
      * @brief Helper struct to declare storage data for a RAM based KVDB
      *
@@ -125,8 +124,8 @@ namespace mb::db
     template<size_t N, size_t M>
     struct Storage
     {
-      RamKVDB                ramdb;          /**< RAM manager for KV pair cache */
-      KVNodeVector<N>        nodes;            /**< Storage for KV pair descriptors */
+      RamKVDB                kv_ram_db;        /**< RAM manager for KV pair cache */
+      KVNodeVector<N>        kv_nodes;         /**< Storage for KV pair descriptors */
       etl::array<uint8_t, M> transcode_buffer; /**< Storage for encoding/decoding largest data */
     };
 
@@ -137,11 +136,12 @@ namespace mb::db
      */
     struct Config
     {
-      etl::string<FAL_DEV_NAME_MAX> dev_name;         /**< Which device is being accessed */
-      etl::string<FAL_DEV_NAME_MAX> partition_name;   /**< Sub-partition being accessed */
-      RamKVDB                      *manager;          /**< RAM manager for KV pairs located on the device/partition */
-      KVNodeIVector                *nodes;            /**< RAM storage for KV pairs */
-      etl::span<uint8_t>            transcode_buffer; /**< RAM buffer for encoding/decoding KV pair data */
+      using FALString = etl::string<FAL_DEV_NAME_MAX>;
+
+      FALString dev_name;        /**< Which device is being accessed */
+      FALString part_name;       /**< Sub-partition being accessed */
+      RamKVDB  *ram_kvdb;        /**< RAM manager for KV pairs located on the device/partition */
+      uint32_t  dev_sector_size; /**< Size of a sector on the device */
     };
 
     NvmKVDB();
@@ -151,10 +151,9 @@ namespace mb::db
      * @brief Bind the provided configuration to the database
      *
      * @param config  Configuration data for the database
-     * @return true   The database was initialized successfully
-     * @return false  The database failed to initialize
+     * @return Error code indicating success or failure
      */
-    bool configure( Config &config );
+    DBError configure( Config &config );
 
     /*-------------------------------------------------------------------------
     IKVDatabase Interface

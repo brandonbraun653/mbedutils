@@ -13,11 +13,53 @@ Includes
 -----------------------------------------------------------------------------*/
 #include <mbedutils/database.hpp>
 #include <mbedutils/thread.hpp>
+#include <mbedutils/system.hpp>
 #include <pb_decode.h>
 #include <pb_encode.h>
 
 namespace mb::db
 {
+  /*---------------------------------------------------------------------------
+  Private Data
+  ---------------------------------------------------------------------------*/
+
+  // static const fdb_default_kv_node s_dflt_kv_table[] = { {
+  //     .key       = "mbedutils_db_ver",
+  //     .value     = "1.0.0",
+  //     .value_len = 6,
+  // } };
+
+  /*---------------------------------------------------------------------------
+  Private Functions
+  ---------------------------------------------------------------------------*/
+
+  static const char *fdb_err_to_str( const fdb_err_t err )
+  {
+    switch( err )
+    {
+      case FDB_NO_ERR:
+        return "No error";
+      case FDB_ERASE_ERR:
+        return "Erase error";
+      case FDB_READ_ERR:
+        return "Read error";
+      case FDB_WRITE_ERR:
+        return "Write error";
+      case FDB_PART_NOT_FOUND:
+        return "Partition not found";
+      case FDB_KV_NAME_ERR:
+        return "Key-Value name error";
+      case FDB_KV_NAME_EXIST:
+        return "Key-Value name exists";
+      case FDB_SAVED_FULL:
+        return "Saved full";
+      case FDB_INIT_FAILED:
+        return "Initialization failed";
+      default:
+        return "Unknown error";
+    }
+  }
+
   /*---------------------------------------------------------------------------
   RamKVDB Class
   ---------------------------------------------------------------------------*/
@@ -250,19 +292,60 @@ namespace mb::db
   }
 
 
-  bool NvmKVDB::configure( Config &config )
+  DBError NvmKVDB::configure( Config &config )
   {
-    return false;
+    /*-------------------------------------------------------------------------
+    Validate the input configuration
+    -------------------------------------------------------------------------*/
+    if( config.dev_name.empty() || config.part_name.empty() || config.ram_kvdb == nullptr ||
+        ( ( config.dev_sector_size % 32 ) != 0 ) )
+    {
+      return DB_ERR_BAD_ARG;
+    }
+
+    /*-------------------------------------------------------------------------
+    Store the configuration
+    -------------------------------------------------------------------------*/
+    mConfig = config;
+    return DB_ERR_NONE;
   }
 
 
   bool NvmKVDB::init()
   {
-    // FDB_NO_ERR == fdb_kvdb_init( &mDB, config.dev_name.c_str(), config.partition_name.c_str(), &config.default_kv_table, this );
-    // Pull information from flash memory
-    // register atexit call
+    using namespace mb::system::atexit;
 
-    return false;
+    /*-------------------------------------------------------------------------
+    Reset the system memory
+    -------------------------------------------------------------------------*/
+    mDB = {};
+    fdb_kvdb_control( &mDB, FDB_KVDB_CTRL_SET_SEC_SIZE, &mConfig.dev_sector_size );
+
+    /*-------------------------------------------------------------------------
+    Initialize the NVM database
+    -------------------------------------------------------------------------*/
+    auto fdb_err = fdb_kvdb_init( &mDB, mConfig.dev_name.c_str(), mConfig.part_name.c_str(), nullptr, this );
+    if( fdb_err != FDB_NO_ERR )
+    {
+      mbed_assert_continue_msg( false, "Failed to initialize the NVM database: %s", fdb_err_to_str( fdb_err ) );
+      return false;
+    }
+
+    /*-------------------------------------------------------------------------
+    Check the integrity of the NVM database
+    -------------------------------------------------------------------------*/
+    fdb_err = fdb_kvdb_check( &mDB );
+    if( fdb_err != FDB_NO_ERR )
+    {
+      mbed_assert_continue_msg( false, "NVM database integrity failure: %s", fdb_err_to_str( fdb_err ) );
+      return false;
+    }
+
+    /*-------------------------------------------------------------------------
+    Register the teardown function with atexit to ensure the cache is flushed
+    -------------------------------------------------------------------------*/
+    auto cb_stub = mb::system::atexit::Callback::create<NvmKVDB, &NvmKVDB::flush_on_exit>( *this );
+    return mb::system::atexit::registerCallback( cb_stub, NORMAL_PRIORITY );
   }
 
 
@@ -275,12 +358,14 @@ namespace mb::db
 
   bool NvmKVDB::insert( const KVNode &node )
   {
+    // Sync the node to the NVM
     return false;
   }
 
 
   void NvmKVDB::remove( const HashKey key )
   {
+    // Sync the node to the NVM
   }
 
 
@@ -298,6 +383,7 @@ namespace mb::db
 
   void NvmKVDB::sync()
   {
+    // Pull all data from the NVM and load it into the RAM cache
   }
 
 
@@ -310,12 +396,14 @@ namespace mb::db
 
   int NvmKVDB::read( const HashKey key, void *data, const size_t data_size, const size_t size )
   {
+    // Read flag to determine if read from cache or always fetch from NVM
     return -1;
   }
 
 
   int NvmKVDB::write( const HashKey key, const void *data, const size_t size )
   {
+    // Optionally, sync the node to the NVM
     return -1;
   }
 
