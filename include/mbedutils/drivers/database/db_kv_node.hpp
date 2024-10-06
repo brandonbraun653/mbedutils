@@ -119,21 +119,44 @@ namespace mb::db
   Enumerations
   ---------------------------------------------------------------------------*/
 
-  enum KVFlags : uint16_t
+  /**
+   * @brief Descriptive information about a key-value node.
+   *
+   * These flags control the runtime behavior of a kv node, influencing how
+   * data is read, written, and validated. None of this information should
+   * be stored in NVM, it is purely for runtime control.
+   */
+  enum KVFlag : uint16_t
   {
-    KV_FLAG_READ_ONLY     = 1 << 0, /**< KV data is not writeable */
-    KV_FLAG_WRITE_BACK    = 1 << 1, /**< If persistent, delay write until later */
-    KV_FLAG_WRITE_THROUGH = 1 << 2, /**< If persistent, immediately write data to NVM */
-    KV_FLAG_PERSISTENT    = 1 << 3, /**< Data is persistent and backed in NVM */
-    KV_FLAG_LOCKED        = 1 << 4, /**< Data is locked and cannot be modified */
-    KV_FLAG_AUTO_SANITIZE = 1 << 5, /**< Automatically sanitize data before writing */
-    KV_FLAG_DIRTY         = 1 << 6, /**< Data has been modified and needs to be written */
-    KV_FLAG_VALID         = 1 << 7, /**< Data is valid */
-    KV_CLEAN_ON_WRITE     = 1 << 8, /**< Sanitize data before writing */
-    KV_CLEAN_ON_READ      = 1 << 9, /**< Sanitize data after reading */
+    /*-------------------------------------------------------------------------
+    Data Attribute Flags
+    -------------------------------------------------------------------------*/
+    KV_FLAG_READ_ONLY         = 1 << 0, /**< KV data is not writeable */
+    KV_FLAG_PERSISTENT        = 1 << 1, /**< Data is backed by NVM */
+    KV_FLAG_SANITIZE_ON_WRITE = 1 << 2, /**< Sanitize data before writing */
+    KV_FLAG_SANITIZE_ON_READ  = 1 << 3, /**< Sanitize data after reading */
 
-    KV_FLAG_DEFAULT_PERSISTENT = ( KV_FLAG_WRITE_BACK | KV_FLAG_PERSISTENT | KV_FLAG_AUTO_SANITIZE ),
-    KV_FLAG_DEFAULT_VOLATILE   = ( KV_FLAG_AUTO_SANITIZE )
+    /*-------------------------------------------------------------------------
+    Data State Flags
+    -------------------------------------------------------------------------*/
+    KV_FLAG_LOCKED = 1 << 4, /**< Data is locked and cannot be modified */
+    KV_FLAG_DIRTY  = 1 << 5, /**< Data has been modified and needs to be written */
+    KV_FLAG_VALID  = 1 << 6, /**< Data has been validated and is in a high-trust state */
+
+    /*-------------------------------------------------------------------------
+    Data Caching Policies
+    -------------------------------------------------------------------------*/
+    KV_FLAG_CACHE_POLICY_READ_CACHE    = 1 << 11, /**< When read() is called, source from RAM cache */
+    KV_FLAG_CACHE_POLICY_READ_THROUGH  = 1 << 12, /**< When read() is called, source from NVM directly */
+    KV_FLAG_CACHE_POLICY_READ_SYNC     = 1 << 13, /**< When read() is called, source from NVM and update the RAM cache */
+    KV_FLAG_CACHE_POLICY_WRITE_THROUGH = 1 << 13, /**< Write to NVM immediately */
+    KV_FLAG_CACHE_POLICY_WRITE_BACK    = 1 << 14, /**< Write to NVM on flushing dirty tags */
+
+    /*-------------------------------------------------------------------------
+    Flag Aggregates
+    -------------------------------------------------------------------------*/
+    KV_FLAG_DEFAULT_PERSISTENT = ( KV_FLAG_PERSISTENT | KV_FLAG_CACHE_POLICY_READ_CACHE | KV_FLAG_CACHE_POLICY_WRITE_BACK ),
+    KV_FLAG_DEFAULT_VOLATILE   = ( KV_FLAG_CACHE_POLICY_READ_CACHE )
   };
 
   /*---------------------------------------------------------------------------

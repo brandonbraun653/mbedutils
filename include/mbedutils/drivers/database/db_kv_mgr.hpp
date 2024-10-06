@@ -32,6 +32,12 @@ extern "C"
 namespace mb::db
 {
   /*---------------------------------------------------------------------------
+  Forward Declarations
+  ---------------------------------------------------------------------------*/
+
+  class NvmKVDB;
+
+  /*---------------------------------------------------------------------------
   Classes
   ---------------------------------------------------------------------------*/
 
@@ -99,9 +105,14 @@ namespace mb::db
     int     encode( const HashKey key, void *out_data, const size_t out_size ) override;
     int     decode( const HashKey key, const void *in_data, const size_t in_size ) override;
 
+  protected:
+    friend class NvmKVDB;
+
+    mb::osal::mb_recursive_mutex_t mRMutex;      /**< Mutex for thread safety */
+
   private:
-    mb::osal::mb_recursive_mutex_t mRMutex; /**< Mutex for thread safety */
-    Config                         mConfig; /**< Configuration data for the instance */
+    Config                         mConfig;      /**< Configuration data for the instance */
+    size_t                         mInitialized; /**< Flag to indicate the manager is ready */
   };
 
   /**
@@ -177,10 +188,15 @@ namespace mb::db
      */
     void flush_on_exit();
 
+
   private:
-    mb::osal::mb_recursive_mutex_t mRMutex; /**< Mutex for thread safety */
-    fdb_kvdb                       mDB;     /**< FlashDB management layer */
-    Config                         mConfig; /**< Instance configuration data */
+    mb::osal::mb_recursive_mutex_t mRMutex;      /**< Mutex for thread safety */
+    fdb_kvdb                       mDB;          /**< FlashDB management layer */
+    Config                         mConfig;      /**< Instance configuration data */
+    size_t                         mInitialized; /**< Flag to indicate the manager is ready */
+
+    int write_fdb_node( const KVNode &node, const void *data, const size_t size );
+    int write_fdb_blob( const HashKey key, const void *data, const size_t size );
   };
 }    // namespace mb::db
 

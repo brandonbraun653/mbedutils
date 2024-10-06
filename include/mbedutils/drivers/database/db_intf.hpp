@@ -16,6 +16,7 @@
 Includes
 -----------------------------------------------------------------------------*/
 #include <cstdint>
+#include <etl/string.h>
 #include <mbedutils/drivers/database/db_kv_node.hpp>
 
 namespace mb::db
@@ -27,6 +28,7 @@ namespace mb::db
   enum DBError : size_t
   {
     DB_ERR_NONE,
+    DB_ERR_NOT_AVAILABLE,
     DB_ERR_BAD_ARG,
     DB_ERR_TRANSCODE_BUFFER_TOO_SMALL,
 
