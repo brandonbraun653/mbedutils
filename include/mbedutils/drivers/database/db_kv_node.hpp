@@ -149,8 +149,8 @@ namespace mb::db
     KV_FLAG_CACHE_POLICY_READ_CACHE    = 1 << 11, /**< When read() is called, source from RAM cache */
     KV_FLAG_CACHE_POLICY_READ_THROUGH  = 1 << 12, /**< When read() is called, source from NVM directly */
     KV_FLAG_CACHE_POLICY_READ_SYNC     = 1 << 13, /**< When read() is called, source from NVM and update the RAM cache */
-    KV_FLAG_CACHE_POLICY_WRITE_THROUGH = 1 << 13, /**< Write to NVM immediately */
-    KV_FLAG_CACHE_POLICY_WRITE_BACK    = 1 << 14, /**< Write to NVM on flushing dirty tags */
+    KV_FLAG_CACHE_POLICY_WRITE_THROUGH = 1 << 14, /**< Write to NVM immediately */
+    KV_FLAG_CACHE_POLICY_WRITE_BACK    = 1 << 15, /**< Write to NVM on flushing dirty tags */
 
     /*-------------------------------------------------------------------------
     Flag Aggregates

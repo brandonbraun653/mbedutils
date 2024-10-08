@@ -515,7 +515,7 @@ namespace mb::db
     the node if the write fails.
     -------------------------------------------------------------------------*/
     if( ( node.flags & KV_FLAG_PERSISTENT ) &&
-        ( node.dataSize != this->write( node.hashKey, node.datacache, node.dataSize ) ) )
+        ( 0 >= this->write( node.hashKey, node.datacache, node.dataSize ) ) )
     {
       this->remove( node.hashKey );
       return false;
