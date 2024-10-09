@@ -11,6 +11,7 @@
 /*-----------------------------------------------------------------------------
 Includes
 -----------------------------------------------------------------------------*/
+#include <etl/crc.h>
 #include <etl/to_arithmetic.h>
 #include <etl/to_string.h>
 #include <mbedutils/assert.hpp>
@@ -20,6 +21,7 @@ Includes
 #include <mbedutils/util.hpp>
 #include <pb_decode.h>
 #include <pb_encode.h>
+#include <fdb_def.h>
 
 namespace mb::db
 {
@@ -27,51 +29,10 @@ namespace mb::db
   Aliases
   ---------------------------------------------------------------------------*/
 
-  /**
-   * @brief String representation of a hash key
-   *
-   * This is used to store the hash key in a human readable format and for
-   * literal keying in the NVM backed database w/FlashDB. This is the hex
-   * string the 32-bit hash key.
-   */
-  using HashRepr = etl::string<8>;
 
   /*---------------------------------------------------------------------------
   Private Functions
   ---------------------------------------------------------------------------*/
-
-  /**
-   * @brief Convert an FDB error code to a string
-   *
-   * @param err Error to convert
-   * @return const char*
-   */
-  static const char *fdb_err_to_str( const fdb_err_t err )
-  {
-    switch( err )
-    {
-      case FDB_NO_ERR:
-        return "No error";
-      case FDB_ERASE_ERR:
-        return "Erase error";
-      case FDB_READ_ERR:
-        return "Read error";
-      case FDB_WRITE_ERR:
-        return "Write error";
-      case FDB_PART_NOT_FOUND:
-        return "Partition not found";
-      case FDB_KV_NAME_ERR:
-        return "Key-Value name error";
-      case FDB_KV_NAME_EXIST:
-        return "Key-Value name exists";
-      case FDB_SAVED_FULL:
-        return "Saved full";
-      case FDB_INIT_FAILED:
-        return "Initialization failed";
-      default:
-        return "Unknown error";
-    }
-  }
 
   /**
    * @brief Convert the mbedutils key to an FDB key
@@ -103,6 +64,60 @@ namespace mb::db
   static inline HashKey fdb_key_to_hash( const HashRepr &key )
   {
     return etl::to_arithmetic<HashKey>( key, etl::hex );
+  }
+
+  /*---------------------------------------------------------------------------
+  Public Functions
+  ---------------------------------------------------------------------------*/
+
+  const char *fdb_err_to_str( const int err )
+  {
+    switch( err )
+    {
+      case FDB_NO_ERR:
+        return "No error";
+      case FDB_ERASE_ERR:
+        return "Erase error";
+      case FDB_READ_ERR:
+        return "Read error";
+      case FDB_WRITE_ERR:
+        return "Write error";
+      case FDB_PART_NOT_FOUND:
+        return "Partition not found";
+      case FDB_KV_NAME_ERR:
+        return "Key-Value name error";
+      case FDB_KV_NAME_EXIST:
+        return "Key-Value name exists";
+      case FDB_SAVED_FULL:
+        return "Saved full";
+      case FDB_INIT_FAILED:
+        return "Initialization failed";
+      default:
+        return "Unknown error";
+    }
+  }
+
+
+  HashKey hash( etl::string_view key )
+  {
+    etl::crc32 crc_calculator;
+    etl::copy( key.begin(), key.end(), crc_calculator.input() );
+    uint32_t crc = crc_calculator.value();
+    return crc;
+  }
+
+
+  HashKey hash( const void *key, const size_t size )
+  {
+    etl::crc32 crc_calculator;
+    auto       p8_key = reinterpret_cast<const uint8_t *>( key );
+    for( size_t i = 0; i < size; i++ )
+    {
+      crc_calculator.add( p8_key[ i ] );
+    }
+
+    uint32_t crc = crc_calculator.value();
+    return crc;
   }
 
   /*---------------------------------------------------------------------------
@@ -659,7 +674,7 @@ namespace mb::db
     /*-------------------------------------------------------------------------
     Read the data according to the cache policy
     -------------------------------------------------------------------------*/
-    int ret_read_size = 0;
+    int ret_read_size = -1;
 
     if( node->flags & KV_FLAG_PERSISTENT &&
         ( node->flags & ( KV_FLAG_CACHE_POLICY_READ_SYNC | KV_FLAG_CACHE_POLICY_READ_THROUGH ) ) )
@@ -800,14 +815,6 @@ namespace mb::db
   void NvmKVDB::flush_on_exit()
   {
     //! No lock acquired here b/c we're assuming an atexit call context.
-    /*-------------------------------------------------------------------------
-    Input Protection
-    -------------------------------------------------------------------------*/
-    if( !mConfig.ram_kvdb->mConfig.node_storage )
-    {
-      return;
-    }
-
     /*-------------------------------------------------------------------------
     Flush all dirty nodes to NVM
     -------------------------------------------------------------------------*/

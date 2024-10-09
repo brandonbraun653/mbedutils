@@ -22,6 +22,7 @@ Includes
 #include <etl/delegate.h>
 #include <etl/string.h>
 #include <etl/vector.h>
+#include <mbedutils/drivers/database/db_kv_util.hpp>
 #include <mbedutils/interfaces/mutex_intf.hpp>
 #include <pb.h>
 
@@ -36,11 +37,6 @@ namespace mb::db
   /*-------------------------------------------------------------------------
   Aliases
   -------------------------------------------------------------------------*/
-
-  /**
-   * @brief Primary key type used to identify a parameter node.
-   */
-  using HashKey = uint32_t;
 
   /**
    * @brief Vector of parameter nodes.

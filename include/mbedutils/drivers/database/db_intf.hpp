@@ -22,41 +22,6 @@ Includes
 namespace mb::db
 {
   /*---------------------------------------------------------------------------
-  Enumerations
-  ---------------------------------------------------------------------------*/
-
-  enum DBError : size_t
-  {
-    DB_ERR_NONE,
-    DB_ERR_NOT_AVAILABLE,
-    DB_ERR_BAD_ARG,
-    DB_ERR_TRANSCODE_BUFFER_TOO_SMALL,
-
-    DB_ERR_MAX
-  };
-
-  /*---------------------------------------------------------------------------
-  Public Functions
-  ---------------------------------------------------------------------------*/
-
-  /**
-   * @brief Hashes a string into a 32-bit key
-   *
-   * @param key String to hash
-   * @return HashKey 32-bit hash key
-   */
-  HashKey hash( etl::string_view &key );
-
-  /**
-   * @brief Hashes a binary buffer into a 32-bit key
-   *
-   * @param key Pointer to the buffer
-   * @param size Size of the buffer
-   * @return HashKey 32-bit hash key
-   */
-  HashKey hash( const void *key, const size_t size );
-
-  /*---------------------------------------------------------------------------
   Classes
   ---------------------------------------------------------------------------*/
 
