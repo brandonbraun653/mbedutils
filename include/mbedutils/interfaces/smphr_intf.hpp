@@ -69,7 +69,7 @@ namespace mb::osal
    * @param initialCount The initial number of tokens the semaphore starts with
    * @return bool        True if the semaphore was allocated, false otherwise
    */
-  bool allocateSemahpore( mb::osal::mb_smphr_t &s, const size_t maxCount, const size_t initialCount );
+  bool allocateSemaphore( mb::osal::mb_smphr_t &s, const size_t maxCount, const size_t initialCount );
 
   /**
    * @brief Deallocates the semaphore object back into the pool.

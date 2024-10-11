@@ -160,6 +160,13 @@ namespace mb::osal
   bool allocateRecursiveMutex( mb::osal::mb_recursive_mutex_t &mutex );
 
   /**
+   * @brief Deallocates a recursive mutex back to the pool
+   *
+   * @param mutex Recursive mutex to deallocate
+   */
+  void deallocateRecursiveMutex( mb_recursive_mutex_t &mutex );
+
+  /**
    * @brief Builds a new recursive mutex object based on the configuration settings.
    *
    * @param mutex Where to put the recursive mutex object
