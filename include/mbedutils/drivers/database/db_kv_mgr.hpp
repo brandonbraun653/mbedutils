@@ -101,7 +101,7 @@ namespace mb::db
     void    sync() override;
     void    flush() override;
     int     read( const HashKey key, void *data, const size_t data_size, const size_t size = 0 ) override;
-    int     write( const HashKey key, const void *data, const size_t size ) override;
+    int     write( const HashKey key, void *data, const size_t size ) override;
     int     encode( const HashKey key, void *out_data, const size_t out_size ) override;
     int     decode( const HashKey key, const void *in_data, const size_t in_size ) override;
 
@@ -178,7 +178,7 @@ namespace mb::db
     void    sync() override;
     void    flush() override;
     int     read( const HashKey key, void *data, const size_t data_size, const size_t size = 0 ) override;
-    int     write( const HashKey key, const void *data, const size_t size ) override;
+    int     write( const HashKey key, void *data, const size_t size ) override;
     int     encode( const HashKey key, void *out_data, const size_t out_size ) override;
     int     decode( const HashKey key, const void *in_data, const size_t in_size ) override;
 

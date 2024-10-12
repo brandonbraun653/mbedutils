@@ -312,7 +312,7 @@ namespace mb::db
   }
 
 
-  int RamKVDB::write( const HashKey key, const void *data, const size_t size )
+  int RamKVDB::write( const HashKey key, void *data, const size_t size )
   {
     /*-------------------------------------------------------------------------
     Search for the node and update it
@@ -724,6 +724,24 @@ namespace mb::db
     }
 
     /*-------------------------------------------------------------------------
+    Validate the cache policy is supported
+    -------------------------------------------------------------------------*/
+    constexpr uint32_t invalid_policy = KV_FLAG_CACHE_POLICY_READ_THROUGH | KV_FLAG_CACHE_POLICY_READ_CACHE;
+    if( ( node->flags & invalid_policy ) == invalid_policy )
+    {
+      mbed_assert_continue_msg( false, "Invalid read policy for key %d", key );
+      return -1;
+    }
+
+    constexpr uint32_t missing_policy =
+        KV_FLAG_CACHE_POLICY_READ_SYNC | KV_FLAG_CACHE_POLICY_READ_THROUGH | KV_FLAG_CACHE_POLICY_READ_CACHE;
+    if( ( node->flags & missing_policy ) == 0 )
+    {
+      mbed_assert_continue_msg( false, "Missing read policy for key %d", key );
+      return -1;
+    }
+
+    /*-------------------------------------------------------------------------
     Read the data according to the cache policy
     -------------------------------------------------------------------------*/
     int ret_read_size = -1;
@@ -732,7 +750,7 @@ namespace mb::db
         ( node->flags & ( KV_FLAG_CACHE_POLICY_READ_SYNC | KV_FLAG_CACHE_POLICY_READ_THROUGH ) ) )
     {
       /*-----------------------------------------------------------------------
-      Read the raw data from NVM into the transcode buffer
+      Read the raw data from NVM into the user's data buffer
       -----------------------------------------------------------------------*/
       mbed_assert( act_read_size <= mConfig.ram_kvdb->mConfig.transcode_buffer.size() );
 
@@ -744,14 +762,19 @@ namespace mb::db
         return -1;
       }
 
+      ret_read_size = blob.saved.len;
+
       /*-----------------------------------------------------------------------
-      Decode if the data was stored with NanoPB serialization
+      Decode if the data was stored with NanoPB serialization. This will update
+      the user's data buffer with the decoded data.
       -----------------------------------------------------------------------*/
       if( node->pbFields )
       {
+        /* Transcode Buffer Prep */
         mbed_assert( blob.saved.len <= mConfig.ram_kvdb->mConfig.transcode_buffer.size() );
         memset( mConfig.ram_kvdb->mConfig.transcode_buffer.data(), 0, blob.saved.len );
 
+        /* Decode User Data Buffer -> Transcode Buffer */
         auto stream = pb_istream_from_buffer( static_cast<const pb_byte_t *>( blob.buf ), blob.saved.len );
         if( !pb_decode( &stream, node->pbFields, mConfig.ram_kvdb->mConfig.transcode_buffer.data() ) )
         {
@@ -759,38 +782,57 @@ namespace mb::db
           return -1;
         }
 
+        /* Update data references & sizing to ensure later ops have latest information */
         blob.buf       = mConfig.ram_kvdb->mConfig.transcode_buffer.data();
         blob.saved.len = blob.saved.len - stream.bytes_left;
 
+        /* Write decoded data back to the user buffer */
         memcpy( data, blob.buf, blob.saved.len );
+        ret_read_size = blob.saved.len;
       }
 
       /*-----------------------------------------------------------------------
-      Synchronize the RAM cache with NVM
+      Sanitize the data in-place before a potential cache write next.
+      -----------------------------------------------------------------------*/
+      if( ( ret_read_size > 0 ) && ( node->flags & KV_FLAG_SANITIZE_ON_READ ) )
+      {
+        mbed_assert_continue_msg( node->sanitizer, "Missing sanitize callback for key %d", key );
+        if( node->sanitizer )
+        {
+          node->sanitizer( *node, data, ret_read_size );
+        }
+      }
+
+      /*-----------------------------------------------------------------------
+      Synchronize NVM -> RAM cache if tagged to do so
       -----------------------------------------------------------------------*/
       if( node->flags & KV_FLAG_CACHE_POLICY_READ_SYNC )
       {
         node_write( *node, blob.buf, blob.saved.len );
       }
-
-      ret_read_size = blob.saved.len;
     }
-
-    if( node->flags & KV_FLAG_CACHE_POLICY_READ_CACHE )
+    else if( node->flags & KV_FLAG_CACHE_POLICY_READ_CACHE )
     {
       ret_read_size = node_read( *node, data, act_read_size );
-    }
 
-    /*-------------------------------------------------------------------------
-    Auto-validate the data?
-    -------------------------------------------------------------------------*/
-    // TODO
+      /*-----------------------------------------------------------------------
+      Sanitize the data in-place
+      -----------------------------------------------------------------------*/
+      if( ( ret_read_size > 0 ) && ( node->flags & KV_FLAG_SANITIZE_ON_READ ) )
+      {
+        mbed_assert_continue_msg( node->sanitizer, "Missing sanitize callback for key %d", key );
+        if( node->sanitizer )
+        {
+          node->sanitizer( *node, data, ret_read_size );
+        }
+      }
+    }
 
     return ret_read_size;
   }
 
 
-  int NvmKVDB::write( const HashKey key, const void *data, const size_t size )
+  int NvmKVDB::write( const HashKey key, void *data, const size_t size )
   {
     /*-------------------------------------------------------------------------
     Input Protection
@@ -814,9 +856,16 @@ namespace mb::db
     }
 
     /*-------------------------------------------------------------------------
-    Auto-validate the data?
+    Sanitize the data before writing to NVM?
     -------------------------------------------------------------------------*/
-    // TODO: Add data validation node call
+    if( node->flags & KV_FLAG_SANITIZE_ON_WRITE )
+    {
+      mbed_assert_continue_msg( node->sanitizer, "Missing sanitize callback for key %d", key );
+      if( node->sanitizer )
+      {
+        node->sanitizer( *node, data, size );
+      }
+    }
 
     /*-------------------------------------------------------------------------
     Commit the data to NVM first to ensure consistency

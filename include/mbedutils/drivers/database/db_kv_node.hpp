@@ -85,7 +85,7 @@ namespace mb::db
    * @param size Size of the data to validate
    * @return Data validity status
    */
-  using ValidateFunc = etl::delegate<bool( const KVNode &node )>;
+  using ValidateFunc = etl::delegate<bool( const KVNode &node, void *data, const size_t size )>;
 
   /**
    * @brief Sanitize data for a given KV node.
@@ -96,7 +96,7 @@ namespace mb::db
    * @param data Pointer to the data to sanitize
    * @param size Size of the data to sanitize
    */
-  using SanitizeFunc = etl::delegate<void( KVNode &node )>;
+  using SanitizeFunc = etl::delegate<void( KVNode &node, void *data, const size_t size )>;
 
   /**
    * @brief Visitor function for traversing the KV parameter database.

@@ -108,7 +108,7 @@ namespace mb::db
      * @param size        Number of bytes to write
      * @return int        Error code if negative, number of bytes written if positive
      */
-    virtual int write( const HashKey key, const void *data, const size_t size ) = 0;
+    virtual int write( const HashKey key, void *data, const size_t size ) = 0;
 
     /**
      * @brief Encodes value data with the NanoPB serializer.

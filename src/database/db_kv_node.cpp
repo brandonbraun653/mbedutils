@@ -104,7 +104,7 @@ namespace mb::db
   {
     if( node.sanitizer )
     {
-      node.sanitizer( node );
+      node.sanitizer( node, node.datacache, node.dataSize );
     }
   }
 
@@ -121,7 +121,7 @@ namespace mb::db
 
     if( node.validator )
     {
-      return node.validator( node );
+      return node.validator( node, node.datacache, node.dataSize );
     }
 
     return static_cast<bool>( node.flags & KV_FLAG_VALID );
