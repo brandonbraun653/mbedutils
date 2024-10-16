@@ -87,12 +87,12 @@ namespace mb::hw::gpio::intf
   ---------------------------------------------------------------------------*/
 
   /**
-   * @brief Initialize the implementation specific GPIO driver.
+   * @brief Initialize the implementation specific driver.
    */
   void driver_setup();
 
   /**
-   * @brief Clears any resources used by the GPIO driver.
+   * @brief Clears any resources used by the driver.
    */
   void driver_teardown();
 

@@ -48,7 +48,7 @@ namespace mb::hw::spi
   {
     Port_t     port;         /**< SPI peripheral number */
     BitWidth_t width;        /**< SPI data bus width */
-    Speed_t    speed;        /**< SPI clock speed */
+    Speed_t    speed;        /**< SPI clock speed in Hz */
     Mode_t     mode;         /**< SPI clock mode */
     Polarity_t polarity;     /**< SPI clock polarity */
     Phase_t    phase;        /**< SPI clock phase */
@@ -65,6 +65,16 @@ namespace mb::hw::spi::intf
   /*---------------------------------------------------------------------------
   Public Functions
   ---------------------------------------------------------------------------*/
+
+  /**
+   * @brief Initialize the implementation specific driver.
+   */
+  void driver_setup();
+
+  /**
+   * @brief Clears any resources used by the driver.
+   */
+  void driver_teardown();
 
   /**
    * @brief Configures the SPI peripheral for communication.
@@ -86,8 +96,9 @@ namespace mb::hw::spi::intf
    * @param port   SPI peripheral number
    * @param data   Data to transmit
    * @param length Number of bytes to transmit
+   * @return int   Number of bytes written
    */
-  void write( const mb::hw::spi::Port_t port, const void *const data, const size_t length );
+  int write( const mb::hw::spi::Port_t port, const void * data, const size_t length );
 
   /**
    * @brief Receives data over the SPI bus.
@@ -95,8 +106,9 @@ namespace mb::hw::spi::intf
    * @param port   SPI peripheral number
    * @param data   Buffer to store received data
    * @param length Number of bytes to receive
+   * @return int   Number of bytes read
    */
-  void read( const mb::hw::spi::Port_t port, void *const data, const size_t length );
+  int read( const mb::hw::spi::Port_t port, void * data, const size_t length );
 
   /**
    * @brief Transmits and receives data over the SPI bus.
@@ -105,22 +117,10 @@ namespace mb::hw::spi::intf
    * @param tx     Data to transmit
    * @param rx     Buffer to store received data
    * @param length Number of bytes to transfer
+   * @return int   Number of bytes actually transferred
    */
-  void transfer( const mb::hw::spi::Port_t port, const void *const tx, void *const rx, const size_t length );
+  int transfer( const mb::hw::spi::Port_t port, const void * tx, void * rx, const size_t length );
 
-  /**
-   * @brief Lock the SPI peripheral for exclusive use by the calling thread.
-   *
-   * @param port  SPI peripheral number
-   */
-  void lock( const mb::hw::spi::Port_t port );
-
-  /**
-   * @brief Unlock the SPI peripheral for use by other threads.
-   *
-   * @param port  SPI peripheral number
-   */
-  void unlock( const mb::hw::spi::Port_t port );
 }    // namespace mb::hw::spi::intf
 
 #endif /* !MBEDUTILS_SPI_INTF_HPP */
