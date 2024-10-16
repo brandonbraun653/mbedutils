@@ -24,15 +24,13 @@ namespace mb::hw::gpio
   Aliases
   ---------------------------------------------------------------------------*/
 
-  using Pin_t       = uint32_t;                      /**< GPIO pin number */
-  using Port_t      = uint32_t;                      /**< GPIO port number */
-  using Pull_t      = uint32_t;                      /**< GPIO pull configuration */
-  using Speed_t     = uint32_t;                      /**< GPIO speed configuration */
-  using Drive_t     = uint32_t;                      /**< GPIO drive configuration */
-  using Mode_t      = uint32_t;                      /**< GPIO mode configuration */
-  using Alternate_t = uint32_t;                      /**< GPIO alternate function */
-  using Trigger_t   = uint32_t;                      /**< GPIO interrupt edge trigger */
-  using Callback_t  = etl::delegate<void( void  *)>; /**< GPIO interrupt callback */
+  using Pin_t       = uint32_t;                         /**< GPIO pin number */
+  using Port_t      = uint32_t;                         /**< GPIO port number */
+  using Speed_t     = uint32_t;                         /**< GPIO speed configuration */
+  using Drive_t     = uint32_t;                         /**< GPIO drive configuration */
+  using Alternate_t = uint32_t;                         /**< GPIO alternate function */
+  using Trigger_t   = uint32_t;                         /**< GPIO interrupt edge trigger */
+  using Callback_t  = etl::delegate<void( Trigger_t )>; /**< GPIO interrupt callback */
 
   /*---------------------------------------------------------------------------
   Enumerations
@@ -42,6 +40,19 @@ namespace mb::hw::gpio
   {
     STATE_LOW  = 0, /**< GPIO pin low state */
     STATE_HIGH = 1  /**< GPIO pin high state */
+  };
+
+  enum class Pull_t : uint32_t
+  {
+    PULL_NONE = 0, /**< No pull configuration */
+    PULL_UP   = 1, /**< Pull up configuration */
+    PULL_DOWN = 2  /**< Pull down configuration */
+  };
+
+  enum class Mode_t : uint32_t
+  {
+    MODE_INPUT  = 0, /**< GPIO pin input mode */
+    MODE_OUTPUT = 1  /**< GPIO pin output mode */
   };
 
   /*---------------------------------------------------------------------------
@@ -74,6 +85,16 @@ namespace mb::hw::gpio::intf
   /*---------------------------------------------------------------------------
   Public Functions
   ---------------------------------------------------------------------------*/
+
+  /**
+   * @brief Initialize the implementation specific GPIO driver.
+   */
+  void driver_setup();
+
+  /**
+   * @brief Clears any resources used by the GPIO driver.
+   */
+  void driver_teardown();
 
   /**
    * @brief Configures a GPIO pin using the provided settings.

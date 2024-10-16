@@ -15,6 +15,7 @@
 /*-----------------------------------------------------------------------------
 Includes
 -----------------------------------------------------------------------------*/
+#include <cstddef>
 #include <mbedutils/drivers/memory/nvm/nor_flash.hpp>
 
 namespace mb::memory::nor::device
