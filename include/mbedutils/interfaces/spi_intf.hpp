@@ -121,6 +121,19 @@ namespace mb::hw::spi::intf
    */
   int transfer( const mb::hw::spi::Port_t port, const void * tx, void * rx, const size_t length );
 
+  /**
+   * @brief Lock the SPI peripheral for exclusive use by the calling thread.
+   *
+   * @param port  SPI peripheral number
+   */
+  void lock( const mb::hw::spi::Port_t port );
+
+  /**
+   * @brief Unlock the SPI peripheral for use by other threads.
+   *
+   * @param port  SPI peripheral number
+   */
+  void unlock( const mb::hw::spi::Port_t port );
 }    // namespace mb::hw::spi::intf
 
 #endif /* !MBEDUTILS_SPI_INTF_HPP */

@@ -37,6 +37,7 @@ add_subdirectory(src/core)
 add_subdirectory(src/database)
 add_subdirectory(src/logging)
 add_subdirectory(src/hardware)
+add_subdirectory(src/memory)
 add_subdirectory(src/rpc)
 
 # --------------------------------------------------------------------------------
