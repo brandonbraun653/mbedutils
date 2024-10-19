@@ -359,4 +359,44 @@ namespace mb::memory::nor
     return Status::ERR_OK;
   }
 
+
+  cfi::JEDECDeviceInfo DeviceDriver::getDeviceInfo()
+  {
+    using namespace mb::hw;
+    using namespace mb::memory;
+    using namespace mb::thread;
+
+    /*-------------------------------------------------------------------------
+    Input Protection
+    -------------------------------------------------------------------------*/
+    if( mReadyStatus != DRIVER_INITIALIZED_KEY )
+    {
+      mbed_assert_continue_always();
+      return { 0, 0, 0 };
+    }
+
+    LockGuard _driverLock( this->mLockableMutex );
+
+    /*-------------------------------------------------------------------------
+    Get the device information
+    -------------------------------------------------------------------------*/
+    mCmdBuffer.fill( 0 );
+    mCmdBuffer[ 0 ] = cfi::READ_DEV_INFO;
+
+    uint8_t info[ cfi::READ_DEV_INFO_OPS_LEN ] = { 0 };
+
+    spi::intf::lock( mConfig.spi_port );
+    {
+      gpio::intf::write( mConfig.spi_cs_port, mConfig.spi_cs_pin, gpio::State_t::STATE_LOW );
+      spi::intf::transfer( mConfig.spi_port, mCmdBuffer.data(), info, cfi::READ_DEV_INFO_OPS_LEN );
+      gpio::intf::write( mConfig.spi_cs_port, mConfig.spi_cs_pin, gpio::State_t::STATE_HIGH );
+    }
+    spi::intf::unlock( mConfig.spi_port );
+
+    /*-------------------------------------------------------------------------
+    Copy out the data
+    -------------------------------------------------------------------------*/
+    return { info[ 1 ], info[ 2 ], info[ 3 ] };
+  }
+
 }    // namespace mb::memory::nor

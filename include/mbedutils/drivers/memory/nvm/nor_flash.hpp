@@ -203,6 +203,13 @@ namespace mb::memory::nor
      */
     mb::memory::Status transfer( const void *const cmd, void *const output, const size_t size );
 
+    /**
+     * @brief Get the JEDEC assigned device information
+     *
+     * @return mb::memory::cfi::JEDECDeviceInfo
+     */
+    mb::memory::cfi::JEDECDeviceInfo getDeviceInfo();
+
   private:
     friend class mb::thread::Lockable<mb::memory::nor::DeviceDriver>;
 

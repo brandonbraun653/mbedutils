@@ -103,6 +103,16 @@ namespace mb::memory::cfi
   static constexpr uint8_t READ_DEV_INFO_RSP_LEN = 3;
   static constexpr uint8_t READ_DEV_INFO_OPS_LEN = READ_DEV_INFO_CMD_LEN + READ_DEV_INFO_RSP_LEN;
 
+  /**
+   * @brief JEDEC Device Info Response
+   */
+  struct JEDECDeviceInfo
+  {
+    uint8_t  manufacturer; /**< Manufacturer ID */
+    uint8_t  type;         /**< Memory type */
+    uint8_t  capacity;     /**< Memory capacity */
+  };
+
 }    // namespace mb::memory::cfi
 
 #endif /* !NOR_FLASH_JEDEC_CFI_HPP */
