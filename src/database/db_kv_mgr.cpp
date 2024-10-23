@@ -11,14 +11,12 @@
 /*-----------------------------------------------------------------------------
 Includes
 -----------------------------------------------------------------------------*/
-#include "mbedutils/drivers/database/db_kv_mgr.hpp"
-#include "mbedutils/drivers/database/db_kv_node.hpp"
-#include "mbedutils/drivers/database/db_kv_util.hpp"
 #include <etl/crc.h>
 #include <etl/to_arithmetic.h>
 #include <etl/to_string.h>
 #include <mbedutils/assert.hpp>
 #include <mbedutils/database.hpp>
+#include <mbedutils/logging.hpp>
 #include <mbedutils/system.hpp>
 #include <mbedutils/thread.hpp>
 #include <mbedutils/util.hpp>
@@ -28,11 +26,6 @@ Includes
 
 namespace mb::db
 {
-  /*---------------------------------------------------------------------------
-  Aliases
-  ---------------------------------------------------------------------------*/
-
-
   /*---------------------------------------------------------------------------
   Private Functions
   ---------------------------------------------------------------------------*/
@@ -465,12 +458,13 @@ namespace mb::db
     /*-------------------------------------------------------------------------
     Check the integrity of the NVM database
     -------------------------------------------------------------------------*/
-    // fdb_err = fdb_kvdb_check( &mDB );
-    // if( fdb_err != FDB_NO_ERR )
-    // {
-    //   mbed_assert_continue_msg( false, "NVM database integrity failure: %s", fdb_err_to_str( fdb_err ) );
-    //   return false;
-    // }
+    fdb_err = fdb_kvdb_check( &mDB );
+    if( fdb_err != FDB_NO_ERR )
+    {
+      fdb_kvdb_deinit( &mDB );
+      LOG_DEBUG( "NVM database integrity failure: %s", fdb_err_to_str( fdb_err ) );
+      return false;
+    }
 
     /*-------------------------------------------------------------------------
     Register the teardown function with atexit to ensure the cache is flushed
