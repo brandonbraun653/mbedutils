@@ -11,6 +11,9 @@
 /*-----------------------------------------------------------------------------
 Includes
 -----------------------------------------------------------------------------*/
+#include "mbedutils/drivers/database/db_kv_mgr.hpp"
+#include "mbedutils/drivers/database/db_kv_node.hpp"
+#include "mbedutils/drivers/database/db_kv_util.hpp"
 #include <etl/crc.h>
 #include <etl/to_arithmetic.h>
 #include <etl/to_string.h>
@@ -284,6 +287,14 @@ namespace mb::db
   }
 
 
+  void RamKVDB::sync( const HashKey key )
+  {
+    /*-------------------------------------------------------------------------
+    No need to sync a RAM database
+    -------------------------------------------------------------------------*/
+  }
+
+
   void RamKVDB::flush()
   {
     /*-------------------------------------------------------------------------
@@ -360,7 +371,7 @@ namespace mb::db
   NvmKVDB Class
   ---------------------------------------------------------------------------*/
 
-  NvmKVDB::NvmKVDB() : mRMutex( nullptr ), mDB( {} ), mConfig( {} ), mInitialized( ~DRIVER_INITIALIZED_KEY )
+  NvmKVDB::NvmKVDB() : mRMutex( nullptr ), mConfig( {} ), mInitialized( ~DRIVER_INITIALIZED_KEY ), mDB( {} )
   {
   }
 
@@ -454,12 +465,12 @@ namespace mb::db
     /*-------------------------------------------------------------------------
     Check the integrity of the NVM database
     -------------------------------------------------------------------------*/
-    fdb_err = fdb_kvdb_check( &mDB );
-    if( fdb_err != FDB_NO_ERR )
-    {
-      mbed_assert_continue_msg( false, "NVM database integrity failure: %s", fdb_err_to_str( fdb_err ) );
-      return false;
-    }
+    // fdb_err = fdb_kvdb_check( &mDB );
+    // if( fdb_err != FDB_NO_ERR )
+    // {
+    //   mbed_assert_continue_msg( false, "NVM database integrity failure: %s", fdb_err_to_str( fdb_err ) );
+    //   return false;
+    // }
 
     /*-------------------------------------------------------------------------
     Register the teardown function with atexit to ensure the cache is flushed
@@ -646,49 +657,42 @@ namespace mb::db
     mb::thread::RecursiveLockGuard _ram_lock( mConfig.ram_kvdb->mRMutex );
 
     /*-------------------------------------------------------------------------
-    Sync the RAM cache with NVM
+    Sync the entire known RAM cache with NVM
     -------------------------------------------------------------------------*/
     for( auto &node : *mConfig.ram_kvdb->mConfig.node_storage )
     {
-      if( node.flags & KV_FLAG_PERSISTENT )
-      {
-        /*---------------------------------------------------------------------
-        Read the data from NVM
-        ---------------------------------------------------------------------*/
-        fdb_blob blob;
-        if( !fdb_kv_get_blob( &mDB, hash_to_fdb_key( node.hashKey ).c_str(),
-                              fdb_blob_make( &blob, mConfig.ram_kvdb->mConfig.transcode_buffer.data(),
-                                             mConfig.ram_kvdb->mConfig.transcode_buffer.max_size() ) ) )
-        {
-          mbed_assert_continue_msg( false, "Failed to read key %d from NVM", node.hashKey );
-          continue;
-        }
-
-        /*---------------------------------------------------------------------
-        Decode directly into the cache if stored with NanoPB serialization.
-        ---------------------------------------------------------------------*/
-        if( node.pbFields )
-        {
-          mbed_assert( blob.saved.len <= node.dataSize );
-
-          auto stream = pb_istream_from_buffer( static_cast<const pb_byte_t *>( blob.buf ), blob.saved.len );
-          if( !pb_decode( &stream, node.pbFields, node.datacache ) )
-          {
-            mbed_assert_continue_msg( false, "KVNode %d decode failure: %s", node.hashKey, stream.errmsg );
-            continue;
-          }
-        }
-        else
-        {
-          /*---------------------------------------------------------------------
-          Copy the raw data into the cache
-          ---------------------------------------------------------------------*/
-          node_read( node, blob.buf, blob.saved.len );
-        }
-      }
+      this->sync_node( node );
     }
   }
 
+
+  void NvmKVDB::sync( const HashKey key )
+  {
+    /*-------------------------------------------------------------------------
+    Input Protection
+    -------------------------------------------------------------------------*/
+    if( mInitialized != DRIVER_INITIALIZED_KEY )
+    {
+      return;
+    }
+
+    mb::thread::RecursiveLockGuard _nvm_lock( mRMutex );
+    mb::thread::RecursiveLockGuard _ram_lock( mConfig.ram_kvdb->mRMutex );
+
+    /*-------------------------------------------------------------------------
+    Find the node in the RAM cache
+    -------------------------------------------------------------------------*/
+    auto node = mConfig.ram_kvdb->find( key );
+    if( node == nullptr )
+    {
+      return;
+    }
+
+    /*-------------------------------------------------------------------------
+    Sync the node
+    -------------------------------------------------------------------------*/
+    this->sync_node( *node );
+  }
 
   void NvmKVDB::flush()
   {
@@ -984,5 +988,52 @@ namespace mb::db
     }
 
     return static_cast<int>( size );
+  }
+
+
+  /**
+   * @brief Sync a single node from NVM to the RAM cache.
+   *
+   * It's important to note that this function is not thread safe and should only be
+   * called from within a locked context.
+   *
+   * @param node Which node to sync
+   */
+  void NvmKVDB::sync_node( const KVNode &node )
+  {
+    if( node.flags & KV_FLAG_PERSISTENT )
+    {
+      /*-----------------------------------------------------------------------
+      Read the raw data from NVM into the user's data buffer
+      -----------------------------------------------------------------------*/
+      fdb_blob blob;
+      if( !fdb_kv_get_blob( &mDB, hash_to_fdb_key( node.hashKey ).c_str(),
+                            fdb_blob_make( &blob, mConfig.ram_kvdb->mConfig.transcode_buffer.data(),
+                                           mConfig.ram_kvdb->mConfig.transcode_buffer.max_size() ) ) )
+      {
+        mbed_assert_continue_msg( false, "Failed to read key %d from NVM", node.hashKey );
+        return;
+      }
+
+      /*-----------------------------------------------------------------------
+      Decode if the data was stored with NanoPB serialization. This will update
+      the user's data buffer with the decoded data.
+      -----------------------------------------------------------------------*/
+      if( node.pbFields )
+      {
+        /* Decode User Data Buffer -> Transcode Buffer */
+        auto stream = pb_istream_from_buffer( static_cast<const pb_byte_t *>( blob.buf ), blob.saved.len );
+        if( !pb_decode( &stream, node.pbFields, node.datacache ) )
+        {
+          mbed_assert_continue_msg( false, "KVNode %d decode failure: %s", node.hashKey, stream.errmsg );
+          return;
+        }
+      }
+      else
+      {
+        /* Copy the raw data into the cache */
+        node_read( node, blob.buf, blob.saved.len );
+      }
+    }
   }
 }    // namespace mb::db

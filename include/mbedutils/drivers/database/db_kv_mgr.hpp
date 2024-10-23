@@ -99,6 +99,7 @@ namespace mb::db
     KVNode *find( const HashKey key ) override;
     bool    exists( const HashKey key ) override;
     void    sync() override;
+    void    sync( const HashKey key ) override;
     void    flush() override;
     int     read( const HashKey key, void *data, const size_t data_size, const size_t size = 0 ) override;
     int     write( const HashKey key, void *data, const size_t size ) override;
@@ -176,6 +177,7 @@ namespace mb::db
     KVNode *find( const HashKey key ) override;
     bool    exists( const HashKey key ) override;
     void    sync() override;
+    void    sync( const HashKey key ) override;
     void    flush() override;
     int     read( const HashKey key, void *data, const size_t data_size, const size_t size = 0 ) override;
     int     write( const HashKey key, void *data, const size_t size ) override;
@@ -190,13 +192,28 @@ namespace mb::db
 
 
   private:
+    // TODO BMB: Declare the RAM DB here and make it a friend class. Remove the dual mutex and share the RAM DB mutex.
+
     mb::osal::mb_recursive_mutex_t mRMutex;      /**< Mutex for thread safety */
-    fdb_kvdb                       mDB;          /**< FlashDB management layer */
     Config                         mConfig;      /**< Instance configuration data */
     size_t                         mInitialized; /**< Flag to indicate the manager is ready */
 
+    /*-------------------------------------------------------------------------
+    FlashDB Management. This declaration is a bit odd. For some reason, the
+    gcc-arm-none-eabi compiler won't properly link the structure, causing the
+    start address of the next variable in the map file == &mDB.user_data.
+    This does not happen with your typical x86_64 compiler and a large amount
+    of investigation didn't reveal the root cause. To get around this, I've
+    provided a 4 byte padding to ensure the structure is properly aligned for
+    whatever data is next in the map file. This is a hack, but it works since I
+    don't control the FlashDB library.
+    -------------------------------------------------------------------------*/
+    fdb_kvdb mDB; /**< FlashDB state management for NVM */
+    alignas( 4 ) uint32_t _pad;
+
     int write_fdb_node( const KVNode &node, const void *data, const size_t size );
     int write_fdb_blob( const HashKey key, const void *data, const size_t size );
+    void sync_node( const KVNode &node );
   };
 }    // namespace mb::db
 

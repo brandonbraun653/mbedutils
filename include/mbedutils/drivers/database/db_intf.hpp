@@ -80,9 +80,16 @@ namespace mb::db
     virtual bool exists( const HashKey key ) = 0;
 
     /**
-     * @brief Update keys from the underlying storage, if any.
+     * @brief Update all keys from the underlying storage, if any.
      */
     virtual void sync() = 0;
+
+    /**
+     * @brief Update a specific key from the underlying storage, if any.
+     *
+     * @param key The key to sync
+     */
+    virtual void sync( const HashKey key ) = 0;
 
     /**
      * @brief Flush dirty keys to the underlying storage, if any.
