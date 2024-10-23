@@ -151,33 +151,63 @@ namespace mb::memory::nor
     }
 
     /*-------------------------------------------------------------------------
-    Setup the command buffer
+    Do page aligned writes. Most devices cannot cross page boundaries on write.
     -------------------------------------------------------------------------*/
-    mCmdBuffer[ 0 ] = cfi::PAGE_PROGRAM;
-    mCmdBuffer[ 1 ] = ( address & ADDRESS_BYTE_3_MSK ) >> ADDRESS_BYTE_3_POS;
-    mCmdBuffer[ 2 ] = ( address & ADDRESS_BYTE_2_MSK ) >> ADDRESS_BYTE_2_POS;
-    mCmdBuffer[ 3 ] = ( address & ADDRESS_BYTE_1_MSK ) >> ADDRESS_BYTE_1_POS;
+    int      bytes_remaining = length;
+    uint64_t write_addr      = address;
+    uint8_t *data_ptr        = reinterpret_cast<uint8_t *>( const_cast<void *>( data ) );
 
-    /*-------------------------------------------------------------------------
-    Perform the SPI transaction
-    -------------------------------------------------------------------------*/
-    spi::intf::lock( mConfig.spi_port );
+    while( bytes_remaining > 0 )
     {
-      // Ensure the write enable command is sent first
-      issue_write_enable( mConfig );
+      /*-----------------------------------------------------------------------
+      Compute how far away we are from the next page boundary
+      -----------------------------------------------------------------------*/
+      const uint32_t page_offset = write_addr % mConfig.dev_attr.write_size;
+      const uint32_t bytes_to_write =
+          std::min( bytes_remaining, static_cast<int>( mConfig.dev_attr.write_size - page_offset ) );
 
-      // Send the command and address
-      gpio::intf::write( mConfig.spi_cs_port, mConfig.spi_cs_pin, gpio::State_t::STATE_LOW );
-      spi::intf::write( mConfig.spi_port, mCmdBuffer.data(), cfi::PAGE_PROGRAM_OPS_LEN );
-      spi::intf::write( mConfig.spi_port, data, length );
-      gpio::intf::write( mConfig.spi_cs_port, mConfig.spi_cs_pin, gpio::State_t::STATE_HIGH );
+      /*-----------------------------------------------------------------------
+      Set up the command buffer
+      -----------------------------------------------------------------------*/
+      mCmdBuffer[ 0 ] = cfi::PAGE_PROGRAM;
+      mCmdBuffer[ 1 ] = ( write_addr & ADDRESS_BYTE_3_MSK ) >> ADDRESS_BYTE_3_POS;
+      mCmdBuffer[ 2 ] = ( write_addr & ADDRESS_BYTE_2_MSK ) >> ADDRESS_BYTE_2_POS;
+      mCmdBuffer[ 3 ] = ( write_addr & ADDRESS_BYTE_1_MSK ) >> ADDRESS_BYTE_1_POS;
+
+      /*-----------------------------------------------------------------------
+      Perform the SPI transaction
+      -----------------------------------------------------------------------*/
+      spi::intf::lock( mConfig.spi_port );
+      {
+        // Ensure the write enable command is sent first
+        issue_write_enable( mConfig );
+
+        // Send the command and address
+        gpio::intf::write( mConfig.spi_cs_port, mConfig.spi_cs_pin, gpio::State_t::STATE_LOW );
+        spi::intf::write( mConfig.spi_port, mCmdBuffer.data(), cfi::PAGE_PROGRAM_OPS_LEN );
+        spi::intf::write( mConfig.spi_port, data_ptr, bytes_to_write );
+        gpio::intf::write( mConfig.spi_cs_port, mConfig.spi_cs_pin, gpio::State_t::STATE_HIGH );
+      }
+      spi::intf::unlock( mConfig.spi_port );
+
+      /*-----------------------------------------------------------------------
+      Wait for the hardware to finish the operation
+      -----------------------------------------------------------------------*/
+      auto status = mConfig.pend_event_cb( mConfig, Event::MEM_WRITE_COMPLETE, mConfig.dev_attr.write_latency );
+      if( status != Status::ERR_OK )
+      {
+        return status;
+      }
+
+      /*-----------------------------------------------------------------------
+      Update the pointers and counters
+      -----------------------------------------------------------------------*/
+      write_addr += bytes_to_write;
+      data_ptr += bytes_to_write;
+      bytes_remaining -= bytes_to_write;
     }
-    spi::intf::unlock( mConfig.spi_port );
 
-    /*-------------------------------------------------------------------------
-    Wait for the hardware to finish the operation
-    -------------------------------------------------------------------------*/
-    return mConfig.pend_event_cb( mConfig, Event::MEM_WRITE_COMPLETE, mConfig.dev_attr.write_latency );
+    return Status::ERR_OK;
   }
 
 

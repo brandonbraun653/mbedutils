@@ -132,13 +132,14 @@ namespace mb::memory::nor::device
       -----------------------------------------------------------------------*/
       if ( ( mb::time::millis() - startTime ) > timeout )
       {
+        mbed_assert_continue_msg( false, "Timeout waiting for event: %d", event );
         return Status::ERR_TIMEOUT;
       }
 
       /*-----------------------------------------------------------------------
       Wait a bit before polling again.
       -----------------------------------------------------------------------*/
-      mb::time::delayMilliseconds( mb::thread::TIMEOUT_5MS );
+      mb::time::delayMilliseconds( mb::thread::TIMEOUT_1MS );
       statusRegister = read_status_register( cfg );
     };
 
