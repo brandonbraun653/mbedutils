@@ -18,5 +18,6 @@ Includes
 #include <mbedutils/drivers/database/db_intf.hpp>
 #include <mbedutils/drivers/database/db_kv_node.hpp>
 #include <mbedutils/drivers/database/db_kv_mgr.hpp>
+#include <mbedutils/drivers/database/db_kv_util.hpp>
 
 #endif  /* !MBEDUTILS_DATABASE_HEADERS_HPP */

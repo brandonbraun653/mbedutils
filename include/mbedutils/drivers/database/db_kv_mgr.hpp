@@ -38,6 +38,23 @@ namespace mb::db
   class NvmKVDB;
 
   /*---------------------------------------------------------------------------
+  Structures
+  ---------------------------------------------------------------------------*/
+
+  /**
+   * @brief Helper struct to declare storage data for a RAM based KVDB
+   *
+   * @tparam N Number of KV pairs to manage (elements)
+   * @tparam M Size of the transcode buffer (bytes)
+   */
+  template<size_t N, size_t M>
+  struct Storage
+  {
+    KVNodeVector<N>        kv_nodes;            /**< Storage for KV pair descriptors */
+    etl::array<uint8_t, M> transcode_buffer; /**< Storage for encoding/decoding largest data */
+  };
+
+  /*---------------------------------------------------------------------------
   Classes
   ---------------------------------------------------------------------------*/
 
@@ -47,19 +64,6 @@ namespace mb::db
   class RamKVDB : public virtual IKVDatabase
   {
   public:
-    /**
-     * @brief Helper struct to declare storage data for a RAM based KVDB
-     *
-     * @tparam N Number of KV pairs to manage (elements)
-     * @tparam M Size of the transcode buffer (bytes)
-     */
-    template<size_t N, size_t M>
-    struct Storage
-    {
-      KVNodeVector<N>        nodes;            /**< Storage for KV pair descriptors */
-      etl::array<uint8_t, M> transcode_buffer; /**< Storage for encoding/decoding largest data */
-    };
-
     /**
      * @brief Configuration data for the RAM based KVDB
      *
@@ -109,11 +113,12 @@ namespace mb::db
   protected:
     friend class NvmKVDB;
 
-    mb::osal::mb_recursive_mutex_t mRMutex;      /**< Mutex for thread safety */
+    mb::osal::mb_recursive_mutex_t mRMutex;          /**< Mutex for thread safety */
+    KVNodeIVector                 *mNodeDsc;         /**< External storage of parameter nodes */
+    etl::span<uint8_t>             mTranscodeBuffer; /**< RAM buffer for encoding/decoding KV pair data */
 
   private:
-    Config                         mConfig;      /**< Configuration data for the instance */
-    size_t                         mInitialized; /**< Flag to indicate the manager is ready */
+    size_t mRamDBReady; /**< Flag to indicate the manager is ready */
   };
 
   /**
@@ -123,23 +128,10 @@ namespace mb::db
    * supports the FAL interface. For fast access, the KV data is cached in
    * RAM and only written to the flash memory when necessary.
    */
-  class NvmKVDB : public virtual IKVDatabase
+  class NvmKVDB : public RamKVDB
   {
   public:
-
-    /**
-     * @brief Helper struct to declare storage data for a persistent KVDB
-     *
-     * @tparam N Number of KV pairs to manage (elements)
-     * @tparam M Size of the transcode buffer (bytes)
-     */
-    template<size_t N, size_t M>
-    struct Storage
-    {
-      RamKVDB                kv_ram_db;        /**< RAM manager for KV pair cache */
-      KVNodeVector<N>        kv_nodes;         /**< Storage for KV pair descriptors */
-      etl::array<uint8_t, M> transcode_buffer; /**< Storage for encoding/decoding largest data */
-    };
+    using FALString = etl::string<FAL_DEV_NAME_MAX>;
 
     /**
      * @brief Configuration data for the NVM based KVDB
@@ -148,12 +140,11 @@ namespace mb::db
      */
     struct Config
     {
-      using FALString = etl::string<FAL_DEV_NAME_MAX>;
-
-      FALString dev_name;        /**< Which device is being accessed */
-      FALString part_name;       /**< Sub-partition being accessed */
-      RamKVDB  *ram_kvdb;        /**< RAM manager for KV pairs located on the device/partition */
-      uint32_t  dev_sector_size; /**< Size of a sector on the device */
+      FALString          dev_name;         /**< Which device is being accessed */
+      FALString          part_name;        /**< Sub-partition being accessed */
+      uint32_t           dev_sector_size;  /**< Size of a sector on the device */
+      KVNodeIVector     *node_storage;     /**< External storage of parameter nodes */
+      etl::span<uint8_t> transcode_buffer; /**< RAM buffer for encoding/decoding KV pair data */
     };
 
     NvmKVDB();
@@ -170,19 +161,19 @@ namespace mb::db
     /*-------------------------------------------------------------------------
     IKVDatabase Interface
     -------------------------------------------------------------------------*/
-    bool    init() override;
-    void    deinit() override;
-    bool    insert( const KVNode &node ) override;
-    void    remove( const HashKey key ) override;
-    KVNode *find( const HashKey key ) override;
-    bool    exists( const HashKey key ) override;
-    void    sync() override;
-    void    sync( const HashKey key ) override;
-    void    flush() override;
-    int     read( const HashKey key, void *data, const size_t data_size, const size_t size = 0 ) override;
-    int     write( const HashKey key, void *data, const size_t size ) override;
-    int     encode( const HashKey key, void *out_data, const size_t out_size ) override;
-    int     decode( const HashKey key, const void *in_data, const size_t in_size ) override;
+    bool    init() final override;
+    void    deinit() final override;
+    bool    insert( const KVNode &node ) final override;
+    void    remove( const HashKey key ) final override;
+    KVNode *find( const HashKey key ) final override;
+    bool    exists( const HashKey key ) final override;
+    void    sync() final override;
+    void    sync( const HashKey key ) final override;
+    void    flush() final override;
+    int     read( const HashKey key, void *data, const size_t data_size, const size_t size = 0 ) final override;
+    int     write( const HashKey key, void *data, const size_t size ) final override;
+    int     encode( const HashKey key, void *out_data, const size_t out_size ) final override;
+    int     decode( const HashKey key, const void *in_data, const size_t in_size ) final override;
 
   protected:
     /**
@@ -190,13 +181,11 @@ namespace mb::db
      */
     void flush_on_exit();
 
-
   private:
-    // TODO BMB: Declare the RAM DB here and make it a friend class. Remove the dual mutex and share the RAM DB mutex.
-
-    mb::osal::mb_recursive_mutex_t mRMutex;      /**< Mutex for thread safety */
-    Config                         mConfig;      /**< Instance configuration data */
-    size_t                         mInitialized; /**< Flag to indicate the manager is ready */
+    FALString mDeviceName;    /**< Which device is being accessed */
+    FALString mPartitionName; /**< Sub-partition being accessed */
+    uint32_t  mSectorSize;    /**< Size of a sector on the device */
+    size_t    mNvmDBReady;    /**< Flag to indicate the manager is ready */
 
     /*-------------------------------------------------------------------------
     FlashDB Management. This declaration is a bit odd. For some reason, the
@@ -211,9 +200,9 @@ namespace mb::db
     fdb_kvdb mDB; /**< FlashDB state management for NVM */
     alignas( 4 ) uint32_t _pad;
 
-    int write_fdb_node( const KVNode &node, const void *data, const size_t size );
-    int write_fdb_blob( const HashKey key, const void *data, const size_t size );
-    void sync_node( const KVNode &node );
+    int  write_fdb_node( const KVNode &node, const void *data, const size_t size );
+    int  write_fdb_blob( const HashKey key, const void *data, const size_t size );
+    bool sync_node( const KVNode &node );
   };
 }    // namespace mb::db
 

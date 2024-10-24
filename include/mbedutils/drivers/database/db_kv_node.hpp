@@ -140,6 +140,13 @@ namespace mb::db
     KV_FLAG_VALID  = 1 << 6, /**< Data has been validated and is in a high-trust state */
 
     /*-------------------------------------------------------------------------
+    Insertion Policies
+    -------------------------------------------------------------------------*/
+    KV_FLAG_INSERT_POLICY_FAIL      = 1 << 8,  /**< Fail the insertion if the key already exists */
+    KV_FLAG_INSERT_POLICY_PULL      = 1 << 9,  /**< Pull the key data from NVM if it already exists */
+    KV_FLAG_INSERT_POLICY_OVERWRITE = 1 << 10, /**< Overwrite the key if it already exists */
+
+    /*-------------------------------------------------------------------------
     Data Caching Policies
     -------------------------------------------------------------------------*/
     KV_FLAG_CACHE_POLICY_READ_CACHE    = 1 << 11, /**< When read() is called, source from RAM cache */
@@ -151,8 +158,21 @@ namespace mb::db
     /*-------------------------------------------------------------------------
     Flag Aggregates
     -------------------------------------------------------------------------*/
-    KV_FLAG_DEFAULT_PERSISTENT = ( KV_FLAG_PERSISTENT | KV_FLAG_CACHE_POLICY_READ_CACHE | KV_FLAG_CACHE_POLICY_WRITE_BACK ),
-    KV_FLAG_DEFAULT_VOLATILE   = ( KV_FLAG_CACHE_POLICY_READ_CACHE )
+    /**
+     * @brief Default flags for a persistent parameter.
+     *
+     * This enables quick reads/writes to the cache, delayed write back to NVM, and
+     * upon insertion, the data from NVM is pulled into the cache.
+     */
+    KV_FLAG_DEFAULT_PERSISTENT =
+        ( KV_FLAG_PERSISTENT | KV_FLAG_INSERT_POLICY_PULL | KV_FLAG_CACHE_POLICY_READ_CACHE | KV_FLAG_CACHE_POLICY_WRITE_BACK ),
+
+    /**
+     * @brief Default flags for a volatile parameter.
+     *
+     * This enables quick reads/writes to the cache, but no persistent storage.
+     */
+    KV_FLAG_DEFAULT_VOLATILE = ( KV_FLAG_CACHE_POLICY_READ_CACHE )
   };
 
   /*---------------------------------------------------------------------------
