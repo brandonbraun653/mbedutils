@@ -38,7 +38,7 @@ namespace mb::thread::intf
    * @param cfg Configuration settings for the task
    * @return TaskHandle Handle to the created task
    */
-  mb::thread::TaskHandle create_task( const mb::thread::TaskConfig &cfg );
+  mb::thread::TaskHandle create_task( const mb::thread::Task::Config &cfg );
 
   /**
    * @brief Destroys the specified task.
