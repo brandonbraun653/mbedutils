@@ -20,6 +20,7 @@ target_link_libraries(${RPC_SERVER_LIB_NAME} PRIVATE
     ${PROJECT_NAME}_headers
     ${PROJECT_NAME}_internal_headers
     ${MBED_RPC_HEADERS}
+    etl::etl
 )
 
 # Client Library
@@ -44,6 +45,7 @@ add_library(${RPC_PROTO_LIB_NAME} STATIC
 target_link_libraries(${RPC_PROTO_LIB_NAME} PRIVATE
     ${PROJECT_NAME}_headers
     ${MBED_RPC_HEADERS}
+    etl::etl
 )
 
 # NanoPB Library
@@ -51,6 +53,7 @@ set(NANOPB_LIB_NAME ${PROJECT_NAME}_lib_rpc_nanopb)
 add_library(${NANOPB_LIB_NAME} STATIC ${NANOPB_SRCS})
 target_link_libraries(${NANOPB_LIB_NAME} PRIVATE
     ${MBED_RPC_HEADERS}
+    etl::etl
 )
 
 # COBS Library

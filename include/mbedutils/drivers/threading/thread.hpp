@@ -23,6 +23,8 @@ Includes
 #include <etl/queue.h>
 #include <etl/string.h>
 #include <string>
+#include <mbedutils/interfaces/mutex_intf.hpp>
+#include <mbedutils/drivers/threading/condition.hpp>
 
 namespace mb::thread
 {

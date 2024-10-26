@@ -113,6 +113,8 @@ namespace mb::logging
     {
       return ErrCode::ERR_FAIL;
     }
+
+    return ErrCode::ERR_OK;
   }
 
 

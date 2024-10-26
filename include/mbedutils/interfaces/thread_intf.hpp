@@ -21,30 +21,78 @@ Includes
 namespace mb::thread::intf
 {
   /*---------------------------------------------------------------------------
-  Aliases
-  ---------------------------------------------------------------------------*/
-
-
-  /*---------------------------------------------------------------------------
   Public Functions
   ---------------------------------------------------------------------------*/
 
+  /**
+   * @brief Initializes the threading interface.
+   *
+   * This function sets up any necessary resources or configurations required
+   * for the threading interface to function properly.
+   */
   void initialize();
 
-  TaskHandle create_task( const TaskConfig &cfg );
+  /**
+   * @brief Creates a new task with the specified configuration.
+   *
+   * @param cfg Configuration settings for the task
+   * @return TaskHandle Handle to the created task
+   */
+  mb::thread::TaskHandle create_task( const mb::thread::TaskConfig &cfg );
 
-  void destroy_task( TaskHandle task );
+  /**
+   * @brief Destroys the specified task.
+   *
+   * @param task Handle to the task to be destroyed
+   */
+  void destroy_task( mb::thread::TaskHandle task );
 
-  void set_affinity( TaskHandle task, size_t coreId );
+  /**
+   * @brief Sets the CPU core affinity for the specified task.
+   *
+   * @param task   Handle to the task
+   * @param coreId ID of the CPU core to which the task should be bound
+   */
+  void set_affinity( mb::thread::TaskHandle task, size_t coreId );
 
+  /**
+   * @brief Starts the task scheduler.
+   *
+   * This function starts the task scheduler, allowing tasks to begin execution.
+   * Note that in some implementations, this function may be a no-op.
+   */
   void start_scheduler();
 
+  /**
+   * @brief Callback function for handling stack overflow events.
+   *
+   * This function is called when a stack overflow is detected.
+   * The default implementation is declared as weak, allowing projects to override it as needed.
+   */
   void on_stack_overflow();
 
+  /**
+   * @brief Callback function for handling memory allocation failure events.
+   *
+   * This function is called when a memory allocation fails.
+   * The default implementation is declared as weak, allowing projects to override it as needed.
+   */
   void on_malloc_failed();
 
+  /**
+   * @brief Callback function for handling idle state events.
+   *
+   * This function is called when the system is idle.
+   * The default implementation is declared as weak, allowing projects to override it as needed.
+   */
   void on_idle();
 
+  /**
+   * @brief Callback function for handling tick events.
+   *
+   * This function is called on each system tick.
+   * The default implementation is declared as weak, allowing projects to override it as needed.
+   */
   void on_tick();
 
 }  // namespace mb::thread::intf

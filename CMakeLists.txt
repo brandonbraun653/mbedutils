@@ -1,6 +1,12 @@
 project(mbedutils VERSION 0.0.1 LANGUAGES CXX)
 
 # --------------------------------------------------------------------------------
+# Allow NanoPB to be found. This requires submodules to be initialized.
+# --------------------------------------------------------------------------------
+set(NANOPB_SRC_ROOT_FOLDER "${CMAKE_CURRENT_SOURCE_DIR}/lib/nanopb")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${NANOPB_SRC_ROOT_FOLDER}/extra)
+
+# --------------------------------------------------------------------------------
 # Use this library to reference all the headers. For integrating project defined
 # headers, the project should extend the target_include_directories with the
 # appropriate path.
@@ -10,6 +16,8 @@ project(mbedutils VERSION 0.0.1 LANGUAGES CXX)
 add_library(${PROJECT_NAME}_headers INTERFACE)
 target_include_directories(${PROJECT_NAME}_headers INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/lib/flashdb/inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/lib/flashdb/port/fal/inc
 )
 
 # --------------------------------------------------------------------------------
@@ -26,48 +34,11 @@ target_include_directories(${PROJECT_NAME}_internal_headers INTERFACE
 # Sub-Libraries
 # --------------------------------------------------------------------------------
 add_subdirectory(src/core)
+add_subdirectory(src/database)
 add_subdirectory(src/logging)
 add_subdirectory(src/hardware)
+add_subdirectory(src/memory)
 add_subdirectory(src/rpc)
-
-# --------------------------------------------------------------------------------
-# Interfaces Library
-# These provide some (but not all) interface definitions for common runtimes.
-# Include in your project as needed/desired.
-# --------------------------------------------------------------------------------
-
-# STL Based Library
-file(GLOB STL_INTF_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/interfaces/stl/*.cpp)
-add_library(${PROJECT_NAME}_lib_stl STATIC ${STL_INTF_SOURCES})
-target_link_libraries(${PROJECT_NAME}_lib_stl PRIVATE
-    ${PROJECT_NAME}_headers
-    ${PROJECT_NAME}_internal_headers
-)
-
-# FreeRTOS Based Library
-file(GLOB FREERTOS_INTF_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/interfaces/freertos/*.cpp)
-add_library(${PROJECT_NAME}_lib_freertos STATIC ${FREERTOS_INTF_SOURCES})
-target_link_libraries(${PROJECT_NAME}_lib_freertos PRIVATE
-    ${PROJECT_NAME}_headers
-    ${PROJECT_NAME}_internal_headers
-    freertos_config  # Standard FreeRTOS integration target. Defined by the project for headers.
-)
-
-# RPI Pico Based Library
-if( PICO_SDK_PATH )
-    file(GLOB PICO_INTF_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/interfaces/pico/*.cpp)
-    add_library(${PROJECT_NAME}_lib_pico STATIC ${PICO_INTF_SOURCES})
-    target_link_libraries(${PROJECT_NAME}_lib_pico PRIVATE
-        ${PROJECT_NAME}_headers
-        ${PROJECT_NAME}_internal_headers
-
-        # These targets are defined in the pico-sdk CMake files after importing.
-        hardware_dma_headers
-        hardware_timer_headers
-        hardware_uart_headers
-        pico_sync_headers
-    )
-endif()
 
 # --------------------------------------------------------------------------------
 # Tooling

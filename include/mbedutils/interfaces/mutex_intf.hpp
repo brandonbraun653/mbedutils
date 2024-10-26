@@ -45,14 +45,14 @@ namespace mb::osal
    * @param mutex The mutex to create
    * @return bool True if the mutex was created, false otherwise
    */
-  bool createMutex( mb_mutex_t &mutex );
+  bool createMutex( mb::osal::mb_mutex_t &mutex );
 
   /**
    * @brief Destroys a mutex object created **only** by createMutex.
    *
    * @param mutex The mutex to destroy
    */
-  void destroyMutex( mb_mutex_t &mutex );
+  void destroyMutex( mb::osal::mb_mutex_t &mutex );
 
   /**
    * @brief Allocates a mutex object from a fixed size mutex pool.
@@ -63,14 +63,14 @@ namespace mb::osal
    * @param mutex The mutex to allocate into
    * @return bool True if the mutex was allocated, false otherwise
    */
-  bool allocateMutex( mb_mutex_t &mutex );
+  bool allocateMutex( mb::osal::mb_mutex_t &mutex );
 
   /**
    * @brief Deallocates a mutex back to the pool
    *
    * @param mutex Mutex to deallocate
    */
-  void deallocateMutex( mb_mutex_t &mutex );
+  void deallocateMutex( mb::osal::mb_mutex_t &mutex );
 
   /**
    * @brief Builds a new mutex object based on the configuration settings.
@@ -78,7 +78,7 @@ namespace mb::osal
    * @param mutex Where to put the mutex object
    * @return bool True if the mutex was built, false otherwise
    */
-  static inline bool buildMutexStrategy( mb_mutex_t &mutex )
+  static inline bool buildMutexStrategy( mb::osal::mb_mutex_t &mutex )
   {
 #if MBEDUTILS_OSAL_USE_DYNAMIC_ALLOCATION
     return createMutex( mutex );
@@ -93,7 +93,7 @@ namespace mb::osal
    *
    * @param mutex Mutex to destroy
    */
-  static inline void destroyMutexStrategy( mb_mutex_t &mutex )
+  static inline void destroyMutexStrategy( mb::osal::mb_mutex_t &mutex )
   {
 #if MBEDUTILS_OSAL_USE_DYNAMIC_ALLOCATION
     destroyMutex( mutex );
@@ -107,7 +107,7 @@ namespace mb::osal
    *
    * @param mutex The mutex to lock
    */
-  void lockMutex( mb_mutex_t mutex );
+  void lockMutex( mb::osal::mb_mutex_t mutex );
 
   /**
    * @brief Tries to lock the mutex
@@ -115,7 +115,7 @@ namespace mb::osal
    * @param mutex The mutex to try and lock
    * @return bool True if the lock was successful, false otherwise
    */
-  bool tryLockMutex( mb_mutex_t mutex );
+  bool tryLockMutex( mb::osal::mb_mutex_t mutex );
 
   /**
    * @brief Tries to lock the mutex with a timeout
@@ -124,14 +124,14 @@ namespace mb::osal
    * @param timeout The maximum time to wait for the lock in milliseconds
    * @return bool True if the lock was successful, false otherwise
    */
-  bool tryLockMutex( mb_mutex_t mutex, const size_t timeout );
+  bool tryLockMutex( mb::osal::mb_mutex_t mutex, const size_t timeout );
 
   /**
    * @brief Unlocks the mutex
    *
    * @param mutex The mutex to unlock
    */
-  void unlockMutex( mb_mutex_t mutex );
+  void unlockMutex( mb::osal::mb_mutex_t mutex );
 
   /**
    * @brief Creates a new recursive mutex object via dynamic allocation.
@@ -139,14 +139,14 @@ namespace mb::osal
    * @param mutex The recursive mutex to create
    * @return bool True if the recursive mutex was created, false otherwise
    */
-  bool createRecursiveMutex( mb_recursive_mutex_t &mutex );
+  bool createRecursiveMutex( mb::osal::mb_recursive_mutex_t &mutex );
 
   /**
    * @brief Destroys a recursive mutex object created with createRecursiveMutex.
    *
    * @param mutex The recursive mutex to destroy
    */
-  void destroyRecursiveMutex( mb_recursive_mutex_t &mutex );
+  void destroyRecursiveMutex( mb::osal::mb_recursive_mutex_t &mutex );
 
   /**
    * @brief Allocates a recursive mutex object from a fixed size mutex pool.
@@ -157,7 +157,14 @@ namespace mb::osal
    * @param mutex The recursive mutex to allocate into
    * @return bool True if the recursive mutex was allocated, false otherwise
    */
-  bool allocateRecursiveMutex( mb_recursive_mutex_t &mutex );
+  bool allocateRecursiveMutex( mb::osal::mb_recursive_mutex_t &mutex );
+
+  /**
+   * @brief Deallocates a recursive mutex back to the pool
+   *
+   * @param mutex Recursive mutex to deallocate
+   */
+  void deallocateRecursiveMutex( mb_recursive_mutex_t &mutex );
 
   /**
    * @brief Builds a new recursive mutex object based on the configuration settings.
@@ -165,7 +172,7 @@ namespace mb::osal
    * @param mutex Where to put the recursive mutex object
    * @return bool True if the recursive mutex was built, false otherwise
    */
-  static inline bool buildRecursiveMutexStrategy( mb_recursive_mutex_t &mutex )
+  static inline bool buildRecursiveMutexStrategy( mb::osal::mb_recursive_mutex_t &mutex )
   {
 #if MBEDUTILS_OSAL_USE_DYNAMIC_ALLOCATION
     return createRecursiveMutex( mutex );
@@ -180,7 +187,7 @@ namespace mb::osal
    *
    * @param mutex The recursive mutex to lock
    */
-  void lockRecursiveMutex( mb_recursive_mutex_t mutex );
+  void lockRecursiveMutex( mb::osal::mb_recursive_mutex_t mutex );
 
   /**
    * @brief Tries to lock the recursive mutex
@@ -188,7 +195,7 @@ namespace mb::osal
    * @param mutex The recursive mutex to try and lock
    * @return bool True if the lock was successful, false otherwise
    */
-  bool tryLockRecursiveMutex( mb_recursive_mutex_t mutex );
+  bool tryLockRecursiveMutex( mb::osal::mb_recursive_mutex_t mutex );
 
   /**
    * @brief Tries to lock the recursive mutex with a timeout
@@ -197,14 +204,14 @@ namespace mb::osal
    * @param timeout The maximum time to wait for the lock in milliseconds
    * @return bool True if the lock was successful, false otherwise
    */
-  bool tryLockRecursiveMutex( mb_recursive_mutex_t mutex, const size_t timeout );
+  bool tryLockRecursiveMutex( mb::osal::mb_recursive_mutex_t mutex, const size_t timeout );
 
   /**
    * @brief Unlocks the recursive mutex
    *
    * @param mutex The recursive mutex to unlock
    */
-  void unlockRecursiveMutex( mb_recursive_mutex_t mutex );
+  void unlockRecursiveMutex( mb::osal::mb_recursive_mutex_t mutex );
 }    // namespace mb::osal
 
 #endif /* !MBEDUTILS_MUTEX_INTF_HPP */

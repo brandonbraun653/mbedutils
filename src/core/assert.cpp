@@ -46,6 +46,12 @@ namespace mb::assert
   }
 
 
+  bool log_assert_failure( const bool predicate, const bool halt, const char *file, const int line )
+  {
+    return format_and_log_assert_failure( predicate, halt, file, line, nullptr );
+  }
+
+
   bool format_and_log_assert_failure( const bool predicate, const bool halt, const char *file, const int line, const char *fmt,
                                       ... )
   {

@@ -39,7 +39,7 @@ namespace mb::logging
    * @param level The global log level to be set
    * @return ErrCode
    */
-  ErrCode setGlobalLogLevel( const Level level );
+  mb::logging::ErrCode setGlobalLogLevel( const mb::logging::Level level );
 
   /**
    * @brief Registers a sink with the back end driver
@@ -47,7 +47,7 @@ namespace mb::logging
    * @param sink The sink to be registered
    * @return ErrCode
    */
-  ErrCode registerSink( SinkHandle_rPtr &sink );
+  mb::logging::ErrCode registerSink( mb::logging::SinkHandle_rPtr &sink );
 
   /**
    * @brief Removes the sink from the back end driver
@@ -57,7 +57,7 @@ namespace mb::logging
    * @param sink The sink that should be removed
    * @return ErrCode
    */
-  ErrCode removeSink( SinkHandle_rPtr &sink );
+  mb::logging::ErrCode removeSink( mb::logging::SinkHandle_rPtr &sink );
 
   /**
    * @brief Sets the default global logger instance.
@@ -69,7 +69,7 @@ namespace mb::logging
    * @param sink The sink to become the root
    * @return ErrCode
    */
-  ErrCode setRootSink( SinkHandle_rPtr &sink );
+  mb::logging::ErrCode setRootSink( mb::logging::SinkHandle_rPtr &sink );
 
   /**
    * @brief Gets the default global root logger instance.
@@ -79,7 +79,7 @@ namespace mb::logging
    *
    * @return SinkHandle_rPtr
    */
-  SinkHandle_rPtr getRootSink();
+  mb::logging::SinkHandle_rPtr getRootSink();
 
   /**
    * @brief Emits a log to every registered sink.
@@ -89,7 +89,7 @@ namespace mb::logging
    * @param length Length of the log message
    * @return ErrCode
    */
-  ErrCode log( const Level lvl, const void *const msg, const size_t length );
+  mb::logging::ErrCode log( const mb::logging::Level lvl, const void *const msg, const size_t length );
 
   /**
    * @brief Emits a formatted string to every registered sink
@@ -100,7 +100,7 @@ namespace mb::logging
    * @param fmt  Format string
    * @return ErrCode
    */
-  ErrCode flog( const Level lvl, const char *const file, const size_t line, const char *fmt, ... );
+  mb::logging::ErrCode flog( const mb::logging::Level lvl, const char *const file, const size_t line, const char *fmt, ... );
 
 }  // namespace mb::Logging
 

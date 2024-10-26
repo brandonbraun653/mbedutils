@@ -19,5 +19,6 @@ Includes
 #include <mbedutils/drivers/logging/logging_types.hpp>
 #include <mbedutils/drivers/logging/logging_macros.hpp>
 #include <mbedutils/drivers/logging/logging_sinks.hpp>
+#include <mbedutils/drivers/nanoprintf.hpp>
 
 #endif /* !MBEDUTILS_LOGGING_HPP */

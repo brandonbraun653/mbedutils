@@ -49,14 +49,14 @@ namespace mb::osal
    * @param initialCount The initial number of tokens the semaphore starts with
    * @return bool        True if the semaphore was created, false otherwise
    */
-  bool createSmphr( mb_smphr_t &s, const size_t maxCount, const size_t initialCount );
+  bool createSmphr( mb::osal::mb_smphr_t &s, const size_t maxCount, const size_t initialCount );
 
   /**
    * @brief Destroys a semaphore object created **only** by createSmphr.
    *
    * @param s The semaphore to destroy
    */
-  void destroySmphr( mb_smphr_t &s );
+  void destroySmphr( mb::osal::mb_smphr_t &s );
 
   /**
    * @brief Allocates a semaphore object from a fixed size pool.
@@ -69,14 +69,14 @@ namespace mb::osal
    * @param initialCount The initial number of tokens the semaphore starts with
    * @return bool        True if the semaphore was allocated, false otherwise
    */
-  bool allocateSemahpore( mb_smphr_t &s, const size_t maxCount, const size_t initialCount );
+  bool allocateSemaphore( mb::osal::mb_smphr_t &s, const size_t maxCount, const size_t initialCount );
 
   /**
    * @brief Deallocates the semaphore object back into the pool.
    *
    * @param s The semaphore to deallocate
    */
-  void deallocateSemaphore( mb_smphr_t &s );
+  void deallocateSemaphore( mb::osal::mb_smphr_t &s );
 
   /**
    * @brief Builds a new semaphore object based on the configuration settings.
@@ -86,7 +86,7 @@ namespace mb::osal
    * @param initialCount The initial number of tokens the semaphore starts with
    * @return bool        True if the semaphore was built, false otherwise
    */
-  static inline bool buildSmphrStrategy( mb_smphr_t &s, const size_t maxCount, const size_t initialCount )
+  static inline bool buildSmphrStrategy( mb::osal::mb_smphr_t &s, const size_t maxCount, const size_t initialCount )
   {
 #if MBEDUTILS_OSAL_USE_DYNAMIC_ALLOCATION
     return createSmphr( s, maxCount, initialCount );
@@ -101,7 +101,7 @@ namespace mb::osal
    *
    * @param s The semaphore to destroy
    */
-  static inline void destroySmphrStrategy( mb_smphr_t &s )
+  static inline void destroySmphrStrategy( mb::osal::mb_smphr_t &s )
   {
 #if MBEDUTILS_OSAL_USE_DYNAMIC_ALLOCATION
     destroySmphr( s );
@@ -116,28 +116,28 @@ namespace mb::osal
    * @param s Semaphore to inspect
    * @return size_t
    */
-  size_t getSmphrAvailable( mb_smphr_t &s );
+  size_t getSmphrAvailable( mb::osal::mb_smphr_t &s );
 
   /**
    * @brief Releases a semaphore token.
    *
    * @param s Semaphore to release on
    */
-  void releaseSmphr( mb_smphr_t &s );
+  void releaseSmphr( mb::osal::mb_smphr_t &s );
 
   /**
    * @brief Releases a semaphore token from an ISR context.
    *
    * @param s Semaphore to release
    */
-  void releaseSmphrFromISR( mb_smphr_t &s );
+  void releaseSmphrFromISR( mb::osal::mb_smphr_t &s );
 
   /**
    * @brief Acquires the semaphore with blocking.
    *
    * @param s Semaphore to acquire
    */
-  void acquireSmphr( mb_smphr_t &s );
+  void acquireSmphr( mb::osal::mb_smphr_t &s );
 
   /**
    * @brief Tries to acquire the semaphore, immediately returning.
@@ -145,7 +145,7 @@ namespace mb::osal
    * @param s     Semaphore to acquire
    * @return bool True if the semaphore was acquired, false otherwise
    */
-  bool tryAcquireSmphr( mb_smphr_t &s );
+  bool tryAcquireSmphr( mb::osal::mb_smphr_t &s );
   /**
    * @brief Acquires the semaphore with a timeout.
    *
@@ -153,7 +153,7 @@ namespace mb::osal
    * @param timeout How long to wait for the semaphore (ms)
    * @return bool   True if the semaphore was acquired, false if timed out
    */
-  bool tryAcquireSmphr( mb_smphr_t &s, const size_t timeout );
+  bool tryAcquireSmphr( mb::osal::mb_smphr_t &s, const size_t timeout );
 
 }  // namespace mb::osal
 
