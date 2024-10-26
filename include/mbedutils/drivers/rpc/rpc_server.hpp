@@ -24,7 +24,7 @@ Includes
 #include <mbedutils/drivers/hardware/serial.hpp>
 #include <mbedutils/drivers/rpc/rpc_common.hpp>
 #include <mbedutils/drivers/rpc/rpc_message.hpp>
-#include <mbedutils/thread.hpp>
+#include <mbedutils/threading.hpp>
 
 namespace mb::rpc::server
 {

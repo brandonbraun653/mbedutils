@@ -9,8 +9,8 @@
  *****************************************************************************/
 
 #pragma once
-#ifndef MBEDUTILS_THREAD_HPP
-#define MBEDUTILS_THREAD_HPP
+#ifndef MBEDUTILS_THREADING_HPP
+#define MBEDUTILS_THREADING_HPP
 
 /*-----------------------------------------------------------------------------
 Includes
@@ -19,7 +19,7 @@ Includes
 #include <mbedutils/drivers/threading/condition.hpp>
 #include <mbedutils/drivers/threading/event.hpp>
 #include <mbedutils/drivers/threading/lock.hpp>
+#include <mbedutils/drivers/threading/message.hpp>
 #include <mbedutils/drivers/threading/thread.hpp>
-#include <mbedutils/interfaces/thread_intf.hpp>
 
-#endif  /* !MBEDUTILS_THREAD_HPP */
+#endif  /* !MBEDUTILS_THREADING_HPP */

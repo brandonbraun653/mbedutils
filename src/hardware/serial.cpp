@@ -16,7 +16,7 @@ Includes
 #include <mbedutils/interfaces/cmn_intf.hpp>
 #include <mbedutils/interfaces/serial_intf.hpp>
 #include <mbedutils/osal.hpp>
-#include <mbedutils/thread.hpp>
+#include <mbedutils/threading.hpp>
 
 namespace mb::hw::serial
 {

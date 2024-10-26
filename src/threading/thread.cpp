@@ -11,7 +11,7 @@
 /*-----------------------------------------------------------------------------
 Includes
 -----------------------------------------------------------------------------*/
-#include <mbedutils/thread.hpp>
+#include <mbedutils/threading.hpp>
 #include <mbedutils/interfaces/thread_intf.hpp>
 #include <mbedutils/util.hpp>
 #include <etl/flat_map.h>

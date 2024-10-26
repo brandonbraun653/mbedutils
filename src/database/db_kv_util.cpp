@@ -18,7 +18,7 @@ Includes
 #include <mbedutils/database.hpp>
 #include <mbedutils/logging.hpp>
 #include <mbedutils/system.hpp>
-#include <mbedutils/thread.hpp>
+#include <mbedutils/threading.hpp>
 #include <mbedutils/util.hpp>
 #include <pb_decode.h>
 #include <pb_encode.h>

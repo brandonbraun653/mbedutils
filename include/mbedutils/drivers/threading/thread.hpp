@@ -9,8 +9,8 @@
  *****************************************************************************/
 
 #pragma once
-#ifndef MBEDUTILS_THREADING_HPP
-#define MBEDUTILS_THREADING_HPP
+#ifndef MBEDUTILS_DRIVER_THREAD_HPP
+#define MBEDUTILS_DRIVER_THREAD_HPP
 
 /*-----------------------------------------------------------------------------
 Includes
@@ -22,9 +22,9 @@ Includes
 #include <etl/pool.h>
 #include <etl/queue.h>
 #include <etl/string.h>
-#include <string>
 #include <mbedutils/interfaces/mutex_intf.hpp>
 #include <mbedutils/drivers/threading/condition.hpp>
+#include <mbedutils/drivers/threading/message.hpp>
 
 namespace mb::thread
 {
@@ -40,13 +40,10 @@ namespace mb::thread
   ---------------------------------------------------------------------------*/
 
   using TaskId       = size_t;
-  using TaskMsgId    = size_t;
   using TaskPriority = uint8_t;
   using TaskAffinity = int8_t;
   using TaskFunction = void ( * )( void * );
   using TaskName     = etl::string_view;
-  using TaskMsgPool  = etl::ipool *;
-  using TaskMsgQueue = etl::iqueue<void *> *;
   using TaskCBMap    = etl::iflat_map<TaskId, TaskControlBlock> *;
   using TaskHandle   = void *;
 
@@ -54,6 +51,7 @@ namespace mb::thread
   Constants
   ---------------------------------------------------------------------------*/
 
+  /* Common Timeout Values */
   static constexpr size_t TIMEOUT_BLOCK     = std::numeric_limits<size_t>::max();
   static constexpr size_t TIMEOUT_DONT_WAIT = 0;
   static constexpr size_t TIMEOUT_1MS       = 1;
@@ -66,6 +64,12 @@ namespace mb::thread
   static constexpr size_t TIMEOUT_1S        = 1000;
   static constexpr size_t TIMEOUT_1MIN      = 60 * TIMEOUT_1S;
   static constexpr size_t TIMEOUT_1HR       = 60 * TIMEOUT_1MIN;
+
+  /* Special Task IDs */
+  static constexpr TaskId TASK_ID_INVALID = std::numeric_limits<TaskId>::max();
+  static constexpr TaskId TASK_ID_ANY     = std::numeric_limits<TaskId>::max() - 1;
+  static constexpr TaskId TASK_ID_SELF    = std::numeric_limits<TaskId>::max() - 2;
+  static constexpr TaskId TASK_ID_ALL     = std::numeric_limits<TaskId>::max() - 3;
 
   /*---------------------------------------------------------------------------
   Structures
@@ -90,31 +94,6 @@ namespace mb::thread
 
   template<size_t N>
   using TaskControlBlockStorage = etl::flat_map<TaskId, TaskControlBlock, N>;
-
-  /**
-   * @brief Declares the expected storage for task messages.
-   *
-   * This allows each thread to maintain it's own local copy of the message
-   * in a known accessible memory space.
-   *
-   * @tparam PayloadType Core data structure being sent as a message.
-   * @tparam N           How many elements can be queued
-   */
-  template<typename PayloadType, size_t N>
-  using TaskMsgPoolStorage = etl::pool<PayloadType, N>;
-
-  /**
-   * @brief Declares a queue to reference TaskMsgPoolStorage items.
-   *
-   * This is used to provide type erasure to the queue interface while
-   * still being able to order messages. The etl variant of the queue
-   * doesn't have an option for a type independent reference like the
-   * etl::pool class has.
-   *
-   * @tparam N How many elements can be queued. Should match TaskMsgPoolStorage<>
-   */
-  template<size_t N>
-  using TaskMsgQueueStorage = etl::queue<void *, N>;
 
   /**
    * @brief Helper template to allocate memory for a task configuration.
@@ -177,6 +156,7 @@ namespace mb::thread
     TaskCBMap tsk_control_blocks; /**< Control structures for each thread */
   };
 
+
   /*---------------------------------------------------------------------------
   Public Functions
   ---------------------------------------------------------------------------*/
@@ -206,16 +186,17 @@ namespace mb::thread
    *
    * @param id      Task id to send to
    * @param msg     Message to send
-   * @param timeout How long to wait in milliseconds
+   * @param timeout How long to wait for the message to be sent (ms)
+   * @return bool  True if the message was sent, false if it timed out or receiving queue was full
    */
-  void sendMessage( const TaskId id, const void *msg, const size_t size, const size_t timeout );
+  bool sendMessage( const TaskId id, const TaskMessage &msg, const size_t timeout);
 
   /*---------------------------------------------------------------------------
   Classes
   ---------------------------------------------------------------------------*/
 
   /**
-   * @brief Abstraction of a thread, mostly STL compliant.
+   * @brief Simple abstraction of a thread, mostly STL compliant.
    */
   class Task
   {
@@ -258,6 +239,7 @@ namespace mb::thread
     TaskId     taskId; /**< System identifier for the thread */
     TaskHandle pimpl;  /**< Implementation details */
   };
+
 
   namespace this_thread
   {
@@ -306,15 +288,25 @@ namespace mb::thread
     TaskId id();
 
     /**
-     * @brief Gets the latest task message for the thread.
+     * @brief Wait for any message to be sent to this thread.
      *
-     * @param msg     Where to place the message, if valid
-     * @param timeout How long to wait for a new message
-     * @return bool
+     * @param timeout How long to wait in milliseconds
+     * @param msg Where to place the message
+     * @return True if the message was received, false if it timed out
      */
-    bool pendTaskMsg( void *msg, const size_t timeout );
+    bool awaitMessage( const size_t timeout, TaskMessage &msg );
+
+    /**
+     * @brief Wait for a specific message to be sent to this thread.
+     *
+     * @param timeout   How long to wait in milliseconds
+     * @param predicate Predicate to match the message against
+     * @param msg       Where to place the message
+     * @return True if the message was received, false if it timed out
+     */
+    bool awaitMessage( const size_t timeout, MessagePredicate &predicate, TaskMessage &msg );
 
   }    // namespace this_thread
 }    // namespace mb::thread
 
-#endif /* !MBEDUTILS_THREADING_HPP */
+#endif /* !MBEDUTILS_DRIVER_THREAD_HPP */
