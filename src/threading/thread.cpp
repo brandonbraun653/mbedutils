@@ -28,13 +28,13 @@ namespace mb::thread
   ---------------------------------------------------------------------------*/
 
   static mb::osal::mb_mutex_t module_mutex;
-  static TaskCBMap            tsk_control_blocks;
+  static Internal::ControlBlockMap  tsk_control_blocks;
 
   /*---------------------------------------------------------------------------
   Public Functions
   ---------------------------------------------------------------------------*/
 
-  void initialize( const ModuleConfig &cfg )
+  void initialize( const Internal::ModuleConfig &cfg )
   {
     /*-------------------------------------------------------------------------
     Initialize static memory
@@ -51,7 +51,7 @@ namespace mb::thread
   }
 
 
-  Task &&create( const TaskConfig &cfg )
+  Task &&create( const Task::Config &cfg )
   {
     mbed_dbg_assert( module_mutex );
     LockGuard lock( module_mutex );
@@ -71,27 +71,12 @@ namespace mb::thread
     /*-------------------------------------------------------------------------
     Create the task control block
     -------------------------------------------------------------------------*/
-    TaskControlBlock tcb;
+    Internal::ControlBlock tcb;
 
-    tcb.name            = cfg.name;
-    tcb.handle          = handle;
-    tcb.priority        = cfg.priority;
-    tcb.msg_pool        = nullptr;
-    tcb.msg_queue       = nullptr;
-    tcb.msg_queue_mutex = nullptr;
-
-    if( cfg.msg_pool || cfg.msg_queue )
-    {
-      mbed_assert( cfg.msg_pool );
-      mbed_assert( cfg.msg_queue );
-
-      tcb.msg_pool  = cfg.msg_pool;
-      tcb.msg_queue = cfg.msg_queue;
-      tcb.msg_queue_cv.init();
-      tcb.msg_pool->release_all();
-      tcb.msg_queue->clear();
-      mbed_assert( mb::osal::buildMutexStrategy( tcb.msg_queue_mutex ) );
-    }
+    tcb.name     = cfg.name;
+    tcb.handle   = handle;
+    tcb.priority = cfg.priority;
+    tcb.msgQueue = cfg.msg_queue;
 
     tsk_control_blocks->insert( { cfg.id, tcb } );
 
@@ -112,42 +97,62 @@ namespace mb::thread
   }
 
 
-  void sendMessage( const TaskId id, const void *msg, const size_t size, const size_t timeout )
+  bool sendMessage( const TaskId id, Message &msg, const size_t timeout )
   {
-    // TODO BMB: Can I actually pool allocate and initialize from the given thread id queue?
-    // The below code comes from Claude, but I'm not sold yet if this is actually valid.
-    // I'd need to look up the thread's task structure, pull the queue, lock it.
-
-    // Oh! I should also "notify_one" the queue's CV to wake up that thread if it's waiting.
-
-    // Function to allocate a message of a specific type
-    // template<typename T>
-    // T* allocateMessage(MessageTypeId type) {
-    //     void* memory = messagePool.allocate();
-    //     if (memory) {
-    //         T* message = new (memory) T();
-    //         message->type = type;
-    //         return message;
-    //     }
-    //     return nullptr;
-    // }
-
-    // TODO BMB: I think the allocate function can accept a size.
-
-    // // Function to release a message
-    // void releaseMessage(BaseMessage* message) {
-    //     message->~BaseMessage();
-    //     messagePool.release(reinterpret_cast<uint8_t*>(message));
-    // }
+    return false;
   }
 
 
-  bool this_thread::pendTaskMsg( void *msg, const size_t timeout )
+  namespace this_thread
   {
-    // Look up the thread id, block on the message queue condition variable if empty?
-    // Pull one immediately if available.
+    void set_name( const char *name )
+    {
+    }
 
-    return false;
+
+    TaskName &get_name()
+    {
+      static TaskName name;
+      return name;
+    }
+
+
+    void sleep_for( const size_t timeout )
+    {
+    }
+
+
+    void sleep_until( const size_t wakeup )
+    {
+    }
+
+
+    void yield()
+    {
+    }
+
+
+    void suspend()
+    {
+    }
+
+
+    TaskId id()
+    {
+      return 0;
+    }
+
+
+    bool awaitMessage( Message &msg, const size_t timeout )
+    {
+      return false;
+    }
+
+
+    bool awaitMessage( Message &msg, MessagePredicate &predicate, const size_t timeout )
+    {
+      return false;
+    }
   }
 
   /*---------------------------------------------------------------------------

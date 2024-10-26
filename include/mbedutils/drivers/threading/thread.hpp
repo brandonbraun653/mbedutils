@@ -25,26 +25,18 @@ Includes
 #include <mbedutils/interfaces/mutex_intf.hpp>
 #include <mbedutils/drivers/threading/condition.hpp>
 #include <mbedutils/drivers/threading/message.hpp>
+#include <mbedutils/drivers/threading/types.hpp>
 
 namespace mb::thread
 {
   /*---------------------------------------------------------------------------
-  Forward Declarations
-  ---------------------------------------------------------------------------*/
-
-  class Task;
-  struct TaskControlBlock;
-
-  /*---------------------------------------------------------------------------
   Aliases
   ---------------------------------------------------------------------------*/
 
-  using TaskId       = size_t;
   using TaskPriority = uint8_t;
   using TaskAffinity = int8_t;
   using TaskFunction = void ( * )( void * );
   using TaskName     = etl::string_view;
-  using TaskCBMap    = etl::iflat_map<TaskId, TaskControlBlock> *;
   using TaskHandle   = void *;
 
   /*---------------------------------------------------------------------------
@@ -75,121 +67,46 @@ namespace mb::thread
   Structures
   ---------------------------------------------------------------------------*/
 
-  /**
-   * @brief Internal representation of a task control block.
-   *
-   * This normally would not be exposed to the user, but is here to allow for
-   * static allocation of memory.
-   */
-  struct TaskControlBlock
+  namespace Internal
   {
-    TaskName             name;            /**< Name of the thread */
-    TaskHandle           handle;          /**< Implementation specific handle to the task */
-    TaskPriority         priority;        /**< System thread priority. Lower == more importance */
-    TaskMsgPool          msg_pool;        /**< Storage for allocating task messages */
-    TaskMsgQueue         msg_queue;       /**< Storage for queueing task messages */
-    ConditionVariable    msg_queue_cv;    /**< Condition variable for the message queue */
-    mb::osal::mb_mutex_t msg_queue_mutex; /**< Mutex for the message queue */
-  };
-
-  template<size_t N>
-  using TaskControlBlockStorage = etl::flat_map<TaskId, TaskControlBlock, N>;
-
-  /**
-   * @brief Helper template to allocate memory for a task configuration.
-   *
-   * @tparam TaskMsgType  Type of the task message
-   * @tparam TaskMsgDepth Element count of the task message queue
-   * @tparam StackSize    Number of bytes for the thread stack
-   */
-  template<typename TaskMsgType = uint8_t, size_t TaskMsgDepth = 1, size_t StackSize = 256>
-  struct TaskConfigStorage
-  {
-    // Place stack first to ensure alignment
-    static_assert( StackSize % sizeof( uint32_t ) == 0, "Stack must be word aligned" );
-    uint32_t stack[ StackSize / sizeof( uint32_t ) ];
-
-    etl::string<32>                               name;
-    TaskMsgPoolStorage<TaskMsgType, TaskMsgDepth> msg_pool;
-    TaskMsgQueueStorage<TaskMsgDepth>             msg_queue;
-  };
-
-  /**
-   * @brief Configuration for a system thread/task.
-   *
-   * This is intended to be used with embedded systems that may require static
-   * allocation of memory. Also compatible with dynamic allocation if needed.
-   */
-  struct TaskConfig
-  {
-    TaskName     name;       /**< Name of the thread */
-    TaskId       id;         /**< System ID of the thread */
-    TaskFunction func;       /**< Function to run as the task*/
-    TaskPriority priority;   /**< System thread priority. Lower == more importance */
-    TaskAffinity affinity;   /**< (Optional) Core affinity bitmask (multi-core only) */
-    TaskMsgPool  msg_pool;   /**< (Optional) Storage for allocating task messages */
-    TaskMsgQueue msg_queue;  /**< (Optional) Storage for queueing task messages */
-    uint32_t    *stack_buf;  /**< (Optional) Statically allocated stack */
-    uint32_t     stack_size; /**< (Optional) Element count of stack buffer */
-    void        *user_data;  /**< (Optional) User data to pass to the thread */
-
-    void reset()
+    /**
+     * @brief Internal representation of a task control block.
+     *
+     * This normally would not be exposed to the user, but is here to allow for
+     * static allocation of memory.
+     */
+    struct ControlBlock
     {
-      name     = "";
-      id       = 0;
-      func     = nullptr;
-      priority = 0;
-      affinity = 0;
-      msg_pool = nullptr;
-      msg_queue = nullptr;
-      stack_buf = nullptr;
-      stack_size = 0;
-      user_data = nullptr;
-    }
-  };
+      TaskName                       name;      /**< Name of the thread */
+      TaskHandle                     handle;    /**< Implementation specific handle to the task */
+      TaskPriority                   priority;  /**< System thread priority. Lower == more importance */
+      MessageQueue                  *msgQueue;  /**< Storage for queueing task messages */
+      ConditionVariable              msgCV;     /**< Condition variable for the message queue */
+      mb::osal::mb_recursive_mutex_t msgRMutex; /**< Mutex for the message queue */
+      MessagePredicate               msgPred;   /**< Pending predicate for message filtering */
+    };
 
-  /**
-   * @brief Configuration to provide resources to the thread library.
-   */
-  struct ModuleConfig
-  {
-    TaskCBMap tsk_control_blocks; /**< Control structures for each thread */
-  };
+    /**
+     * @brief Storage for mapping task IDs to task control blocks
+     *
+     * @tparam N  Number of control blocks to store
+     */
+    template<size_t N>
+    using ControlBlockStorage = etl::flat_map<TaskId, ControlBlock, N>;
 
+    /**
+     * @brief Map a control block to a task ID
+     */
+    using ControlBlockMap = etl::iflat_map<TaskId, ControlBlock> *;
 
-  /*---------------------------------------------------------------------------
-  Public Functions
-  ---------------------------------------------------------------------------*/
-
-  /**
-   * @brief Initialize the mbedutils threading module.
-   *
-   * @param cfg Configuration to use.
-   */
-  void initialize( const ModuleConfig &cfg );
-
-  /**
-   * @brief Create a new task
-   *
-   * @param cfg Configuration to use
-   * @return bool
-   */
-  Task &&create( const TaskConfig &cfg );
-
-  /**
-   * @brief Begins the scheduler for multi-threading.
-   */
-  void startScheduler();
-
-  /**
-   * @brief Send a message to another thread
-   *
-   * @param id      Task id to send to
-   * @param msg     Message to send
-   * @param timeout How long to wait for the message to be sent (ms)
-   * @return bool  True if the message was sent, false if it timed out or receiving queue was full
-   */
-  bool sendMessage( const TaskId id, const TaskMessage &msg, const size_t timeout);
+    /**
+     * @brief Configuration to provide resources to the thread library.
+     */
+    struct ModuleConfig
+    {
+      ControlBlockMap tsk_control_blocks; /**< Control structures for each thread */
+    };
+  }
 
   /*---------------------------------------------------------------------------
   Classes
@@ -201,6 +118,56 @@ namespace mb::thread
   class Task
   {
   public:
+    /**
+     * @brief Helper template to allocate memory for a task configuration.
+     *
+     * @tparam StackSize    Number of bytes for the thread stack
+     * @tparam TaskMsgType  Type of the task message
+     * @tparam TaskMsgDepth Element count of the task message queue
+     */
+    template<size_t StackSize = 256, typename TaskMsgType = uint8_t, size_t TaskMsgDepth = 1>
+    struct Storage
+    {
+      // Place stack first to ensure alignment
+      static_assert( StackSize % sizeof( uint32_t ) == 0, "Stack must be word aligned" );
+      uint32_t stack[ StackSize / sizeof( uint32_t ) ];
+
+      etl::string<32> name;
+      MessageQueue::Storage<TaskMsgType, TaskMsgDepth> msg_queue;
+    };
+
+    /**
+     * @brief Configuration for a system thread/task.
+     *
+     * This is intended to be used with embedded systems that may require static
+     * allocation of memory. Also compatible with dynamic allocation if needed.
+     */
+    struct Config
+    {
+      TaskName      name;       /**< Name of the thread */
+      TaskId        id;         /**< System ID of the thread */
+      TaskFunction  func;       /**< Function to run as the task*/
+      TaskPriority  priority;   /**< System thread priority. Lower == more importance */
+      TaskAffinity  affinity;   /**< (Optional) Core affinity bitmask (multi-core only) */
+      uint32_t     *stack_buf;  /**< (Optional) Statically allocated stack */
+      uint32_t      stack_size; /**< (Optional) Element count of stack buffer */
+      void         *user_data;  /**< (Optional) User data to pass to the thread */
+      MessageQueue *msg_queue;  /**< (Optional) Storage for queueing task messages */
+
+      void reset()
+      {
+        name       = "";
+        id         = 0;
+        func       = nullptr;
+        priority   = 0;
+        affinity   = 0;
+        stack_buf  = nullptr;
+        stack_size = 0;
+        user_data  = nullptr;
+        msg_queue  = nullptr;
+      }
+    };
+
     Task() noexcept;
     ~Task();
 
@@ -234,12 +201,45 @@ namespace mb::thread
     bool joinable();
 
   private:
-    friend ::mb::thread::Task &&create( const TaskConfig &cfg );
+    friend ::mb::thread::Task &&create( const Task::Config &cfg );
 
     TaskId     taskId; /**< System identifier for the thread */
     TaskHandle pimpl;  /**< Implementation details */
   };
 
+  /*---------------------------------------------------------------------------
+  Public Functions
+  ---------------------------------------------------------------------------*/
+
+  /**
+   * @brief Initialize the mbedutils threading module.
+   *
+   * @param cfg Configuration to use.
+   */
+  void initialize( const Internal::ModuleConfig &cfg );
+
+  /**
+   * @brief Create a new task
+   *
+   * @param cfg Configuration to use
+   * @return bool
+   */
+  Task &&create( const Task::Config &cfg );
+
+  /**
+   * @brief Begins the scheduler for multi-threading.
+   */
+  void startScheduler();
+
+  /**
+   * @brief Send a message to another thread
+   *
+   * @param id      Task id to send to
+   * @param msg     Message to send
+   * @param timeout How long to wait for the message to be sent (ms)
+   * @return bool  True if the message was sent, false if it timed out or receiving queue was full
+   */
+  bool sendMessage( const TaskId id, Message &msg, const size_t timeout );
 
   namespace this_thread
   {
@@ -290,21 +290,21 @@ namespace mb::thread
     /**
      * @brief Wait for any message to be sent to this thread.
      *
-     * @param timeout How long to wait in milliseconds
      * @param msg Where to place the message
+     * @param timeout How long to wait in milliseconds
      * @return True if the message was received, false if it timed out
      */
-    bool awaitMessage( const size_t timeout, TaskMessage &msg );
+    bool awaitMessage( Message &msg, const size_t timeout );
 
     /**
      * @brief Wait for a specific message to be sent to this thread.
      *
-     * @param timeout   How long to wait in milliseconds
-     * @param predicate Predicate to match the message against
      * @param msg       Where to place the message
+     * @param predicate Predicate to match the message against
+     * @param timeout   How long to wait in milliseconds
      * @return True if the message was received, false if it timed out
      */
-    bool awaitMessage( const size_t timeout, MessagePredicate &predicate, TaskMessage &msg );
+    bool awaitMessage( Message &msg, MessagePredicate &predicate, const size_t timeout );
 
   }    // namespace this_thread
 }    // namespace mb::thread
