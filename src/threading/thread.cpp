@@ -11,6 +11,8 @@
 /*-----------------------------------------------------------------------------
 Includes
 -----------------------------------------------------------------------------*/
+#include "mbedutils/drivers/threading/thread.hpp"
+#include "mbedutils/interfaces/util_intf.hpp"
 #include <mbedutils/threading.hpp>
 #include <mbedutils/interfaces/thread_intf.hpp>
 #include <mbedutils/util.hpp>
@@ -19,74 +21,106 @@ Includes
 namespace mb::thread
 {
   /*---------------------------------------------------------------------------
-  Structures
-  ---------------------------------------------------------------------------*/
-
-
-  /*---------------------------------------------------------------------------
   Static Data
   ---------------------------------------------------------------------------*/
 
-  static mb::osal::mb_mutex_t module_mutex;
-  static Internal::ControlBlockMap  tsk_control_blocks;
+  static mb::osal::mb_mutex_t      s_module_mutex;
+  static Internal::ControlBlockMap s_tsk_control_blocks;
+  static size_t                    s_module_ready;
 
   /*---------------------------------------------------------------------------
   Public Functions
   ---------------------------------------------------------------------------*/
 
-  void initialize( const Internal::ModuleConfig &cfg )
+  void driver_setup( const Internal::ModuleConfig &cfg )
   {
     /*-------------------------------------------------------------------------
     Initialize static memory
     -------------------------------------------------------------------------*/
-    mbed_assert( mb::osal::buildMutexStrategy( module_mutex ) );
-    mbed_assert( cfg.tsk_control_blocks );
-    tsk_control_blocks = cfg.tsk_control_blocks;
-    tsk_control_blocks->clear();
+    /* clang-format off */
+    if( mbed_assert( mb::osal::buildMutexStrategy( s_module_mutex ) ) &&
+        mbed_assert( cfg.tsk_control_blocks ) &&
+        ( s_module_ready != DRIVER_INITIALIZED_KEY ) )
+    {
+    /* clang-format on */
+      s_tsk_control_blocks = cfg.tsk_control_blocks;
+      s_tsk_control_blocks->clear();
 
-    /*-------------------------------------------------------------------------
-    Initialize the underlying threading implementation
-    -------------------------------------------------------------------------*/
-    mb::thread::intf::initialize();
+      /*-----------------------------------------------------------------------
+      Initialize the underlying threading implementation
+      -----------------------------------------------------------------------*/
+      mb::thread::intf::driver_setup();
+      s_module_ready = DRIVER_INITIALIZED_KEY;
+    }
+  }
+
+
+  void driver_teardown()
+  {
+    if( s_module_ready != DRIVER_INITIALIZED_KEY )
+    {
+      return;
+    }
+
+    mb::thread::intf::driver_teardown();
+    mb::osal::destroyMutex( s_module_mutex );
+    s_module_ready = ~DRIVER_INITIALIZED_KEY;
   }
 
 
   Task &&create( const Task::Config &cfg )
   {
-    mbed_dbg_assert( module_mutex );
-    LockGuard lock( module_mutex );
-
     /*-------------------------------------------------------------------------
-    Input Validation
+    Input Protection
     -------------------------------------------------------------------------*/
-    mbed_assert( !tsk_control_blocks->full() );
-    mbed_assert( tsk_control_blocks->find( cfg.id ) == tsk_control_blocks->end() );
-
-    /*---------------------------------------------------------------------------
-    Create the task using the underlying implementation
-    ---------------------------------------------------------------------------*/
-    TaskHandle handle = mb::thread::intf::create_task( cfg );
-    mbed_assert( handle != nullptr );
+    if( s_module_ready != DRIVER_INITIALIZED_KEY )
+    {
+      Task empty_task;
+      return etl::move( empty_task );
+    }
 
     /*-------------------------------------------------------------------------
-    Create the task control block
-    -------------------------------------------------------------------------*/
-    Internal::ControlBlock tcb;
-
-    tcb.name     = cfg.name;
-    tcb.handle   = handle;
-    tcb.priority = cfg.priority;
-    tcb.msgQueue = cfg.msg_queue;
-
-    tsk_control_blocks->insert( { cfg.id, tcb } );
-
-    /*-------------------------------------------------------------------------
-    Construct the new task object
+    Construct a basic invalid task to return if the creation fails
     -------------------------------------------------------------------------*/
     Task new_task;
-    new_task.taskId = cfg.id;
-    new_task.pimpl  = handle;
+    new_task.taskId = TASK_ID_INVALID;
+    new_task.taskImpl  = nullptr;
 
+    /*-------------------------------------------------------------------------
+    Attempt to create the task:
+      - Ensure the task ID is not already in use
+      - Ensure the task control block is not full
+    -------------------------------------------------------------------------*/
+    LockGuard lock( s_module_mutex );
+
+    if( s_tsk_control_blocks->full() )
+    {
+      mbed_assert_continue_msg( false, "Maximum number of tasks already created" );
+      return etl::move( new_task );
+    }
+
+    if( s_tsk_control_blocks->find( cfg.id ) != s_tsk_control_blocks->end() )
+    {
+      mbed_assert_continue_msg( false, "Task already created for ID: %d", cfg.id );
+      return etl::move( new_task );
+    }
+
+    if( auto handle = mb::thread::intf::create_task( cfg ); handle )
+    {
+      Internal::ControlBlock tcb;
+
+      tcb.name     = cfg.name;
+      tcb.handle   = new_task.taskImpl;
+      tcb.priority = cfg.priority;
+      tcb.msgQueue = cfg.msg_queue_inst;
+
+      s_tsk_control_blocks->insert( { cfg.id, tcb } );
+
+      new_task.taskId = cfg.id;
+      new_task.taskImpl  = handle;
+    }
+
+    mbed_assert_continue_msg( new_task.taskImpl, "Failed to create task id: %d", cfg.id );
     return etl::move( new_task );
   }
 
@@ -153,53 +187,6 @@ namespace mb::thread
     {
       return false;
     }
-  }
+  }    // namespace this_thread
 
-  /*---------------------------------------------------------------------------
-  Classes
-  ---------------------------------------------------------------------------*/
-
-  Task::Task() noexcept : taskId( -1 ), pimpl( nullptr )
-  {
-  }
-
-
-  Task::~Task()
-  {
-  }
-
-
-  Task &Task::operator=( Task &&other ) noexcept
-  {
-    this->taskId = other.taskId;
-    this->pimpl  = other.pimpl;
-    return *this;
-  }
-
-
-  void start()
-  {
-    // Send an event to the task to start it.
-  }
-
-
-  void Task::kill()
-  {
-    // Send an event to the task to kill it.
-  }
-
-
-  void Task::join()
-  {
-    // Wait for the task to end (intf?)
-
-    // Lock global mutex, then release the task control block.
-  }
-
-
-  bool Task::joinable()
-  {
-    return false;
-  }
-
-}  // namespace mb::thread
+}    // namespace mb::thread

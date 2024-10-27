@@ -30,7 +30,12 @@ namespace mb::thread::intf
    * This function sets up any necessary resources or configurations required
    * for the threading interface to function properly.
    */
-  void initialize();
+  void driver_setup();
+
+  /**
+   * @brief Tear down the threading interface.
+   */
+  void driver_teardown();
 
   /**
    * @brief Creates a new task with the specified configuration.

@@ -133,7 +133,8 @@ namespace mb::thread
       uint32_t stack[ StackSize / sizeof( uint32_t ) ];
 
       etl::string<32> name;
-      MessageQueue::Storage<TaskMsgType, TaskMsgDepth> msg_queue;
+      MessageQueue msg_queue;
+      MessageQueue::Storage<TaskMsgType, TaskMsgDepth> msg_queue_storage;
     };
 
     /**
@@ -144,27 +145,30 @@ namespace mb::thread
      */
     struct Config
     {
-      TaskName      name;       /**< Name of the thread */
-      TaskId        id;         /**< System ID of the thread */
-      TaskFunction  func;       /**< Function to run as the task*/
-      TaskPriority  priority;   /**< System thread priority. Lower == more importance */
-      TaskAffinity  affinity;   /**< (Optional) Core affinity bitmask (multi-core only) */
-      uint32_t     *stack_buf;  /**< (Optional) Statically allocated stack */
-      uint32_t      stack_size; /**< (Optional) Element count of stack buffer */
-      void         *user_data;  /**< (Optional) User data to pass to the thread */
-      MessageQueue *msg_queue;  /**< (Optional) Storage for queueing task messages */
+      TaskName             name;           /**< Name of the thread */
+      TaskId               id;             /**< System ID of the thread */
+      TaskFunction         func;           /**< Function to run as the task*/
+      TaskPriority         priority;       /**< System thread priority. Lower == more importance */
+      TaskAffinity         affinity;       /**< (Optional) Core affinity bitmask (multi-core only) */
+      uint32_t            *stack_buf;      /**< (Optional) Statically allocated stack */
+      uint32_t             stack_size;     /**< (Optional) Element count of stack buffer */
+      void                *user_data;      /**< (Optional) User data to pass to the thread */
+      MessageQueue        *msg_queue_inst; /**< (Optional) Message queue instance */
+      MessageQueue::Config msg_queue_cfg;  /**< (Optional) Configuration for the message queue */
 
       void reset()
       {
-        name       = "";
-        id         = 0;
-        func       = nullptr;
-        priority   = 0;
-        affinity   = 0;
-        stack_buf  = nullptr;
-        stack_size = 0;
-        user_data  = nullptr;
-        msg_queue  = nullptr;
+        name                = "";
+        id                  = 0;
+        func                = nullptr;
+        priority            = 0;
+        affinity            = 0;
+        stack_buf           = nullptr;
+        stack_size          = 0;
+        user_data           = nullptr;
+        msg_queue_inst      = nullptr;
+        msg_queue_cfg.pool  = nullptr;
+        msg_queue_cfg.queue = nullptr;
       }
     };
 
@@ -200,11 +204,34 @@ namespace mb::thread
      */
     bool joinable();
 
+    /**
+     * @brief Get the system identifier for the thread.
+     *
+     * @return TaskId
+     */
+    TaskId id() const;
+
+    /**
+     * @brief Get the name of the thread.
+     *
+     * @return TaskName
+     */
+    TaskName name() const;
+
+    /**
+     * @brief Underlying implementation details.
+     *
+     * @return TaskHandle
+     */
+    TaskHandle implementation() const;
+
   private:
     friend ::mb::thread::Task &&create( const Task::Config &cfg );
 
-    TaskId     taskId; /**< System identifier for the thread */
-    TaskHandle pimpl;  /**< Implementation details */
+    TaskId     taskId;   /**< System identifier for the thread */
+    TaskName   taskName; /**< Name of the thread */
+    TaskHandle taskImpl; /**< Implementation specific handle to the thread */
+    void      *pimpl;    /**< Implementation details */
   };
 
   /*---------------------------------------------------------------------------
@@ -216,7 +243,12 @@ namespace mb::thread
    *
    * @param cfg Configuration to use.
    */
-  void initialize( const Internal::ModuleConfig &cfg );
+  void driver_setup( const Internal::ModuleConfig &cfg );
+
+  /**
+   * @brief Deinitialize the mbedutils threading module.
+   */
+  void driver_teardown();
 
   /**
    * @brief Create a new task
