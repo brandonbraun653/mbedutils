@@ -42,7 +42,7 @@ namespace mb::thread
         mbed_assert( cfg.tsk_control_blocks ) &&
         ( s_module_ready != DRIVER_INITIALIZED_KEY ) )
     {
-    /* clang-format on */
+      /* clang-format on */
       s_tsk_control_blocks = cfg.tsk_control_blocks;
       s_tsk_control_blocks->clear();
 
@@ -83,8 +83,8 @@ namespace mb::thread
     Construct a basic invalid task to return if the creation fails
     -------------------------------------------------------------------------*/
     Task new_task;
-    new_task.taskId = TASK_ID_INVALID;
-    new_task.taskImpl  = nullptr;
+    new_task.taskId   = TASK_ID_INVALID;
+    new_task.taskImpl = nullptr;
 
     /*-------------------------------------------------------------------------
     Attempt to create the task:
@@ -116,8 +116,8 @@ namespace mb::thread
 
       s_tsk_control_blocks->insert( { cfg.id, tcb } );
 
-      new_task.taskId = cfg.id;
-      new_task.taskImpl  = handle;
+      new_task.taskId   = cfg.id;
+      new_task.taskImpl = handle;
     }
 
     mbed_assert_continue_msg( new_task.taskImpl, "Failed to create task id: %d", cfg.id );
