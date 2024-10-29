@@ -52,6 +52,30 @@ namespace mb::thread
     }
 
     /**
+     * @brief Wait for the condition variable to be signaled.
+     *
+     * @param external_mutex Mutex to synchronize with
+     */
+    void wait( mb::osal::mb_mutex_t &external_mutex )
+    {
+      mbed_dbg_assert( external_mutex != nullptr );
+      mbed_dbg_assert( mtx != nullptr );
+      mbed_dbg_assert( sem != nullptr );
+
+      mb::osal::lockMutex( mtx );
+      waiters = waiters + 1;
+      mb::osal::unlockMutex( mtx );
+
+      mb::osal::unlockMutex( external_mutex );
+      mb::osal::acquireSmphr( sem );    // Block until signaled
+      mb::osal::lockMutex( external_mutex );
+
+      mb::osal::lockMutex( mtx );
+      waiters = waiters - 1;
+      mb::osal::unlockMutex( mtx );
+    }
+
+    /**
      * @brief Wait for the given predicate to occur
      *
      * @param external_mutex  Mutex to synchronize with

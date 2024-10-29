@@ -14,6 +14,7 @@ Includes
 #include "mbedutils/drivers/threading/thread.hpp"
 #include "mbedutils/drivers/threading/lock.hpp"
 #include "mbedutils/drivers/threading/message.hpp"
+#include "mbedutils/interfaces/time_intf.hpp"
 #include "mbedutils/interfaces/util_intf.hpp"
 #include <mbedutils/threading.hpp>
 #include <mbedutils/interfaces/thread_intf.hpp>
@@ -182,38 +183,99 @@ namespace mb::thread
     }
 
     /*-------------------------------------------------------------------------
-    Check the receiver's message queue to ensure it can accept the message
+    Ensure the destination task has a message queue
+    -------------------------------------------------------------------------*/
+    if( !it->second.msgQueue )
+    {
+      mbed_assert_continue_msg( false, "Dst task [%d] doesn't accept messages", id );
+      return false;
+    }
+
+    /*-------------------------------------------------------------------------
+    Send the message to the destination task
     -------------------------------------------------------------------------*/
     {
-      mb::thread::RecursiveLockGuard receiver_queue_lock( it->second.msgRMutex );
+      size_t start_time = mb::time::millis();
+      bool   timeout    = true;
+      msg.sender        = this_thread::id();
 
-      if( !it->second.msgQueue )
+      while( ( mb::time::millis() - start_time ) < timeout )
       {
-        mbed_assert_continue_msg( false, "Dst task [%d] doesn't accept messages", id );
-        return false;
+        mb::thread::RecursiveLockGuard receiver_queue_lock( it->second.msgRMutex );
+        if( it->second.msgQueue->push( msg ) )
+        {
+          timeout = false;
+          break;
+        }
+
+        mb::thread::this_thread::yield();
       }
 
-      msg.sender = this_thread::id();
-
-      // Switch to a while loop? Maybe wait on the CV with timeout?
-
-      if( !it->second.msgQueue->push( msg ) )
+      if( timeout )
       {
         mbed_assert_continue_msg( false, "Dst task [%d] message queue full", id );
         return false;
       }
+
+      /*-----------------------------------------------------------------------
+      Notify the destination task that a message is available.
+      -----------------------------------------------------------------------*/
+      it->second.msgCV.notify();
     }
 
-
-    return false;
+    return true;
   }
 
   namespace this_thread
   {
     bool awaitMessage( Message &msg, const size_t timeout )
     {
-      // Check for any message in the queue. Only block if the queue is empty.
-      return false;
+      const TaskId id = this_thread::id();
+
+      /*-----------------------------------------------------------------------
+      Find the task control block for the current task
+      -----------------------------------------------------------------------*/
+      mb::thread::LockGuard module_lock( s_module_mutex );
+      auto it = s_tsk_control_blocks->find( id );
+      if( it == s_tsk_control_blocks->end() )
+      {
+        mbed_assert_continue_msg( false, "Task ID not found: %d", id );
+        return false;
+      }
+
+      /*-----------------------------------------------------------------------
+      Ensure the destination task has a message queue
+      -----------------------------------------------------------------------*/
+      if( !it->second.msgQueue )
+      {
+        mbed_assert_continue_msg( false, "Dst task [%d] doesn't accept messages", id );
+        return false;
+      }
+
+      /*-----------------------------------------------------------------------
+      Pull out a single message if one is available, waiting if necessary.
+      -----------------------------------------------------------------------*/
+      {
+        mb::thread::RecursiveLockGuard receiver_queue_lock( it->second.msgRMutex );
+        auto start_time = mb::time::millis();
+
+        while( it->second.msgQueue->empty() )
+        {
+          if( mb::time::millis() - start_time > timeout )
+          {
+            return false;
+          }
+
+          it->second.msgCV.wait( it->second.msgRMutex );
+        }
+
+        if( !it->second.msgQueue->pop( msg ) )
+        {
+          return false;
+        }
+      }
+
+      return true;
     }
 
 
