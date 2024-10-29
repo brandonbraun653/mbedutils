@@ -37,7 +37,7 @@ namespace mb::thread
   using TaskAffinity = int8_t;
   using TaskFunction = void ( * )( void * );
   using TaskName     = etl::string_view;
-  using TaskHandle   = void *;
+  using TaskHandle   = unsigned long;
 
   /*---------------------------------------------------------------------------
   Constants
@@ -188,9 +188,19 @@ namespace mb::thread
     void start();
 
     /**
-     * @brief Sends a kills signal to the thread.
+     * @brief Sends a kills request to the thread.
+     *
+     * This depends on the thread to actually periodically check for the kill
+     * request and terminate itself.
      */
     void kill();
+
+    /**
+     * @brief Mechanism to check if a kill request has been made.
+     *
+     * @return bool
+     */
+    bool killPending();
 
     /**
      * @brief Waits for the thread to terminate.
@@ -228,10 +238,10 @@ namespace mb::thread
   private:
     friend ::mb::thread::Task &&create( const Task::Config &cfg );
 
-    TaskId     taskId;   /**< System identifier for the thread */
-    TaskName   taskName; /**< Name of the thread */
-    TaskHandle taskImpl; /**< Implementation specific handle to the thread */
-    void      *pimpl;    /**< Implementation details */
+    TaskId     mId;     /**< System identifier for the thread */
+    TaskName   mName;   /**< Name of the thread */
+    TaskHandle mHandle; /**< Handle to reference the thread by */
+    void      *pImpl;   /**< Implementation details */
   };
 
   /*---------------------------------------------------------------------------
@@ -276,13 +286,6 @@ namespace mb::thread
   namespace this_thread
   {
     /**
-     * @brief Sets the name of the currently executing thread.
-     *
-     * @param name  Name to be set
-     */
-    void set_name( const char *name );
-
-    /**
      * @brief Get the name of the currently executing thread.
      *
      * @return TaskName
@@ -307,11 +310,6 @@ namespace mb::thread
      * @brief Yields execution to another thread.
      */
     void yield();
-
-    /**
-     * @brief Instructs the scheduler to place this thread in the suspended state.
-     */
-    void suspend();
 
     /**
      *  Gets the system identifier of the current thread

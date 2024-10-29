@@ -12,6 +12,8 @@
 Includes
 -----------------------------------------------------------------------------*/
 #include "mbedutils/drivers/threading/thread.hpp"
+#include "mbedutils/drivers/threading/lock.hpp"
+#include "mbedutils/drivers/threading/message.hpp"
 #include "mbedutils/interfaces/util_intf.hpp"
 #include <mbedutils/threading.hpp>
 #include <mbedutils/interfaces/thread_intf.hpp>
@@ -24,8 +26,8 @@ namespace mb::thread
   Static Data
   ---------------------------------------------------------------------------*/
 
-  static mb::osal::mb_mutex_t      s_module_mutex;
   static Internal::ControlBlockMap s_tsk_control_blocks;
+  static mb::osal::mb_mutex_t      s_module_mutex;
   static size_t                    s_module_ready;
 
   /*---------------------------------------------------------------------------
@@ -83,8 +85,32 @@ namespace mb::thread
     Construct a basic invalid task to return if the creation fails
     -------------------------------------------------------------------------*/
     Task new_task;
-    new_task.taskId   = TASK_ID_INVALID;
-    new_task.taskImpl = nullptr;
+    new_task.mId     = TASK_ID_INVALID;
+    new_task.mHandle = -1;
+
+    /*-------------------------------------------------------------------------
+    Configure the queue if one was provided
+    -------------------------------------------------------------------------*/
+    if( cfg.msg_queue_inst )
+    {
+      /*-----------------------------------------------------------------------
+      Ensure the message queue configuration is valid
+      -----------------------------------------------------------------------*/
+      if( cfg.msg_queue_cfg.pool == nullptr || cfg.msg_queue_cfg.queue == nullptr )
+      {
+        mbed_assert_continue_msg( false, "Invalid message queue configuration" );
+        return etl::move( new_task );
+      }
+
+      /*-----------------------------------------------------------------------
+      Configure the message queue
+      -----------------------------------------------------------------------*/
+      MessageQueue::Config queue_cfg;
+      queue_cfg.pool  = cfg.msg_queue_cfg.pool;
+      queue_cfg.queue = cfg.msg_queue_cfg.queue;
+
+      cfg.msg_queue_inst->configure( queue_cfg );
+    }
 
     /*-------------------------------------------------------------------------
     Attempt to create the task:
@@ -105,22 +131,32 @@ namespace mb::thread
       return etl::move( new_task );
     }
 
-    if( auto handle = mb::thread::intf::create_task( cfg ); handle )
+    if( auto handle = mb::thread::intf::create_task( cfg ); handle >= 0 )
     {
+      /*-----------------------------------------------------------------------
+      Reconfigure the returned task information
+      -----------------------------------------------------------------------*/
+      new_task.mId     = cfg.id;
+      new_task.mHandle = handle;
+      new_task.mName   = cfg.name;
+
+      /*-----------------------------------------------------------------------
+      Create the control block for the task
+      -----------------------------------------------------------------------*/
       Internal::ControlBlock tcb;
 
       tcb.name     = cfg.name;
-      tcb.handle   = new_task.taskImpl;
+      tcb.handle   = handle;
       tcb.priority = cfg.priority;
       tcb.msgQueue = cfg.msg_queue_inst;
 
       s_tsk_control_blocks->insert( { cfg.id, tcb } );
-
-      new_task.taskId   = cfg.id;
-      new_task.taskImpl = handle;
+    }
+    else
+    {
+      mbed_assert_continue_msg( false, "Failed to create task id: %d", cfg.id );
     }
 
-    mbed_assert_continue_msg( new_task.taskImpl, "Failed to create task id: %d", cfg.id );
     return etl::move( new_task );
   }
 
@@ -133,60 +169,58 @@ namespace mb::thread
 
   bool sendMessage( const TaskId id, Message &msg, const size_t timeout )
   {
+    /*-------------------------------------------------------------------------
+    Ensure the destination task ID is valid
+    -------------------------------------------------------------------------*/
+    mb::thread::LockGuard module_lock( s_module_mutex );
+
+    auto it = s_tsk_control_blocks->find( id );
+    if( it == s_tsk_control_blocks->end() )
+    {
+      mbed_assert_continue_msg( false, "Task ID not found: %d", id );
+      return false;
+    }
+
+    /*-------------------------------------------------------------------------
+    Check the receiver's message queue to ensure it can accept the message
+    -------------------------------------------------------------------------*/
+    {
+      mb::thread::RecursiveLockGuard receiver_queue_lock( it->second.msgRMutex );
+
+      if( !it->second.msgQueue )
+      {
+        mbed_assert_continue_msg( false, "Dst task [%d] doesn't accept messages", id );
+        return false;
+      }
+
+      msg.sender = this_thread::id();
+
+      // Switch to a while loop? Maybe wait on the CV with timeout?
+
+      if( !it->second.msgQueue->push( msg ) )
+      {
+        mbed_assert_continue_msg( false, "Dst task [%d] message queue full", id );
+        return false;
+      }
+    }
+
+
     return false;
   }
 
-
   namespace this_thread
   {
-    void set_name( const char *name )
-    {
-    }
-
-
-    TaskName &get_name()
-    {
-      static TaskName name;
-      return name;
-    }
-
-
-    void sleep_for( const size_t timeout )
-    {
-    }
-
-
-    void sleep_until( const size_t wakeup )
-    {
-    }
-
-
-    void yield()
-    {
-    }
-
-
-    void suspend()
-    {
-    }
-
-
-    TaskId id()
-    {
-      return 0;
-    }
-
-
     bool awaitMessage( Message &msg, const size_t timeout )
     {
+      // Check for any message in the queue. Only block if the queue is empty.
       return false;
     }
 
 
     bool awaitMessage( Message &msg, MessagePredicate &predicate, const size_t timeout )
     {
+      // First check the top of the
       return false;
     }
-  }    // namespace this_thread
-
+  }
 }    // namespace mb::thread
