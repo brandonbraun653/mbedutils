@@ -75,6 +75,27 @@ namespace mb::thread
       mb::osal::unlockMutex( mtx );
     }
 
+    bool wait( mb::osal::mb_mutex_t &external_mutex, const size_t timeout )
+    {
+      mbed_dbg_assert( external_mutex != nullptr );
+      mbed_dbg_assert( mtx != nullptr );
+      mbed_dbg_assert( sem != nullptr );
+
+      mb::osal::lockMutex( mtx );
+      waiters = waiters + 1;
+      mb::osal::unlockMutex( mtx );
+
+      mb::osal::unlockMutex( external_mutex );
+      bool result = mb::osal::tryAcquireSmphr( sem, timeout );    // Block until signaled
+      mb::osal::lockMutex( external_mutex );
+
+      mb::osal::lockMutex( mtx );
+      waiters = waiters - 1;
+      mb::osal::unlockMutex( mtx );
+
+      return result;
+    }
+
     /**
      * @brief Wait for the given predicate to occur
      *

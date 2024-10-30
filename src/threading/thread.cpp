@@ -14,6 +14,7 @@ Includes
 #include "mbedutils/drivers/threading/thread.hpp"
 #include "mbedutils/drivers/threading/lock.hpp"
 #include "mbedutils/drivers/threading/message.hpp"
+#include "mbedutils/interfaces/mutex_intf.hpp"
 #include "mbedutils/interfaces/time_intf.hpp"
 #include "mbedutils/interfaces/util_intf.hpp"
 #include <mbedutils/threading.hpp>
@@ -151,6 +152,9 @@ namespace mb::thread
       tcb.priority = cfg.priority;
       tcb.msgQueue = cfg.msg_queue_inst;
 
+      mb::osal::createRecursiveMutex( tcb.msgRMutex );
+      tcb.msgCV.init();
+
       s_tsk_control_blocks->insert( { cfg.id, tcb } );
     }
     else
@@ -173,8 +177,6 @@ namespace mb::thread
     /*-------------------------------------------------------------------------
     Ensure the destination task ID is valid
     -------------------------------------------------------------------------*/
-    mb::thread::LockGuard module_lock( s_module_mutex );
-
     auto it = s_tsk_control_blocks->find( id );
     if( it == s_tsk_control_blocks->end() )
     {
@@ -196,7 +198,7 @@ namespace mb::thread
     -------------------------------------------------------------------------*/
     {
       size_t start_time = mb::time::millis();
-      bool   timeout    = true;
+      bool   expired    = true;
       msg.sender        = this_thread::id();
 
       while( ( mb::time::millis() - start_time ) < timeout )
@@ -204,14 +206,14 @@ namespace mb::thread
         mb::thread::RecursiveLockGuard receiver_queue_lock( it->second.msgRMutex );
         if( it->second.msgQueue->push( msg ) )
         {
-          timeout = false;
+          expired = false;
           break;
         }
 
         mb::thread::this_thread::yield();
       }
 
-      if( timeout )
+      if( expired )
       {
         mbed_assert_continue_msg( false, "Dst task [%d] message queue full", id );
         return false;
@@ -235,7 +237,6 @@ namespace mb::thread
       /*-----------------------------------------------------------------------
       Find the task control block for the current task
       -----------------------------------------------------------------------*/
-      mb::thread::LockGuard module_lock( s_module_mutex );
       auto it = s_tsk_control_blocks->find( id );
       if( it == s_tsk_control_blocks->end() )
       {
@@ -257,16 +258,10 @@ namespace mb::thread
       -----------------------------------------------------------------------*/
       {
         mb::thread::RecursiveLockGuard receiver_queue_lock( it->second.msgRMutex );
-        auto start_time = mb::time::millis();
 
-        while( it->second.msgQueue->empty() )
+        if( it->second.msgQueue->empty() )
         {
-          if( mb::time::millis() - start_time > timeout )
-          {
-            return false;
-          }
-
-          it->second.msgCV.wait( it->second.msgRMutex );
+          it->second.msgCV.wait( it->second.msgRMutex, timeout );
         }
 
         if( !it->second.msgQueue->pop( msg ) )

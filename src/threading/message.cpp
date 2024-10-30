@@ -98,6 +98,7 @@ namespace mb::thread
     -------------------------------------------------------------------------*/
     mPool->clear_successor_chain();
     mQueue->clear();
+    this->initLockable();
   }
 
 
