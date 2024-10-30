@@ -23,229 +23,103 @@ Includes
 namespace mb::thread
 {
   /*---------------------------------------------------------------------------
+  Aliases
+  ---------------------------------------------------------------------------*/
+
+  using cv_predicate = etl::delegate<bool(void)>;
+
+  /*---------------------------------------------------------------------------
+  Enumerations
+  ---------------------------------------------------------------------------*/
+
+  enum class cv_status
+  {
+    timeout,
+    no_timeout
+  };
+
+  /*---------------------------------------------------------------------------
   Classes
   ---------------------------------------------------------------------------*/
 
   /**
    * @brief Standard condition variable implementation.
+   * @see https://en.cppreference.com/w/cpp/thread/condition_variable
+   *
+   * This class is a wrapper around the mbed OSAL mutex and semaphore
+   * primitives. It provides a way to synchronize threads based on a
+   * condition predicate, similar to the C++ standard library. The main
+   * difference is that this implementation is not as feature rich and
+   * is geared towards an embedded MCU RTOS environment.
    */
   class ConditionVariable
   {
-  private:
-    volatile uint32_t    waiters;
-    mb::osal::mb_mutex_t mtx;
-    mb::osal::mb_smphr_t sem;
-
   public:
-    ConditionVariable() : waiters( 0 ), mtx( nullptr ), sem( nullptr )
-    {
-    }
+    ConditionVariable();
 
     /**
      * @brief Acquire condition variable resources.
+     *
+     * This must be called before using the condition variable. It will
+     * allocate the necessary resources for the condition variable to
+     * function properly.
      */
-    void init()
-    {
-      mbed_assert( mb::osal::buildMutexStrategy( mtx ) );
-      mbed_assert( mb::osal::buildSmphrStrategy( sem, 1, 1 ) );
-      waiters = 0;
-    }
+    void init();
 
     /**
      * @brief Wait for the condition variable to be signaled.
      *
-     * @param external_mutex Mutex to synchronize with
+     * @param mtx Mutex to synchronize with
      */
-    void wait( mb::osal::mb_mutex_t &external_mutex )
-    {
-      mbed_dbg_assert( external_mutex != nullptr );
-      mbed_dbg_assert( mtx != nullptr );
-      mbed_dbg_assert( sem != nullptr );
-
-      mb::osal::lockMutex( mtx );
-      waiters = waiters + 1;
-      mb::osal::unlockMutex( mtx );
-
-      mb::osal::unlockMutex( external_mutex );
-      mb::osal::acquireSmphr( sem );    // Block until signaled
-      mb::osal::lockMutex( external_mutex );
-
-      mb::osal::lockMutex( mtx );
-      waiters = waiters - 1;
-      mb::osal::unlockMutex( mtx );
-    }
-
-    bool wait( mb::osal::mb_mutex_t &external_mutex, const size_t timeout )
-    {
-      mbed_dbg_assert( external_mutex != nullptr );
-      mbed_dbg_assert( mtx != nullptr );
-      mbed_dbg_assert( sem != nullptr );
-
-      mb::osal::lockMutex( mtx );
-      waiters = waiters + 1;
-      mb::osal::unlockMutex( mtx );
-
-      mb::osal::unlockMutex( external_mutex );
-      bool result = mb::osal::tryAcquireSmphr( sem, timeout );    // Block until signaled
-      mb::osal::lockMutex( external_mutex );
-
-      mb::osal::lockMutex( mtx );
-      waiters = waiters - 1;
-      mb::osal::unlockMutex( mtx );
-
-      return result;
-    }
+    void wait( mb::osal::mb_mutex_t &mtx );
 
     /**
      * @brief Wait for the given predicate to occur
      *
-     * @param external_mutex  Mutex to synchronize with
-     * @param predicate       Condition to look for
+     * @param mtx  Mutex to synchronize with
+     * @param pred Condition to look for
      */
-    void wait( mb::osal::mb_mutex_t &external_mutex, const etl::delegate<bool( void )> &predicate )
-    {
-      mbed_dbg_assert( external_mutex != nullptr );
-      mbed_dbg_assert( mtx != nullptr );
-      mbed_dbg_assert( sem != nullptr );
-
-      while( !predicate() )
-      {
-        mb::osal::lockMutex( mtx );
-        waiters = waiters + 1;
-        mb::osal::unlockMutex( mtx );
-
-        mb::osal::unlockMutex( external_mutex );
-        mb::osal::acquireSmphr( sem ); // Block until signaled
-        mb::osal::lockMutex( external_mutex );
-
-        mb::osal::lockMutex( mtx );
-        waiters = waiters - 1;
-        mb::osal::unlockMutex( mtx );
-      }
-    }
-
-    void notify()
-    {
-      mbed_dbg_assert( mtx != nullptr );
-      mbed_dbg_assert( sem != nullptr );
-
-      mb::osal::lockMutex( mtx );
-      if( waiters > 0 )
-      {
-        mb::osal::releaseSmphr( sem );
-      }
-      mb::osal::unlockMutex( mtx );
-    }
-
-    void notifyAll()
-    {
-      mbed_dbg_assert( mtx != nullptr );
-      mbed_dbg_assert( sem != nullptr );
-
-      mb::osal::lockMutex( mtx );
-      for( uint32_t i = 0; i < waiters; ++i )
-      {
-        mb::osal::releaseSmphr( sem );
-      }
-      mb::osal::unlockMutex( mtx );
-    }
-  };
-
-
-  /**
-   * @brief Condition variable class with integrated shared mutex.
-   */
-  class ConditionVariableMutex
-  {
-  private:
-    volatile uint32_t waiters;
-    mb::osal::mb_mutex_t mtx;
-    mb::osal::mb_smphr_t sem;
-    mb::osal::mb_mutex_t shared_mutex;
-
-  public:
-    ConditionVariableMutex() : waiters( 0 ), mtx( nullptr ), sem( nullptr ), shared_mutex( nullptr )
-    {
-    }
+    void wait( mb::osal::mb_mutex_t &mtx, const cv_predicate &pred );
 
     /**
-     * @brief Acquire condition variable resources.
+     * @brief Waits a number of milliseconds to be signaled.
+     *
+     * @param mtx Mutex to synchronize with
+     * @param timeout Number of milliseconds to wait
+     * @return cv_status
      */
-    void init()
-    {
-      mbed_assert( mb::osal::buildMutexStrategy( shared_mutex ) );
-      mbed_assert( mb::osal::buildMutexStrategy( mtx ) );
-      mbed_assert( mb::osal::buildSmphrStrategy( sem, 1, 1 ) );
-      waiters = 0;
-    }
+    cv_status wait_for( mb::osal::mb_mutex_t &mtx, const size_t timeout );
 
-    void wait( const std::function<bool()> &predicate )
-    {
-      mbed_dbg_assert( mtx != nullptr );
-      mbed_dbg_assert( sem != nullptr );
-      mbed_dbg_assert( shared_mutex != nullptr );
+    /**
+     * @brief Waits for the predicate to become true or a timeout to occur
+     *
+     * @param mtx Mutex to synchronize with
+     * @param timeout Number of milliseconds to wait
+     * @param pred Condition to look for
+     * @return Status of the predicate upon exiting
+     */
+    bool wait_for( mb::osal::mb_mutex_t &mtx, const size_t timeout, const cv_predicate &pred );
 
-      while( !predicate() )
-      {
-        mb::osal::lockMutex( mtx );
-        waiters = waiters + 1;
-        mb::osal::unlockMutex( mtx );
+    /**
+     * @brief Notifies a single waiting thread
+     */
+    void notify_one();
 
-        mb::osal::unlockMutex( shared_mutex );
-        mb::osal::acquireSmphr( sem );    // Block until signaled
-        mb::osal::lockMutex( shared_mutex );
+    /**
+     * @brief Notifies all waiting threads
+     */
+    void notify_all();
 
-        mb::osal::lockMutex( mtx );
-        waiters = waiters - 1;
-        mb::osal::unlockMutex( mtx );
-      }
-    }
+  private:
+    int                  _cv_waiters;
+    mb::osal::mb_mutex_t _cv_mtx;
+    mb::osal::mb_smphr_t _cv_smphr_signal;
+    size_t               _cv_initialized;
 
-    void notify()
-    {
-      mbed_dbg_assert( mtx != nullptr );
-      mbed_dbg_assert( sem != nullptr );
-
-      mb::osal::lockMutex( mtx );
-      if( waiters > 0 )
-      {
-        mb::osal::releaseSmphr( sem );
-      }
-      mb::osal::unlockMutex( mtx );
-    }
-
-    void notifyAll()
-    {
-      mbed_dbg_assert( mtx != nullptr );
-      mbed_dbg_assert( sem != nullptr );
-
-      mb::osal::lockMutex( mtx );
-      for( uint32_t i = 0; i < waiters; ++i )
-      {
-        mb::osal::releaseSmphr( sem );
-      }
-      mb::osal::unlockMutex( mtx );
-    }
-
-    void lock()
-    {
-      mb::osal::lockMutex( shared_mutex );
-    }
-
-    void unlock()
-    {
-      mb::osal::unlockMutex( shared_mutex );
-    }
-
-    // Helper method to perform an action while holding the lock
-    template<typename Func>
-    void withLock( Func action )
-    {
-      lock();
-      action();
-      unlock();
-    }
+    void increment_waiters();
+    void decrement_waiters();
   };
+
 }    // namespace mb::thread
 
 #endif /* !MBEDUTILS_CONDITION_VARIABLE_HPP */

@@ -222,7 +222,7 @@ namespace mb::thread
       /*-----------------------------------------------------------------------
       Notify the destination task that a message is available.
       -----------------------------------------------------------------------*/
-      it->second.msgCV.notify();
+      it->second.msgCV.notify_one();
     }
 
     return true;
@@ -261,7 +261,7 @@ namespace mb::thread
 
         if( it->second.msgQueue->empty() )
         {
-          it->second.msgCV.wait( it->second.msgRMutex, timeout );
+          it->second.msgCV.wait_for( it->second.msgRMutex, timeout );
         }
 
         if( !it->second.msgQueue->pop( msg ) )
