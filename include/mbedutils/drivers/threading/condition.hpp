@@ -67,6 +67,11 @@ namespace mb::thread
     void init();
 
     /**
+     * @brief Release condition variable resources.
+     */
+    void deinit();
+
+    /**
      * @brief Wait for the condition variable to be signaled.
      *
      * @param mtx Mutex to synchronize with

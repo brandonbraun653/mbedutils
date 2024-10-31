@@ -3,7 +3,12 @@
  *    thread.cpp
  *
  *  Description:
- *    System level threading management functions
+ *    System level threading management functions. This was designed with an
+ *    embedded RTOS in mind, which usually doesn't dynamically create/destroy
+ *    multiple threads within a single power cycle. The design is simple and
+ *    expects threads to be set up once, then run indefinitely. If this does
+ *    not match your use case, you may need to modify the implementation to
+ *    protect access to the control block map.
  *
  *  2024 | Brandon Braun | brandonbraun653@protonmail.com
  *****************************************************************************/
@@ -276,8 +281,65 @@ namespace mb::thread
 
     bool awaitMessage( Message &msg, MessagePredicate &predicate, const size_t timeout )
     {
-      // First check the top of the
-      return false;
+      const TaskId id = this_thread::id();
+
+      /*-----------------------------------------------------------------------
+      Find the task control block for the current task
+      -----------------------------------------------------------------------*/
+      auto it = s_tsk_control_blocks->find( id );
+      if( it == s_tsk_control_blocks->end() )
+      {
+        mbed_assert_continue_msg( false, "Task ID not found: %d", id );
+        return false;
+      }
+
+      /*-----------------------------------------------------------------------
+      Ensure the destination task has a message queue
+      -----------------------------------------------------------------------*/
+      if( !it->second.msgQueue )
+      {
+        mbed_assert_continue_msg( false, "Dst task [%d] doesn't accept messages", id );
+        return false;
+      }
+
+      /*-----------------------------------------------------------------------
+      Keep checking for messages until the predicate is satisfied or a timeout
+      is reached.
+      -----------------------------------------------------------------------*/
+      {
+        mb::thread::RecursiveLockGuard receiver_queue_lock( it->second.msgRMutex );
+
+        size_t start_time = mb::time::millis();
+        bool   expired    = true;
+
+        while( ( mb::time::millis() - start_time ) < timeout )
+        {
+          /*-------------------------------------------------------------------
+          Wait for a message to arrive
+          -------------------------------------------------------------------*/
+          if( it->second.msgQueue->empty() )
+          {
+            it->second.msgCV.wait_for( it->second.msgRMutex, timeout );
+          }
+
+          /*-------------------------------------------------------------------
+          Check if the message is the one we're looking for
+          -------------------------------------------------------------------*/
+          if( it->second.msgQueue->peek( msg ) && predicate( msg ) )
+          {
+            it->second.msgQueue->pop( msg );
+            expired = false;
+            break;
+          }
+        }
+
+        if( expired )
+        {
+          return false;
+        }
+      }
+
+      return true;
     }
   }
 }    // namespace mb::thread

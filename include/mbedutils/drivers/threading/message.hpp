@@ -33,11 +33,16 @@ Includes
 namespace mb::thread
 {
   /*---------------------------------------------------------------------------
+  Forward Declarations
+  ---------------------------------------------------------------------------*/
+  struct Message;
+
+  /*---------------------------------------------------------------------------
   Aliases
   ---------------------------------------------------------------------------*/
 
   using MessageId        = size_t;
-  using MessagePredicate = etl::delegate<bool( void * )>;
+  using MessagePredicate = etl::delegate<bool( const Message &msg )>;
   using MessagePriority  = uint32_t;
 
   /*---------------------------------------------------------------------------

@@ -45,6 +45,23 @@ namespace mb::thread
   }
 
 
+  void ConditionVariable::deinit()
+  {
+    if( _cv_initialized != DRIVER_INITIALIZED_KEY )
+    {
+      return;
+    }
+
+    /*-------------------------------------------------------------------------
+    Ensure the resources are deallocated.
+    -------------------------------------------------------------------------*/
+    mb::osal::destroyMutex( _cv_mtx );
+    mb::osal::destroySmphr( _cv_smphr_signal );
+    _cv_waiters     = 0;
+    _cv_initialized = ~DRIVER_INITIALIZED_KEY;
+  }
+
+
   void ConditionVariable::wait( mb::osal::mb_mutex_t &mtx )
   {
     mbed_dbg_assert( mtx != nullptr );
@@ -89,13 +106,14 @@ namespace mb::thread
     increment_waiters();
 
     mb::osal::unlockMutex( mtx );
-    bool timed_out = mb::osal::tryAcquireSmphr( _cv_smphr_signal, timeout );    // Block until signaled
+    bool timed_out = !mb::osal::tryAcquireSmphr( _cv_smphr_signal, timeout );    // Block until signaled
     mb::osal::lockMutex( mtx );
 
     decrement_waiters();
 
     return timed_out ? cv_status::timeout : cv_status::no_timeout;
   }
+
 
   bool ConditionVariable::wait_for( mb::osal::mb_mutex_t &mtx, const size_t timeout, const cv_predicate &pred )
   {
@@ -105,22 +123,30 @@ namespace mb::thread
 
     increment_waiters();
 
-    while( !pred() )
+    bool last_predicate_result = false;
+    while( !last_predicate_result )
     {
+      last_predicate_result = pred();
+      if( last_predicate_result )
+      {
+        break;
+      }
+
       mb::osal::unlockMutex( mtx );
-      bool timed_out = mb::osal::tryAcquireSmphr( _cv_smphr_signal, timeout );    // Block until signaled
+      bool timed_out = !mb::osal::tryAcquireSmphr( _cv_smphr_signal, timeout );    // Block until signaled
       mb::osal::lockMutex( mtx );
 
       if( timed_out )
       {
         decrement_waiters();
-        return false;
+        return last_predicate_result;
       }
     }
 
     decrement_waiters();
-    return true;
+    return last_predicate_result;
   }
+
 
   void ConditionVariable::notify_one()
   {
