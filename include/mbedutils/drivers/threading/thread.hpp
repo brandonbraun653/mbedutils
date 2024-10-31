@@ -150,7 +150,7 @@ namespace mb::thread
       TaskFunction         func;           /**< Function to run as the task*/
       TaskPriority         priority;       /**< System thread priority. Lower == more importance */
       TaskAffinity         affinity;       /**< (Optional) Core affinity bitmask (multi-core only) */
-      uint32_t            *stack_buf;      /**< (Optional) Statically allocated stack */
+      size_t              *stack_buf;      /**< (Optional) Statically allocated stack */
       uint32_t             stack_size;     /**< (Optional) Element count of stack buffer */
       void                *user_data;      /**< (Optional) User data to pass to the thread */
       MessageQueue        *msg_queue_inst; /**< (Optional) Message queue instance */
