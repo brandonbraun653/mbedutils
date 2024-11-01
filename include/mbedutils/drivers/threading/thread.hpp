@@ -36,7 +36,7 @@ namespace mb::thread
   using TaskPriority = uint8_t;
   using TaskAffinity = int8_t;
   using TaskFunction = void ( * )( void * );
-  using TaskName     = etl::string_view;
+  using TaskName     = etl::string<32>;
   using TaskHandle   = unsigned long;
 
   /*---------------------------------------------------------------------------
@@ -129,8 +129,8 @@ namespace mb::thread
     struct Storage
     {
       // Place stack first to ensure alignment
-      static_assert( StackSize % sizeof( uint32_t ) == 0, "Stack must be word aligned" );
-      uint32_t stack[ StackSize / sizeof( uint32_t ) ];
+      static_assert( StackSize % sizeof( size_t ) == 0, "Stack must be word aligned" );
+      size_t stack[ StackSize / sizeof( size_t ) ];
 
       etl::string<32> name;
       MessageQueue msg_queue;
@@ -236,7 +236,7 @@ namespace mb::thread
     TaskHandle implementation() const;
 
   private:
-    friend ::mb::thread::Task &&create( const Task::Config &cfg );
+    friend ::mb::thread::Task &&create( Task::Config &cfg );
 
     TaskId     mId;     /**< System identifier for the thread */
     TaskName   mName;   /**< Name of the thread */
@@ -266,7 +266,7 @@ namespace mb::thread
    * @param cfg Configuration to use
    * @return bool
    */
-  Task &&create( const Task::Config &cfg );
+  Task &&create( Task::Config &cfg );
 
   /**
    * @brief Begins the scheduler for multi-threading.
@@ -290,7 +290,7 @@ namespace mb::thread
      *
      * @return TaskName
      */
-    TaskName &get_name();
+    TaskName get_name();
 
     /**
      * @brief Sleeps the current thread for a number of milliseconds.

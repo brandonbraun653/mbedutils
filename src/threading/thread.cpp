@@ -77,7 +77,7 @@ namespace mb::thread
   }
 
 
-  Task &&create( const Task::Config &cfg )
+  Task &&create( Task::Config &cfg )
   {
     /*-------------------------------------------------------------------------
     Input Protection
