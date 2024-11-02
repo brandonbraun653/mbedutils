@@ -83,6 +83,16 @@ namespace mb::thread
       ConditionVariable    msgCV;    /**< Condition variable for the message queue */
       mb::osal::mb_mutex_t msgMutex; /**< Mutex for the message queue */
       MessagePredicate     msgPred;  /**< Pending predicate for message filtering */
+
+      void reset()
+      {
+        name.clear();
+        id       = TASK_ID_INVALID;
+        priority = 0;
+        msgQueue = nullptr;
+        msgMutex = nullptr;
+        msgPred  = {};
+      }
     };
 
     /**

@@ -152,9 +152,10 @@ namespace mb::thread
       Create the control block for the task
       -----------------------------------------------------------------------*/
       Internal::ControlBlock tcb;
+      tcb.reset();
 
       tcb.name     = cfg.name;
-      tcb.id   = handle;
+      tcb.id       = handle;
       tcb.priority = cfg.priority;
       tcb.msgQueue = cfg.msg_queue_inst;
 
