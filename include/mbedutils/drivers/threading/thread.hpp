@@ -176,6 +176,7 @@ namespace mb::thread
     ~Task();
 
     // Move assignment operator
+    Task( Task &&other ) noexcept;
     Task &operator=( Task &&other ) noexcept;
 
     // Disallow copying
@@ -219,28 +220,28 @@ namespace mb::thread
      *
      * @return TaskId
      */
-    TaskId id() const;
+    mb::thread::TaskId id() const;
 
     /**
      * @brief Get the name of the thread.
      *
      * @return TaskName
      */
-    TaskName name() const;
+    mb::thread::TaskName name() const;
 
     /**
      * @brief Underlying implementation details.
      *
      * @return TaskHandle
      */
-    TaskHandle implementation() const;
+    mb::thread::TaskHandle implementation() const;
 
   private:
-    friend ::mb::thread::Task &&create( Task::Config &cfg );
+    friend ::mb::thread::Task &&create( mb::thread::Task::Config &cfg );
 
-    TaskId     mId;     /**< System identifier for the thread */
-    TaskName   mName;   /**< Name of the thread */
-    TaskHandle mHandle; /**< Handle to reference the thread by */
+    mb::thread::TaskId     mId;     /**< System identifier for the thread */
+    mb::thread::TaskName   mName;   /**< Name of the thread */
+    mb::thread::TaskHandle mHandle; /**< Handle to reference the thread by */
     void      *pImpl;   /**< Implementation details */
   };
 
@@ -266,7 +267,7 @@ namespace mb::thread
    * @param cfg Configuration to use
    * @return bool
    */
-  Task &&create( Task::Config &cfg );
+  mb::thread::Task &&create( mb::thread::Task::Config &cfg );
 
   /**
    * @brief Begins the scheduler for multi-threading.
@@ -281,7 +282,7 @@ namespace mb::thread
    * @param timeout How long to wait for the message to be sent (ms)
    * @return bool  True if the message was sent, false if it timed out or receiving queue was full
    */
-  bool sendMessage( const TaskId id, Message &msg, const size_t timeout );
+  bool sendMessage( const mb::thread::TaskId id, mb::thread::Message &msg, const size_t timeout );
 
   namespace this_thread
   {
@@ -315,7 +316,7 @@ namespace mb::thread
      *  Gets the system identifier of the current thread
      *  @return TaskId
      */
-    TaskId id();
+    mb::thread::TaskId id();
 
     /**
      * @brief Wait for any message to be sent to this thread.
@@ -324,7 +325,7 @@ namespace mb::thread
      * @param timeout How long to wait in milliseconds
      * @return True if the message was received, false if it timed out
      */
-    bool awaitMessage( Message &msg, const size_t timeout );
+    bool awaitMessage( mb::thread::Message &msg, const size_t timeout );
 
     /**
      * @brief Wait for a specific message to be sent to this thread.
@@ -334,7 +335,7 @@ namespace mb::thread
      * @param timeout   How long to wait in milliseconds
      * @return True if the message was received, false if it timed out
      */
-    bool awaitMessage( Message &msg, MessagePredicate &predicate, const size_t timeout );
+    bool awaitMessage( mb::thread::Message &msg, mb::thread::MessagePredicate &predicate, const size_t timeout );
 
   }    // namespace this_thread
 }    // namespace mb::thread

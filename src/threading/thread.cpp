@@ -79,12 +79,13 @@ namespace mb::thread
 
   Task &&create( Task::Config &cfg )
   {
+    static Task empty_task;
+
     /*-------------------------------------------------------------------------
     Input Protection
     -------------------------------------------------------------------------*/
     if( s_module_ready != DRIVER_INITIALIZED_KEY )
     {
-      Task empty_task;
       return etl::move( empty_task );
     }
 
