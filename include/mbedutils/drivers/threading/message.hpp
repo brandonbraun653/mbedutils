@@ -9,7 +9,6 @@
  *****************************************************************************/
 
 #pragma once
-#include <limits>
 #ifndef MBEDUTILS_THREADING_MESSAGE_HPP
 #define MBEDUTILS_THREADING_MESSAGE_HPP
 

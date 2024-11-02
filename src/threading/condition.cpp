@@ -169,7 +169,7 @@ namespace mb::thread
     mbed_dbg_assert( _cv_smphr_signal != nullptr );
 
     mb::osal::lockMutex( _cv_mtx );
-    for( uint32_t i = 0; i < _cv_waiters; ++i )
+    for( int i = 0; i < _cv_waiters; ++i )
     {
       mb::osal::releaseSmphr( _cv_smphr_signal );
     }
