@@ -183,6 +183,21 @@ namespace mb::osal
   }
 
   /**
+   * @brief Destroys a recursive mutex object based on the configuration settings.
+   *
+   * @param mutex Recursive mutex to destroy
+   */
+  static inline void destroyRecursiveMutexStrategy( mb::osal::mb_recursive_mutex_t &mutex )
+  {
+  #if MBEDUTILS_OSAL_USE_DYNAMIC_ALLOCATION
+    destroyRecursiveMutex( mutex );
+  #else
+    static_assert( MBEDUTILS_OSAL_RECURSIVE_MUTEX_POOL_SIZE > 0, "Recursive Mutex pool size must be greater than 0" );
+    deallocateRecursiveMutex( mutex );
+  #endif
+  }
+
+  /**
    * @brief Locks the recursive mutex
    *
    * @param mutex The recursive mutex to lock

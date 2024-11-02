@@ -11,6 +11,7 @@
 /*-----------------------------------------------------------------------------
 Includes
 -----------------------------------------------------------------------------*/
+#include "mbedutils/interfaces/smphr_intf.hpp"
 #include "mbedutils/interfaces/util_intf.hpp"
 #include <etl/algorithm.h>
 #include <mbedutils/threading.hpp>
@@ -39,7 +40,7 @@ namespace mb::thread
     we can do.
     -------------------------------------------------------------------------*/
     mbed_assert( mb::osal::buildMutexStrategy( _cv_mtx ) );
-    mbed_assert( mb::osal::buildSmphrStrategy( _cv_smphr_signal, 1, 0 ) );
+    mbed_assert( mb::osal::buildSmphrStrategy( _cv_smphr_signal, 1000, 0 ) );
     _cv_waiters     = 0;
     _cv_initialized = DRIVER_INITIALIZED_KEY;
   }
@@ -55,8 +56,8 @@ namespace mb::thread
     /*-------------------------------------------------------------------------
     Ensure the resources are deallocated.
     -------------------------------------------------------------------------*/
-    mb::osal::destroyMutex( _cv_mtx );
-    mb::osal::destroySmphr( _cv_smphr_signal );
+    mb::osal::destroyMutexStrategy( _cv_mtx );
+    mb::osal::destroySmphrStrategy( _cv_smphr_signal );
     _cv_waiters     = 0;
     _cv_initialized = ~DRIVER_INITIALIZED_KEY;
   }

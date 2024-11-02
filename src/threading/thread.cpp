@@ -158,7 +158,7 @@ namespace mb::thread
       tcb.priority = cfg.priority;
       tcb.msgQueue = cfg.msg_queue_inst;
 
-      mb::osal::createRecursiveMutex( tcb.msgRMutex );
+      mb::osal::buildRecursiveMutexStrategy( tcb.msgRMutex );
       tcb.msgCV.init();
 
       s_tsk_control_blocks->insert( { cfg.id, tcb } );
@@ -169,6 +169,49 @@ namespace mb::thread
     }
 
     return etl::move( new_task );
+  }
+
+
+  void destroy( Task *task )
+  {
+    /*-------------------------------------------------------------------------
+    Input Protection
+    -------------------------------------------------------------------------*/
+    if( !task || ( s_module_ready != DRIVER_INITIALIZED_KEY ) )
+    {
+      return;
+    }
+
+    LockGuard lock( s_module_mutex );
+
+    /*-------------------------------------------------------------------------
+    Ensure the task ID is valid
+    -------------------------------------------------------------------------*/
+    auto it = s_tsk_control_blocks->find( task->id() );
+    if( it == s_tsk_control_blocks->end() )
+    {
+      return;
+    }
+
+    /*-------------------------------------------------------------------------
+    Destroy the task control block
+    -------------------------------------------------------------------------*/
+    mb::osal::destroyRecursiveMutexStrategy( it->second.msgRMutex );
+    it->second.msgCV.deinit();
+    s_tsk_control_blocks->erase( it );
+
+    /*-------------------------------------------------------------------------
+    Destroy the task in the underlying implementation
+    -------------------------------------------------------------------------*/
+    mb::thread::intf::destroy_task( task->mHandle );
+
+    /*-------------------------------------------------------------------------
+    Reset the task object
+    -------------------------------------------------------------------------*/
+    task->mId     = TASK_ID_INVALID;
+    task->mHandle = TASK_ID_INVALID;
+    task->pImpl   = nullptr;
+    task->mName.clear();
   }
 
 

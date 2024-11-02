@@ -106,7 +106,7 @@ namespace mb::thread
     {
       ControlBlockMap tsk_control_blocks; /**< Control structures for each thread */
     };
-  }
+  }    // namespace Internal
 
   /*---------------------------------------------------------------------------
   Classes
@@ -132,8 +132,8 @@ namespace mb::thread
       static_assert( StackSize % sizeof( size_t ) == 0, "Stack must be word aligned" );
       size_t stack[ StackSize / sizeof( size_t ) ];
 
-      etl::string<32> name;
-      MessageQueue msg_queue;
+      etl::string<32>                                  name;
+      MessageQueue                                     msg_queue;
       MessageQueue::Storage<TaskMsgType, TaskMsgDepth> msg_queue_storage;
     };
 
@@ -155,6 +155,7 @@ namespace mb::thread
       void                *user_data;      /**< (Optional) User data to pass to the thread */
       MessageQueue        *msg_queue_inst; /**< (Optional) Message queue instance */
       MessageQueue::Config msg_queue_cfg;  /**< (Optional) Configuration for the message queue */
+      bool                 block_on_start; /**< (Optional) Block the thread until start is called */
 
       void reset()
       {
@@ -169,9 +170,11 @@ namespace mb::thread
         msg_queue_inst      = nullptr;
         msg_queue_cfg.pool  = nullptr;
         msg_queue_cfg.queue = nullptr;
+        block_on_start      = true;
       }
     };
 
+    // Ctor/Dtor
     Task() noexcept;
     ~Task();
 
@@ -216,7 +219,7 @@ namespace mb::thread
     bool joinable();
 
     /**
-     * @brief Get the system identifier for the thread.
+     * @brief Get the mbedutils system identifier for the thread.
      *
      * @return TaskId
      */
@@ -229,20 +232,14 @@ namespace mb::thread
      */
     mb::thread::TaskName name() const;
 
-    /**
-     * @brief Underlying implementation details.
-     *
-     * @return TaskHandle
-     */
-    mb::thread::TaskHandle implementation() const;
-
   private:
     friend ::mb::thread::Task &&create( mb::thread::Task::Config &cfg );
+    friend void destroy( mb::thread::Task *task );
 
     mb::thread::TaskId     mId;     /**< System identifier for the thread */
     mb::thread::TaskName   mName;   /**< Name of the thread */
     mb::thread::TaskHandle mHandle; /**< Handle to reference the thread by */
-    void      *pImpl;   /**< Implementation details */
+    void                  *pImpl;   /**< Implementation details */
   };
 
   /*---------------------------------------------------------------------------
@@ -265,9 +262,19 @@ namespace mb::thread
    * @brief Create a new task
    *
    * @param cfg Configuration to use
-   * @return bool
+   * @return Newly created task
    */
   mb::thread::Task &&create( mb::thread::Task::Config &cfg );
+
+  /**
+   * @brief Destroy a previously created task.
+   *
+   * Don't call this manually unless you know what you're doing. Normal task destruction
+   * control flow should be performed through the Task::join() method.
+   *
+   * @param task Which task to destroy
+   */
+  void destroy( mb::thread::Task *task );
 
   /**
    * @brief Begins the scheduler for multi-threading.
