@@ -154,11 +154,11 @@ namespace mb::thread
       Internal::ControlBlock tcb;
 
       tcb.name     = cfg.name;
-      tcb.handle   = handle;
+      tcb.id   = handle;
       tcb.priority = cfg.priority;
       tcb.msgQueue = cfg.msg_queue_inst;
 
-      mb::osal::buildRecursiveMutexStrategy( tcb.msgRMutex );
+      mb::osal::buildMutexStrategy( tcb.msgMutex );
       tcb.msgCV.init();
 
       s_tsk_control_blocks->insert( { cfg.id, tcb } );
@@ -196,7 +196,7 @@ namespace mb::thread
     /*-------------------------------------------------------------------------
     Destroy the task control block
     -------------------------------------------------------------------------*/
-    mb::osal::destroyRecursiveMutexStrategy( it->second.msgRMutex );
+    mb::osal::destroyMutexStrategy( it->second.msgMutex );
     it->second.msgCV.deinit();
     s_tsk_control_blocks->erase( it );
 
@@ -252,7 +252,7 @@ namespace mb::thread
 
       while( ( mb::time::millis() - start_time ) < timeout )
       {
-        mb::thread::RecursiveLockGuard receiver_queue_lock( it->second.msgRMutex );
+        mb::thread::LockGuard receiver_queue_lock( it->second.msgMutex );
         if( it->second.msgQueue->push( msg ) )
         {
           expired = false;
@@ -306,11 +306,11 @@ namespace mb::thread
       Pull out a single message if one is available, waiting if necessary.
       -----------------------------------------------------------------------*/
       {
-        mb::thread::RecursiveLockGuard receiver_queue_lock( it->second.msgRMutex );
+        mb::thread::LockGuard receiver_queue_lock( it->second.msgMutex );
 
         if( it->second.msgQueue->empty() )
         {
-          it->second.msgCV.wait_for( it->second.msgRMutex, timeout );
+          it->second.msgCV.wait_for( it->second.msgMutex, timeout );
         }
 
         if( !it->second.msgQueue->pop( msg ) )
@@ -351,7 +351,7 @@ namespace mb::thread
       is reached.
       -----------------------------------------------------------------------*/
       {
-        mb::thread::RecursiveLockGuard receiver_queue_lock( it->second.msgRMutex );
+        mb::thread::RecursiveLockGuard receiver_queue_lock( it->second.msgMutex );
 
         size_t start_time = mb::time::millis();
         bool   expired    = true;
@@ -363,7 +363,7 @@ namespace mb::thread
           -------------------------------------------------------------------*/
           if( it->second.msgQueue->empty() )
           {
-            it->second.msgCV.wait_for( it->second.msgRMutex, timeout );
+            it->second.msgCV.wait_for( it->second.msgMutex, timeout );
           }
 
           /*-------------------------------------------------------------------

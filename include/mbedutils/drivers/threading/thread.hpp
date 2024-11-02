@@ -76,13 +76,13 @@ namespace mb::thread
      */
     struct ControlBlock
     {
-      TaskName                       name;      /**< Name of the thread */
-      TaskId                     handle;    /**< Implementation specific handle to the task */
-      TaskPriority                   priority;  /**< System thread priority. Lower == more importance */
-      MessageQueue                  *msgQueue;  /**< Storage for queueing task messages */
-      ConditionVariable              msgCV;     /**< Condition variable for the message queue */
-      mb::osal::mb_recursive_mutex_t msgRMutex; /**< Mutex for the message queue */
-      MessagePredicate               msgPred;   /**< Pending predicate for message filtering */
+      TaskName             name;     /**< Name of the thread */
+      TaskId               id;       /**< Implementation specific handle to the task */
+      TaskPriority         priority; /**< System thread priority. Lower == more importance */
+      MessageQueue        *msgQueue; /**< Storage for queueing task messages */
+      ConditionVariable    msgCV;    /**< Condition variable for the message queue */
+      mb::osal::mb_mutex_t msgMutex; /**< Mutex for the message queue */
+      MessagePredicate     msgPred;  /**< Pending predicate for message filtering */
     };
 
     /**
@@ -233,12 +233,12 @@ namespace mb::thread
 
   private:
     friend ::mb::thread::Task &&create( mb::thread::Task::Config &cfg );
-    friend void destroy( mb::thread::Task *task );
+    friend void                 destroy( mb::thread::Task *task );
 
-    mb::thread::TaskId     mId;     /**< System identifier for the thread */
-    mb::thread::TaskName   mName;   /**< Name of the thread */
-    mb::thread::TaskId mHandle; /**< Handle to reference the thread by */
-    void                  *pImpl;   /**< Implementation details */
+    mb::thread::TaskId   mId;     /**< System identifier for the thread */
+    mb::thread::TaskName mName;   /**< Name of the thread */
+    mb::thread::TaskId   mHandle; /**< Handle to reference the thread by */
+    void                *pImpl;   /**< Implementation details */
   };
 
   /*---------------------------------------------------------------------------
