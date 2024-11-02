@@ -41,16 +41,16 @@ namespace mb::thread::intf
    * @brief Creates a new task with the specified configuration.
    *
    * @param cfg Configuration settings for the task
-   * @return TaskHandle Handle to the created task
+   * @return TaskId Handle to the created task
    */
-  mb::thread::TaskHandle create_task( mb::thread::Task::Config &cfg );
+  mb::thread::TaskId create_task( mb::thread::Task::Config &cfg );
 
   /**
    * @brief Destroys the specified task.
    *
    * @param task Handle to the task to be destroyed
    */
-  void destroy_task( mb::thread::TaskHandle task );
+  void destroy_task( mb::thread::TaskId task );
 
   /**
    * @brief Sets the CPU core affinity for the specified task.
@@ -58,7 +58,7 @@ namespace mb::thread::intf
    * @param task   Handle to the task
    * @param coreId ID of the CPU core to which the task should be bound
    */
-  void set_affinity( mb::thread::TaskHandle task, size_t coreId );
+  void set_affinity( mb::thread::TaskId task, size_t coreId );
 
   /**
    * @brief Starts the task scheduler.

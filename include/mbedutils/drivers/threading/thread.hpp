@@ -37,7 +37,6 @@ namespace mb::thread
   using TaskAffinity = int8_t;
   using TaskFunction = void ( * )( void * );
   using TaskName     = etl::string<32>;
-  using TaskHandle   = unsigned long;
 
   /*---------------------------------------------------------------------------
   Constants
@@ -78,7 +77,7 @@ namespace mb::thread
     struct ControlBlock
     {
       TaskName                       name;      /**< Name of the thread */
-      TaskHandle                     handle;    /**< Implementation specific handle to the task */
+      TaskId                     handle;    /**< Implementation specific handle to the task */
       TaskPriority                   priority;  /**< System thread priority. Lower == more importance */
       MessageQueue                  *msgQueue;  /**< Storage for queueing task messages */
       ConditionVariable              msgCV;     /**< Condition variable for the message queue */
@@ -238,7 +237,7 @@ namespace mb::thread
 
     mb::thread::TaskId     mId;     /**< System identifier for the thread */
     mb::thread::TaskName   mName;   /**< Name of the thread */
-    mb::thread::TaskHandle mHandle; /**< Handle to reference the thread by */
+    mb::thread::TaskId mHandle; /**< Handle to reference the thread by */
     void                  *pImpl;   /**< Implementation details */
   };
 
