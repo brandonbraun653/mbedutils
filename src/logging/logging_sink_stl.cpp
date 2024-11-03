@@ -28,6 +28,7 @@ namespace mb::logging
 
   ErrCode ConsoleSink::open()
   {
+    this->initLockable();
     return ErrCode::ERR_OK;
   }
 
@@ -174,6 +175,7 @@ namespace mb::logging
 
   void STLFileSink::setFile( const etl::string_view &file )
   {
+    this->initLockable();
     thread::RecursiveLockGuard lock( this->mLockableMutex );
     mFile.assign( file.begin(), file.end() );
   }

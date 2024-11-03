@@ -24,7 +24,7 @@ whole path from __FILE__ https://blog.galowicz.de/2016/02/20/short_file_macro/
 -----------------------------------------------------------------------------*/
 namespace mb::internal
 {
-  using cstr = const char *const;
+  using cstr = const char *;
   static constexpr cstr past_last_slash( cstr str, cstr last_slash )
   {
     return *str == '\0'  ? last_slash
