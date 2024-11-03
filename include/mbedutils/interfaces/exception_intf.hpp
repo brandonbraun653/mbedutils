@@ -9,8 +9,8 @@
  *****************************************************************************/
 
 #pragma once
-#ifndef _HPP
-#define _HPP
+#ifndef MBEDUTILS_EXCEPTION_INTF_HPP
+#define MBEDUTILS_EXCEPTION_INTF_HPP
 
 namespace mb::hw::exception::intf
 {
@@ -28,4 +28,4 @@ namespace mb::hw::exception::intf
 
 }  // namespace mb::hw::exception::intf
 
-#endif  /* !_HPP */
+#endif  /* !MBEDUTILS_EXCEPTION_INTF_HPP */
