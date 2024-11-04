@@ -329,6 +329,11 @@ namespace mb::hw::serial
 
   void SerialDriver::onReadComplete( CompletionCallback callback )
   {
+    // TODO: Need to somehow detect when we're in a simulator, b/c labeling
+    // this as an ISR function is incorrect in this context. This was written with
+    // the intent that an ISR would be a real async event, but in the simulator that
+    // just isn't the case.
+
     this->registerAIO( mb::thread::EVENT_READ_COMPLETE, callback, true );
   }
 

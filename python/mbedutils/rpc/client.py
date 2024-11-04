@@ -6,7 +6,7 @@ from functools import wraps
 from loguru import logger
 from typing import Any, Callable, Union
 from threading import Event, Thread
-from mbedutils.rpc.pipe import COBSerialPipe
+from mbedutils.rpc.pipe import COBSerialPipe, PipeType
 from mbedutils.rpc.message import *
 from mbedutils.rpc.observer_impl import MessageObserver, ConsoleObserver
 
@@ -81,14 +81,15 @@ class RPCClient:
             logger.warning("Node did not respond to ping")
         return bool(responses)
 
-    def open(self, port: Union[str, int], baud: int = None) -> None:
+    def open(self, pipe_type: PipeType, port: Union[str, int], baud: int = None) -> None:
         """
         Opens a connection to the remote node
         Args:
+            pipe_type: Type of pipe to open
             port: Serial port connection. Assumed a COM port if a string, Socket if an integer.
             baud: Desired communication baud
         """
-        self._transport.open(port=port, baud=baud)
+        self._transport.open(pipe_type=pipe_type, port=port, baud=baud)
 
         # Register known observers
         self._transport.subscribe_observer(MessageObserver(func=self._observer_remote_tick, msg_type=TickPBMsg))

@@ -1,7 +1,9 @@
 import socket
 
+from mbedutils.intf.serial_intf import ISerial
 
-class SerialSocket:
+
+class SerialSocket(metaclass=ISerial):
     """ A class to simulate a serial connection over a socket. """
 
     def __init__(self, port: int):

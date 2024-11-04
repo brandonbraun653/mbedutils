@@ -3,6 +3,8 @@ import copy
 import queue
 import struct
 import time
+from enum import Enum
+
 import crc
 import mbedutils.rpc.proto.mbed_rpc_pb2 as proto
 import google.protobuf.message as g_proto_msg
@@ -12,11 +14,22 @@ from loguru import logger
 from serial import Serial
 from threading import Thread, Event
 from queue import Queue
+
+from mbedutils.intf.serial_intf import ISerial
 from mbedutils.rpc.publisher import Publisher
 from mbedutils.rpc.message import BasePBMsg, AckNackPBMsg, CRCMismatchException
 from mbedutils.rpc.observer_impl import TransactionResponseObserver, PredicateObserver
 from mbedutils.rpc.socket import SerialSocket
+from mbedutils.sim.sim_io_pipe import ZMQPipe
 
+
+class PipeType(Enum):
+    """
+    Enumerated type for the type of pipe to use
+    """
+    DEVICE = 0  # Typical serial connection like COM port
+    SOCKET = 1 # Socket connection based connection
+    ZMQ = 2   # ZeroMQ based connection, typically for simulators
 
 class COBSerialPipe(Publisher):
     """
@@ -26,7 +39,7 @@ class COBSerialPipe(Publisher):
 
     def __init__(self):
         super().__init__()
-        self._serial: Optional[Serial, SerialSocket] = None
+        self._serial: Optional[ISerial] = None
         self._kill_event = Event()
         self._message_descriptors: Dict[int, Type[BasePBMsg]] = {}
 
@@ -54,24 +67,31 @@ class COBSerialPipe(Publisher):
         assert isinstance(msg_type, BasePBMsg), "Message type must be a subclass of BasePBMsg"
         self._message_descriptors[msg_type.msg_id] = type(msg_type)
 
-    def open(self, port: Union[str, int], baud: int = None) -> None:
+    def open(self, pipe_type: PipeType, port: Union[str, int], baud: int = None) -> None:
         """
         Opens a serial port for communication
         Args:
+            pipe_type: Type of pipe connection to open
             port: Serial port connection. Assumed a COM port if a string, Socket if an integer.
             baud: Desired communication baud
 
         Returns:
             None
         """
-        # Create the serial port object
-        if isinstance(port, str):
-            self._serial = Serial(timeout=5)
-            self._serial.port = port
-            self._serial.baudrate = baud
-            self._serial.exclusive = True
-        elif isinstance(port, int):
+        if pipe_type == PipeType.DEVICE:
+            assert isinstance(port, str), "Port must be a string"
+            assert isinstance(baud, int), "Baud must be an integer"
+            com_device = Serial(timeout=5)
+            com_device.port = port
+            com_device.baudrate = baud
+            com_device.exclusive = True
+            self._serial = com_device
+        elif pipe_type == PipeType.SOCKET:
+            assert isinstance(port, int), "Port must be an integer"
             self._serial = SerialSocket(port=port)
+        elif pipe_type == PipeType.ZMQ:
+            assert isinstance(port, str), "Port must be a string"
+            self._serial = ZMQPipe(endpoint=port)
 
         # Clear memory
         self._rx_msgs = Queue()
