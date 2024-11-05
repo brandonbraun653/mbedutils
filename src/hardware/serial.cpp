@@ -16,6 +16,7 @@ Includes
 #include <mbedutils/interfaces/cmn_intf.hpp>
 #include <mbedutils/interfaces/serial_intf.hpp>
 #include <mbedutils/osal.hpp>
+#include <mbedutils/system.hpp>
 #include <mbedutils/threading.hpp>
 
 namespace mb::hw::serial
@@ -329,12 +330,8 @@ namespace mb::hw::serial
 
   void SerialDriver::onReadComplete( CompletionCallback callback )
   {
-    // TODO: Need to somehow detect when we're in a simulator, b/c labeling
-    // this as an ISR function is incorrect in this context. This was written with
-    // the intent that an ISR would be a real async event, but in the simulator that
-    // just isn't the case.
-
-    this->registerAIO( mb::thread::EVENT_READ_COMPLETE, callback, true );
+    bool register_as_isr_handle = mb::system::isEmbeddedConext();
+    this->registerAIO( mb::thread::EVENT_READ_COMPLETE, callback, register_as_isr_handle );
   }
 
 

@@ -323,8 +323,9 @@ namespace mb::rpc::server
     }    // End of critical section
 
     /*-------------------------------------------------------------------------
-    Invoke the service.
+    Invoke the service and send the response (if any).
     -------------------------------------------------------------------------*/
+    LOG_DEBUG( "RPC: %s", service->name );
     auto   status        = service->processRequest();
     void  *response_data = nullptr;
     size_t response_size = 0;
