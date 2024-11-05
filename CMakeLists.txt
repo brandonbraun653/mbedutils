@@ -39,6 +39,7 @@ add_subdirectory(src/logging)
 add_subdirectory(src/hardware)
 add_subdirectory(src/memory)
 add_subdirectory(src/rpc)
+add_subdirectory(src/system)
 add_subdirectory(src/threading)
 
 # --------------------------------------------------------------------------------

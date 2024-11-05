@@ -20,6 +20,8 @@ Includes
 #include <etl/delegate.h>
 #include <etl/vector.h>
 #include <mbedutils/assert.hpp>
+#include <mbedutils/drivers/logging/logging_macros.hpp>
+#include <mbedutils/drivers/system/context.hpp>
 #include <mbedutils/drivers/threading/event.hpp>
 #include <mbedutils/drivers/threading/lock.hpp>
 #include <mbedutils/interfaces/irq_intf.hpp>
@@ -269,6 +271,15 @@ namespace mb::thread
     void registerAIO( const mb::thread::Event event, const AIOCallback &callback, const bool from_isr ) final override
     {
       mbed_dbg_assert( mAIOInitialized == DRIVER_INITIALIZED_KEY );
+
+      /*-----------------------------------------------------------------------
+      Ensure the registration context is valid, else the callback will never
+      be invoked.
+      -----------------------------------------------------------------------*/
+      if( from_isr && mb::system::isSimulatorContext() )
+      {
+        LOG_WARN( "ISR asyncio callback registration not supported in simulator context" );
+      }
 
       LockGuard _lck( mAIOMutex );
 

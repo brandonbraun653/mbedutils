@@ -17,5 +17,6 @@ Includes
 -----------------------------------------------------------------------------*/
 
 #include <mbedutils/drivers/system/atexit.hpp>
+#include <mbedutils/drivers/system/context.hpp>
 
 #endif  /* !MBEDUTILS_SYSTEM_HPP */
