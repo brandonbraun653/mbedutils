@@ -155,7 +155,7 @@ namespace mb::rpc::message
     if( msg_dsc.transcode_size > cobs_out_size )
     {
       uintptr_t address_of_buf = reinterpret_cast<uintptr_t>( cobs_out_buf );
-      mbed_assert_continue_msg( false, "Buf 0x%0" PRIXPTR " too small for msg %d: %zu > %zu", address_of_buf, msg_id,
+      mbed_assert_continue_msg( false, "Buf 0x%0" PRIXPTR " too small for msg %d: %u > %u", address_of_buf, msg_id,
                                 msg_dsc.transcode_size, cobs_out_size );
       return 0;
     }

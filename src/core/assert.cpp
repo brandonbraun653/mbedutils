@@ -15,6 +15,7 @@ Includes
 #include <etl/string.h>
 #include <mbedutils/assert.hpp>
 #include <mbedutils/config.hpp>
+#include <mbedutils/string.hpp>
 #include <mbedutils/drivers/nanoprintf.hpp>
 #include <mbedutils/interfaces/assert_intf.hpp>
 #include <mbedutils/interfaces/irq_intf.hpp>
@@ -99,6 +100,8 @@ namespace mb::assert
       npf_vsnprintf( write_offset, remaining, fmt, args );
       va_end( args );
     }
+
+    mb::string::ensure_crlf_termination( fmt_buffer.data(), fmt_buffer.max_size() );
 
     /*-------------------------------------------------------------------------
     Call the interface defined function to handle the failure

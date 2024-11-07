@@ -23,17 +23,6 @@ target_link_libraries(${RPC_SERVER_LIB_NAME} PRIVATE
     etl::etl
 )
 
-# Client Library
-set(RPC_CLIENT_LIB_NAME ${PROJECT_NAME}_lib_rpc_client)
-add_library(${RPC_CLIENT_LIB_NAME} STATIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/rpc_client.cpp
-)
-target_link_libraries(${RPC_CLIENT_LIB_NAME} PRIVATE
-    ${PROJECT_NAME}_headers
-    ${PROJECT_NAME}_internal_headers
-    ${MBED_RPC_HEADERS}
-)
-
 # Proto Library
 file(GLOB RPC_PROTO_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/proto/*.c)
 set(RPC_PROTO_LIB_NAME ${PROJECT_NAME}_lib_rpc_proto)

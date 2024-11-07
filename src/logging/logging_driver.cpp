@@ -19,6 +19,7 @@ Includes
 #include <mbedutils/interfaces/time_intf.hpp>
 #include <mbedutils/logging.hpp>
 #include <mbedutils/osal.hpp>
+#include <mbedutils/string.hpp>
 
 namespace mb::logging
 {
@@ -355,37 +356,7 @@ namespace mb::logging
       npf_vsnprintf( s_log_buffer.data() + offset, s_log_buffer.max_size() - offset, fmt, argptr );
       va_end( argptr );
 
-      /*-----------------------------------------------------------------------
-      Ensure the message terminates with a carriage return and newline
-      -----------------------------------------------------------------------*/
-      const size_t msg_len = strlen( s_log_buffer.data() );
-
-      bool ends_with_crlf = false;
-      if( ( msg_len >= 2 ) && ( msg_len < s_log_buffer.max_size() ) )
-      {
-        if( s_log_buffer[ msg_len - 2 ] == '\r' && s_log_buffer[ msg_len - 1 ] == '\n' )
-        {
-          ends_with_crlf = true;
-        }
-        else if( s_log_buffer[ msg_len - 2 ] == '\n' && s_log_buffer[ msg_len - 1 ] == '\r' )
-        {
-          ends_with_crlf = true;
-        }
-      }
-
-      if( !ends_with_crlf )
-      {
-        if( msg_len < s_log_buffer.max_size() - 2 )
-        {
-          s_log_buffer[ msg_len ]     = '\r';
-          s_log_buffer[ msg_len + 1 ] = '\n';
-        }
-        else
-        {
-          s_log_buffer[ s_log_buffer.max_size() - 2 ] = '\r';
-          s_log_buffer[ s_log_buffer.max_size() - 1 ] = '\n';
-        }
-      }
+      mb::string::ensure_crlf_termination( s_log_buffer.data(), s_log_buffer.max_size() );
 
       /*-----------------------------------------------------------------------
       Log through the standard method
