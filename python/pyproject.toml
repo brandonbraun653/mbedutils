@@ -15,4 +15,4 @@ python = "^3.10"
 cobs = "*"
 pyserial = "*"
 loguru = "*"
-nanopb = "^0.4.8"   # This matches the version in the mbedutils library
+nanopb = "==0.4.8"   # This matches the version in the mbedutils library

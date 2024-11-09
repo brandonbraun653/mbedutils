@@ -649,7 +649,41 @@ namespace mb::db
 
   int NvmKVDB::decode( const HashKey key, const void *in_data, const size_t in_size )
   {
-    return this->RamKVDB::decode( key, in_data, in_size );
+    /*-------------------------------------------------------------------------
+    Input Protection
+    -------------------------------------------------------------------------*/
+    if( ( mNvmDBReady != DRIVER_INITIALIZED_KEY ) || ( in_data == nullptr ) || ( in_size == 0 ) )
+    {
+      return -1;
+    }
+
+    mb::thread::RecursiveLockGuard _lock( mRMutex );
+
+    /*-------------------------------------------------------------------------
+    Find the node in the RAM cache
+    -------------------------------------------------------------------------*/
+    auto node = RamKVDB::find( key );
+    if( node == nullptr )
+    {
+      mbed_assert_continue_msg( false, "Key %d not found", key );
+      return -1;
+    }
+
+    /*-------------------------------------------------------------------------
+    Write the data to the RAM cache. Must be done first b/c the data is in a
+    encoded format and must somehow be decoded.
+    -------------------------------------------------------------------------*/
+    auto write_size = this->RamKVDB::decode( key, in_data, in_size );
+    if( write_size <= 0 )
+    {
+      mbed_assert_continue_msg( false, "Decode key %d failure: %d", key, write_size );
+      return -1;
+    }
+
+    /*-------------------------------------------------------------------------
+    Push through the normal write procedure for the NVM cache
+    -------------------------------------------------------------------------*/
+    return write( key, node->datacache, node->dataSize );
   }
 
 
