@@ -41,7 +41,7 @@ class ZMQPipe(metaclass=ISerial):
         self.transaction_thread: Optional[threading.Thread] = None
         self.reconnect_thread: Optional[threading.Thread] = None
 
-        self.socket_lock = threading.Lock()
+        self.socket_lock = threading.RLock()
 
     @property
     def is_open(self) -> bool:
@@ -106,12 +106,29 @@ class ZMQPipe(metaclass=ISerial):
                     self.socket.connect(self.endpoint)
 
                 self.connected = True
+                self._flush_socket()
                 return True
 
         except zmq.ZMQError as e:
             logger.error(f"Failed to initialize ZMQ: {e}")
             self.connected = False
             return False
+
+    def _flush_socket(self):
+        """
+        Flushes the socket of any pending messages
+        Returns:
+            None
+        """
+        if not self.socket:
+            return
+
+        with self.socket_lock:
+            while self.socket.poll(0) != 0:
+                try:
+                    self.socket.recv(zmq.NOBLOCK)
+                except zmq.ZMQError:
+                    break
 
     def _reconnect_loop(self):
         while self.running and not self.connected:
@@ -132,9 +149,11 @@ class ZMQPipe(metaclass=ISerial):
         if not self.transaction_thread or not self.transaction_thread.is_alive():
             self.transaction_thread = threading.Thread(target=self._transaction_loop)
             self.transaction_thread.start()
+            time.sleep(0.1)
 
     def _transaction_loop(self):
         while self.running:
+            # Don't do anything if not connected
             if not self.socket or not self.connected:
                 time.sleep(0.1)
                 continue
@@ -142,8 +161,9 @@ class ZMQPipe(metaclass=ISerial):
             # Receive data
             try:
                 if self.socket.poll(0) != 0:
-                    data = self.socket.recv()
-                    self.recv_queue.put(data)
+                    data = self.socket.recv(zmq.NOBLOCK)
+                    if data:
+                        self.recv_queue.put(data)
 
             except zmq.ZMQError as e:
                 logger.error(f"Receive error: {e}")
@@ -166,4 +186,4 @@ class ZMQPipe(metaclass=ISerial):
                     self.reconnect_thread = threading.Thread(target=self._reconnect_loop)
                     self.reconnect_thread.start()
 
-            time.sleep(0.001)
+            time.sleep(0.01)

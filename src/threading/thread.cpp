@@ -17,6 +17,7 @@
 Includes
 -----------------------------------------------------------------------------*/
 #include "mbedutils/drivers/threading/thread.hpp"
+#include "mbedutils/assert.hpp"
 #include "mbedutils/drivers/threading/lock.hpp"
 #include "mbedutils/drivers/threading/message.hpp"
 #include "mbedutils/interfaces/mutex_intf.hpp"
@@ -282,6 +283,15 @@ namespace mb::thread
   {
     bool awaitMessage( Message &msg, const size_t timeout )
     {
+      /*-----------------------------------------------------------------------
+      Input Protection
+      -----------------------------------------------------------------------*/
+      if( !msg.is_valid() )
+      {
+        mbed_dbg_assert_continue_msg( false, "Invalid message object" );
+        return false;
+      }
+
       const TaskId id = this_thread::id();
 
       /*-----------------------------------------------------------------------
@@ -326,6 +336,15 @@ namespace mb::thread
 
     bool awaitMessage( Message &msg, MessagePredicate &predicate, const size_t timeout )
     {
+      /*-----------------------------------------------------------------------
+      Input Protection
+      -----------------------------------------------------------------------*/
+      if( !msg.is_valid() )
+      {
+        mbed_dbg_assert_continue_msg( false, "Invalid message object" );
+        return false;
+      }
+
       const TaskId id = this_thread::id();
 
       /*-----------------------------------------------------------------------

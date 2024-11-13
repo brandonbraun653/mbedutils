@@ -335,6 +335,13 @@ namespace mb::thread
     mb::thread::TaskId id();
 
     /**
+     * @brief Get a reference to the current thread's Task object
+     *
+     * @return Task*
+     */
+    mb::thread::Task *task();
+
+    /**
      * @brief Wait for any message to be sent to this thread.
      *
      * @param msg Where to place the message
