@@ -175,7 +175,7 @@ class ZMQPipe(metaclass=ISerial):
             # Write data
             try:
                 data = self.send_queue.get_nowait()
-                logger.info(f"Sending data: {data}")
+                logger.trace(f"Sending data: {data}")
                 self.socket.send(data)
             except queue.Empty:
                 continue

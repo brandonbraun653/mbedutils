@@ -96,6 +96,7 @@ class RPCClient:
         self._transport.subscribe_observer(ConsoleObserver(on_msg_rx=lambda x: logger.info(x.strip('\n'))))
 
         self._thread.start()
+        time.sleep(0.05)
 
     def close(self) -> None:
         return self._teardown()

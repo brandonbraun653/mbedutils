@@ -109,6 +109,9 @@ class COBSerialPipe(Publisher):
         self._dispatch_thread = Thread(target=self._rx_dispatcher_thread, name="RXDispatch")
         self._dispatch_thread.start()
 
+        # Allow the threads to start up
+        time.sleep(0.1)
+
     def close(self) -> None:
         """
         Closes the pipe, destroying all resources
@@ -237,7 +240,7 @@ class COBSerialPipe(Publisher):
         logger.trace("Starting OrbitESC internal Serial message decoder thread")
         while not self._kill_event.is_set():
             # Allow other threads time to execute
-            time.sleep(0.001)
+            time.sleep(0.01)
 
             # Fill the cache with the raw data from the bus
             if new_data := self._serial.read_all():

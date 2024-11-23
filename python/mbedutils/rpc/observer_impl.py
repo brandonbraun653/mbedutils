@@ -24,8 +24,13 @@ class ConsoleObserver(MessageObserver):
         def message(self) -> str:
             self.frames = sorted(self.frames, key=cmp_to_key(lambda x1, x2: x1.frame_number - x2.frame_number))
             final_msg = ""
-            for frame in self.frames:
-                final_msg = final_msg + frame.data.decode("utf-8")
+            try:
+                for frame in self.frames:
+                    final_msg = final_msg + frame.data.decode("utf-8")
+            except UnicodeDecodeError as e:
+                logger.error(f"Failed to decode message: {e}")
+                final_msg = "<decoded message contains non-UTF-8 characters>"
+
             return final_msg
 
     def __init__(self, on_msg_rx: Callable[[str], None]):
