@@ -15,7 +15,6 @@
 /*-----------------------------------------------------------------------------
 Includes
 -----------------------------------------------------------------------------*/
-#include <cstdint>
 #include <cmath>
 
 namespace Analog
@@ -35,6 +34,19 @@ namespace Analog
   static inline float calculateVoltageDividerInput( const float vOut, const float r1, const float r2 )
   {
     return vOut * ( r1 + r2 ) / r2;
+  }
+
+  /**
+   * @brief Computes the voltage output of a voltage divider circuit
+   *
+   * @param vin     The input voltage to the voltage divider
+   * @param r1      The resistance of the first resistor in the divider
+   * @param r2      The resistance of the second resistor in the divider
+   * @return float  The output voltage of the divider
+   */
+  static inline float calculateVoltageDividerOutput( const float vin, const float r1, const float r2 )
+  {
+    return ( vin * r2 ) / ( r1 + r2 );
   }
 
   /**
