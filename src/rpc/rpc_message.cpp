@@ -11,6 +11,8 @@
 /*-----------------------------------------------------------------------------
 Includes
 -----------------------------------------------------------------------------*/
+#include "mbedutils/drivers/threading/lock.hpp"
+#include "mbedutils/interfaces/mutex_intf.hpp"
 #include <etl/atomic.h>
 #include <etl/crc.h>
 #include <inttypes.h>
@@ -36,9 +38,11 @@ namespace mb::rpc::message
   Static Data
   ---------------------------------------------------------------------------*/
 
-  static DescriptorRegistry *s_msg_reg;
-  static volatile SeqId s_msg_uuid;
-  static mb::osal::mb_mutex_t s_msg_mutex;
+  static DescriptorRegistry  *s_msg_reg;
+  static volatile SeqId       s_msg_uuid;
+  static mb::osal::mb_mutex_t s_seq_mutex;
+  static mb::osal::mb_recursive_mutex_t s_msg_reg_rmutex;
+  static size_t               s_largest_known_wire_message;
 
 
   /*---------------------------------------------------------------------------
@@ -47,21 +51,23 @@ namespace mb::rpc::message
 
   void initialize( DescriptorRegistry *const msgReg )
   {
-    s_msg_reg  = msgReg;
-    s_msg_uuid = 0;
+    s_msg_reg                    = msgReg;
+    s_msg_uuid                   = 0;
+    s_largest_known_wire_message = 0;
 
-    mbed_assert( mb::osal::buildMutexStrategy( s_msg_mutex ) );
+    mbed_assert( mb::osal::buildMutexStrategy( s_seq_mutex ) );
+    mbed_assert( mb::osal::buildRecursiveMutexStrategy( s_msg_reg_rmutex ) );
   }
 
 
   SeqId next_seq_id()
   {
-    mb::osal::enterCritical( s_msg_mutex );
+    mb::osal::enterCritical( s_seq_mutex );
 
     SeqId next_id = s_msg_uuid;
     s_msg_uuid    = ( s_msg_uuid + 1 ) % std::numeric_limits<SeqId>::max();
 
-    mb::osal::exitCritical( s_msg_mutex );
+    mb::osal::exitCritical( s_seq_mutex );
 
     return next_id;
   }
@@ -77,6 +83,7 @@ namespace mb::rpc::message
       return false;
     }
 
+    mb::thread::RecursiveLockGuard _lock( s_msg_reg_rmutex );
     if( s_msg_reg->full() )
     {
       mbed_dbg_assert_continue_msg( false, "Unable to add message %d, registry is full", dsc.id );
@@ -103,6 +110,14 @@ namespace mb::rpc::message
       return false;
     }
 
+    /*-------------------------------------------------------------------------
+    Update the largest known message size
+    -------------------------------------------------------------------------*/
+    if( dsc.transcode_size > s_largest_known_wire_message )
+    {
+      s_largest_known_wire_message = dsc.transcode_size;
+    }
+
     s_msg_reg->insert( { dsc.id, dsc } );
     return true;
   }
@@ -110,7 +125,41 @@ namespace mb::rpc::message
 
   void removeDescriptor( const MsgId id )
   {
+    /*-------------------------------------------------------------------------
+    Find the message being erased
+    -------------------------------------------------------------------------*/
+    if( !s_msg_reg )
+    {
+      return;
+    }
+
+    mb::thread::RecursiveLockGuard _lock( s_msg_reg_rmutex );
+    auto msg_iter = s_msg_reg->find( id );
+    if( msg_iter == s_msg_reg->end() )
+    {
+      return;
+    }
+
+    /*-------------------------------------------------------------------------
+    Erase the message
+    -------------------------------------------------------------------------*/
+    size_t txcode_size_of_erased_msg = msg_iter->second.transcode_size;
     s_msg_reg->erase( id );
+
+    /*-------------------------------------------------------------------------
+    Search for the next largest message size
+    -------------------------------------------------------------------------*/
+    if( txcode_size_of_erased_msg == s_largest_known_wire_message )
+    {
+      s_largest_known_wire_message = 0;
+      for( auto &msg : *s_msg_reg )
+      {
+        if( msg.second.transcode_size > s_largest_known_wire_message )
+        {
+          s_largest_known_wire_message = msg.second.transcode_size;
+        }
+      }
+    }
   }
 
 
@@ -343,6 +392,12 @@ namespace mb::rpc::message
     }
 
     return true;
+  }
+
+
+  size_t largest_known_wire_message()
+  {
+    return s_largest_known_wire_message;
   }
 
 }    // namespace mb::rpc::message

@@ -216,6 +216,13 @@ namespace mb::rpc::message
    */
   bool decode_from_wire( void *const cobs_in_buf, const size_t cobs_in_size );
 
+  /**
+   * @brief Gets the largest possible COBS message size this module can handle.
+   *
+   * @return size_t
+   */
+  size_t largest_known_wire_message();
+
 }    // namespace mb::rpc::message
 
 #endif /* !MBEDUTILS_RPC_MESSAGE_HPP */

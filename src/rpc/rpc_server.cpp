@@ -417,6 +417,14 @@ namespace mb::rpc::server
         mCfg.streamBuffer->pop();
       }
 
+      /*-----------------------------------------------------------------------
+      If the frame was larger than all known frame sizes, it's invalid.
+      -----------------------------------------------------------------------*/
+      if( scratch_idx > message::largest_known_wire_message() )
+      {
+        return false;
+      }
+
       return true;
     }
 
