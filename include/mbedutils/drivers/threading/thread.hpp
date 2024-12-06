@@ -164,7 +164,15 @@ namespace mb::thread
       void                *user_data;      /**< (Optional) User data to pass to the thread */
       MessageQueue        *msg_queue_inst; /**< (Optional) Message queue instance */
       MessageQueue::Config msg_queue_cfg;  /**< (Optional) Configuration for the message queue */
-      bool                 block_on_start; /**< (Optional) Block the thread until start is called */
+
+      /**
+       * @brief (Optional) Block thread execution until Task::start() is called.
+       *
+       * If true, it creates the behavior where a task does not imediately execute upon
+       * creation. It's desireable in scenarios where hardware resources might not be
+       * available yet or a controlled sequencing of task turn on is needed.
+       */
+      bool block_on_create;
 
       void reset()
       {
@@ -179,7 +187,7 @@ namespace mb::thread
         msg_queue_inst      = nullptr;
         msg_queue_cfg.pool  = nullptr;
         msg_queue_cfg.queue = nullptr;
-        block_on_start      = true;
+        block_on_create     = true;
       }
     };
 
