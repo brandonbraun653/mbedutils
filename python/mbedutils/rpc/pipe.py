@@ -28,8 +28,9 @@ class PipeType(Enum):
     Enumerated type for the type of pipe to use
     """
     DEVICE = 0  # Typical serial connection like COM port
-    SOCKET = 1 # Socket connection based connection
-    ZMQ = 2   # ZeroMQ based connection, typically for simulators
+    SOCKET = 1  # Socket connection based connection
+    ZMQ = 2  # ZeroMQ based connection, typically for simulators
+
 
 class COBSerialPipe(Publisher):
     """
@@ -142,17 +143,19 @@ class COBSerialPipe(Publisher):
         logger.trace(f"Sending {repr(msg)}")
         self._tx_msgs.put(msg.serialize(), block=True)
 
-    def write_and_wait(self, msg: BasePBMsg, timeout: Union[int, float]) -> Optional[BasePBMsg]:
+    def write_and_wait(self, msg: BasePBMsg, timeout: Union[int, float], count: Optional[int] = 1) -> Optional[
+        Union[BasePBMsg, List[BasePBMsg]]]:
         """
         Writes a message to the serial pipe and waits for a response
         Args:
             msg: Message to send
             timeout: Time to wait for a response
+            count: Number of responses to wait for (positive integer) or None to wait indefinitely
 
         Returns:
-            Response message
+            List of messages received if count > 1, or a single message if count == 1. None if no response.
         """
-        observer = TransactionResponseObserver(txn_uuid=msg.uuid, timeout=timeout)
+        observer = TransactionResponseObserver(txn_uuid=msg.uuid, timeout=timeout, count=count)
         sub_id = self.subscribe_observer(observer)
 
         # Send the message and wait for the response
@@ -352,5 +355,3 @@ class COBSerialPipe(Publisher):
         except g_proto_msg.DecodeError:
             logger.error(f"Failed to decode {full_msg.name} type")
             return None
-
-

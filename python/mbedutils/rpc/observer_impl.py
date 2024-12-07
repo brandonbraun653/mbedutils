@@ -98,27 +98,39 @@ class ConsoleObserver(MessageObserver):
 class TransactionResponseObserver(MessageObserver):
     """ Observer for listening to the response of a specific message """
 
-    def __init__(self, txn_uuid: int, timeout: Union[int, float]):
+    def __init__(self, txn_uuid: int, timeout: Union[int, float], count: Optional[int] = 1):
         """
         Args:
             txn_uuid: UUID of the message we're waiting for
             timeout: How long to wait for the response in seconds
+            count: Number of responses to wait for, or None to accumulate all responses until timeout
         """
+        assert timeout > 0, f"Timeout must be greater than zero. Got {timeout}"
+        assert count is None or count > 0, f"Count must be None or greater than zero. Got {count}"
+
         # Register the observer to listen to all messages
         super().__init__(func=self._uuid_matcher_observer, msg_type=type(None), timeout=timeout)
-        self._result: Optional[BasePBMsg] = None
+        self._result: List[BasePBMsg] = []
         self._event = Event()
         self._timeout = timeout
         self._txn_uuid = txn_uuid
+        self._count = count
 
-    def wait(self) -> Optional[BasePBMsg]:
+    def wait(self) -> Optional[Union[BasePBMsg, List[BasePBMsg]]]:
         """
         Waits for the response to the message we're observing
         Returns:
-            Response message
+            List of messages received if count > 1, or a single message if count == 1. None if no response.
         """
         self._event.wait(timeout=self._timeout)
-        return self._result
+        if not self._result:
+            return None
+        elif len(self._result) == 1 and self._count == 1:
+            return self._result[0]
+        else:
+            assert self._count is None or len(self._result) <= self._count, \
+                f"Expected {self._count} messages, but got {len(self._result)}"
+            return self._result
 
     def _uuid_matcher_observer(self, _msg: BasePBMsg) -> None:
         """
@@ -133,8 +145,9 @@ class TransactionResponseObserver(MessageObserver):
         if not isinstance(_msg, BasePBMsg):
             return
         elif not self._event.is_set() and (self._txn_uuid == _msg.uuid):
-            self._result = copy.copy(_msg)
-            self._event.set()
+            self._result.append(copy.copy(_msg))
+            if self._count is not None and len(self._result) >= self._count:
+                self._event.set()
 
 
 class PredicateObserver(MessageObserver):
