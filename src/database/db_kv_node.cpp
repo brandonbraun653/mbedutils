@@ -140,23 +140,32 @@ namespace mb::db
 
   bool node_write( KVNode &node, const void *data, const size_t size )
   {
-    if( node.writer )
+    if( !node.writer )
     {
-      return node.writer( node, data, size );
+      return false;
     }
 
-    return false;
+    /*-------------------------------------------------------------------------
+    Perform the write operation, running the callback if successful
+    -------------------------------------------------------------------------*/
+    bool writer_success = node.writer( node, data, size );
+    if( writer_success && node.onWrite )
+    {
+      node.onWrite( node );
+    }
+
+    return writer_success;
   }
 
 
   int node_read( const KVNode &node, void *data, const size_t size )
   {
-    if( node.reader )
+    if( !node.reader )
     {
-      return node.reader( node, data, size );
+      return 0;
     }
 
-    return 0;
+    return node.reader( node, data, size );
   }
 
 

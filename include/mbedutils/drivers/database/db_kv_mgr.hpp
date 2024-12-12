@@ -91,7 +91,7 @@ namespace mb::db
      *
      * @param visitor Function to call on each dirty node
      */
-    void visit_dirty_nodes( NodeVisitorFunc &visitor );
+    void visit_dirty_nodes( VisitorFunc &visitor );
 
     /*-------------------------------------------------------------------------
     IKVDatabase Interface
