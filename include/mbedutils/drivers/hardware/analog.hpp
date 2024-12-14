@@ -81,6 +81,30 @@ namespace Analog
     const float invT         = 1.0f / ( t0 + 273.15f ) + ( 1.0f / beta ) * logf( r_thermistor / r0 );
     return ( 1.0f / invT ) - 273.15f;    // Convert back to Celsius
   }
+
+  /**
+   * @brief Calculates the expected voltage output of a voltage divider containing a thermistor,
+   *        given the temperature.
+   *
+   * This function inverts the beta parameter method to calculate the voltage output
+   * based on the temperature, input voltage, and thermistor parameters.
+   *
+   * @param temperature The temperature in Celsius.
+   * @param vin         The input voltage to the voltage divider.
+   * @param beta        The beta coefficient of the thermistor, typically provided by the manufacturer.
+   * @param r_fixed     The resistance of the fixed resistor in the voltage divider.
+   * @param r0          The resistance of the thermistor at the reference temperature.
+   * @param t0          The reference temperature in Celsius.
+   * @return The expected output voltage of the voltage divider.
+   */
+  static inline float calculateVoutFromTemp( const float temperature, const float vin, const float beta, const float r_fixed,
+                                             const float r0, const float t0 )
+  {
+    const float t_kelvin = temperature + 273.15f;
+    const float t0_kelvin = t0 + 273.15f;
+    const float r_thermistor = r0 * expf( beta * ( 1.0f / t_kelvin - 1.0f / t0_kelvin ) );
+    return vin * ( r_thermistor / ( r_thermistor + r_fixed ) );
+  }
 }    // namespace Analog
 
 #endif  /* !MBEDUTILS_ANALOG_HPP */

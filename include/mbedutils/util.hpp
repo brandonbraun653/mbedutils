@@ -36,4 +36,16 @@ Macros
  */
 #define clear_struct( s ) ( memset( &s, 0, sizeof( s ) ) )
 
-#endif  /* !MBEDUTILS_UTILITIES_HPP */
+namespace mb::util
+{
+  /*---------------------------------------------------------------------------
+  Public Functions
+  ---------------------------------------------------------------------------*/
+
+  /**
+   * @brief Halt the software when the debugger is attached
+   */
+  void breakpoint();
+}    // namespace mb::util
+
+#endif /* !MBEDUTILS_UTILITIES_HPP */
