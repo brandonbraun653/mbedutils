@@ -29,6 +29,7 @@ def online_checker(method: Callable) -> Any:
     References:
         https://stackoverflow.com/a/36944992/8341975
     """
+
     @wraps(method)
     def _impl(self: RPCClient, *method_args, **method_kwargs):
         # Ensure this decorator is only used on RPCClient classes
@@ -49,8 +50,9 @@ class RPCClient:
     def __init__(self):
         # Initialize the transport layer and add default messages
         self._transport = COBSerialPipe()
-        self._transport.add_message_descriptor(PingPBMsg())
-        self._transport.add_message_descriptor(ConsolePBMsg())
+
+        for msg in get_module_messages("mbedutils.rpc.message"):
+            self._transport.add_message_descriptor(msg)
 
         self._online = False
         self._time_last_online = 0
@@ -81,6 +83,42 @@ class RPCClient:
             logger.warning("Node did not respond to ping")
         return bool(responses)
 
+    def sleep_on_server_time_ms(self, milliseconds: int, percent_tolerance: float = 0.1) -> None:
+        """
+        Sleep the current context based on the remote server's perception of time. A message is
+        sent to the remote server to notify it to wait a certain amount of time before notifying us
+        back. This is useful for synchronizing actions between the client and server.
+
+        Args:
+            milliseconds: How long the remote device should wait to notify us
+            percent_tolerance: How much error is allowed in the actual sleep time
+
+        Raises:
+            RuntimeWarning: If the node does not respond to the sleep request
+        """
+        assert isinstance(milliseconds, int)
+        assert milliseconds > 0
+        assert milliseconds < 2 ** 32  # Remote servers are typically 32-bit microcontrollers
+        assert percent_tolerance >= 0.0
+        assert percent_tolerance <= 1.0
+
+        req = NotifyTimeElapsedRequestPBMsg()
+        req.pb_message.delay_time = milliseconds
+
+        # Allow a larger timeout b/c depending on the system load, the node may take a while to respond
+        # while still accurately simulating the time. This should provide reasonable bounds for testing
+        # and communication.
+        rsp = self.com_pipe.write_and_wait(req, timeout=2 * (milliseconds / 1000))
+        if not rsp:
+            raise RuntimeWarning("Node did not respond to sleep request")
+
+        # Check the response to ensure the node slept for the correct amount of time. Generally speaking
+        # the time elapsed should be within a certain percentage of the expected value.
+        assert isinstance(rsp, NotifyTimeElapsedResponsePBMsg)
+        percent_error = abs(rsp.pb_message.elapsed_time - milliseconds) / milliseconds
+        if percent_error >= percent_tolerance:
+            raise RuntimeWarning(f"Node time elapsed response was off by {percent_error:.2f}%")
+
     def open(self, pipe_type: PipeType, port: Union[str, int], baud: int = None) -> None:
         """
         Opens a connection to the remote node
@@ -100,18 +138,6 @@ class RPCClient:
 
     def close(self) -> None:
         return self._teardown()
-
-    def invoke_service(self, service_id: int, request: BasePBMsg) -> Optional[BasePBMsg]:
-        """
-        Invokes a service on the remote node
-        Args:
-            service_id: Which service to invoke
-            request: Request message to send
-
-        Returns:
-            Response message from the service, if any is required
-        """
-        pass
 
     def _teardown(self) -> None:
         self._kill_signal.set()

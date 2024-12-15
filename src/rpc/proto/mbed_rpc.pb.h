@@ -33,7 +33,8 @@ typedef enum _mbed_rpc_ErrorCode {
 
 typedef enum _mbed_rpc_BuiltinService {
     mbed_rpc_BuiltinService_SVC_PING = 0, /* Accepts ping requests from clients */
-    mbed_rpc_BuiltinService_SVC_TEST_ERROR = 1 /* Test error handling */
+    mbed_rpc_BuiltinService_SVC_TEST_ERROR = 1, /* Test error handling */
+    mbed_rpc_BuiltinService_SVC_NOTIFY_TIME_ELAPSED = 2 /* Notify caller of elapsed system time */
 } mbed_rpc_BuiltinService;
 
 typedef enum _mbed_rpc_BuiltinMessage {
@@ -43,7 +44,9 @@ typedef enum _mbed_rpc_BuiltinMessage {
     mbed_rpc_BuiltinMessage_MSG_ACK_NACK = 3,
     mbed_rpc_BuiltinMessage_MSG_TICK = 4,
     mbed_rpc_BuiltinMessage_MSG_CONSOLE = 5,
-    mbed_rpc_BuiltinMessage_MSG_SYSTEM_INFO = 6
+    mbed_rpc_BuiltinMessage_MSG_SYSTEM_INFO = 6,
+    mbed_rpc_BuiltinMessage_MSG_NOTIFY_TIME_ELAPSED_REQ = 7,
+    mbed_rpc_BuiltinMessage_MSG_NOTIFY_TIME_ELAPSED_RSP = 8
 } mbed_rpc_BuiltinMessage;
 
 typedef enum _mbed_rpc_BuiltinMessageVersion {
@@ -53,7 +56,9 @@ typedef enum _mbed_rpc_BuiltinMessageVersion {
     mbed_rpc_BuiltinMessageVersion_MSG_VER_ACK_NACK = 0,
     mbed_rpc_BuiltinMessageVersion_MSG_VER_TICK = 0,
     mbed_rpc_BuiltinMessageVersion_MSG_VER_CONSOLE = 0,
-    mbed_rpc_BuiltinMessageVersion_MSG_VER_SYSTEM_INFO = 0
+    mbed_rpc_BuiltinMessageVersion_MSG_VER_SYSTEM_INFO = 0,
+    mbed_rpc_BuiltinMessageVersion_MSG_VER_NOTIFY_TIME_ELAPSED_REQ = 0,
+    mbed_rpc_BuiltinMessageVersion_MSG_VER_NOTIFY_TIME_ELAPSED_RSP = 0
 } mbed_rpc_BuiltinMessageVersion;
 
 /* Struct definitions */
@@ -83,11 +88,6 @@ typedef struct _mbed_rpc_ErrorMessage {
     mbed_rpc_ErrorCode error;
     mbed_rpc_ErrorMessage_detail_t detail;
 } mbed_rpc_ErrorMessage;
-
-/* Simple ping message to test RPC connection. */
-typedef struct _mbed_rpc_PingMessage {
-    mbed_rpc_Header header;
-} mbed_rpc_PingMessage;
 
 typedef PB_BYTES_ARRAY_T(64) mbed_rpc_AckNackMessage_data_t;
 /* Generic ACK or NACK to a previous message, with optional data payload */
@@ -123,6 +123,21 @@ typedef struct _mbed_rpc_SystemInfoMessage {
     char description[32]; /* Device description */
 } mbed_rpc_SystemInfoMessage;
 
+/* Simple ping message to test RPC connection. */
+typedef struct _mbed_rpc_PingMessage {
+    mbed_rpc_Header header;
+} mbed_rpc_PingMessage;
+
+typedef struct _mbed_rpc_NotifyTimeElapsedRequest {
+    mbed_rpc_Header header;
+    uint32_t delay_time; /* Time to delay in ms */
+} mbed_rpc_NotifyTimeElapsedRequest;
+
+typedef struct _mbed_rpc_NotifyTimeElapsedResponse {
+    mbed_rpc_Header header;
+    uint32_t elapsed_time; /* Time elapsed in ms */
+} mbed_rpc_NotifyTimeElapsedResponse;
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -138,12 +153,12 @@ extern "C" {
 #define _mbed_rpc_ErrorCode_ARRAYSIZE ((mbed_rpc_ErrorCode)(mbed_rpc_ErrorCode_ERR_MAX_ERROR+1))
 
 #define _mbed_rpc_BuiltinService_MIN mbed_rpc_BuiltinService_SVC_PING
-#define _mbed_rpc_BuiltinService_MAX mbed_rpc_BuiltinService_SVC_TEST_ERROR
-#define _mbed_rpc_BuiltinService_ARRAYSIZE ((mbed_rpc_BuiltinService)(mbed_rpc_BuiltinService_SVC_TEST_ERROR+1))
+#define _mbed_rpc_BuiltinService_MAX mbed_rpc_BuiltinService_SVC_NOTIFY_TIME_ELAPSED
+#define _mbed_rpc_BuiltinService_ARRAYSIZE ((mbed_rpc_BuiltinService)(mbed_rpc_BuiltinService_SVC_NOTIFY_TIME_ELAPSED+1))
 
 #define _mbed_rpc_BuiltinMessage_MIN mbed_rpc_BuiltinMessage_MSG_NULL
-#define _mbed_rpc_BuiltinMessage_MAX mbed_rpc_BuiltinMessage_MSG_SYSTEM_INFO
-#define _mbed_rpc_BuiltinMessage_ARRAYSIZE ((mbed_rpc_BuiltinMessage)(mbed_rpc_BuiltinMessage_MSG_SYSTEM_INFO+1))
+#define _mbed_rpc_BuiltinMessage_MAX mbed_rpc_BuiltinMessage_MSG_NOTIFY_TIME_ELAPSED_RSP
+#define _mbed_rpc_BuiltinMessage_ARRAYSIZE ((mbed_rpc_BuiltinMessage)(mbed_rpc_BuiltinMessage_MSG_NOTIFY_TIME_ELAPSED_RSP+1))
 
 #define _mbed_rpc_BuiltinMessageVersion_MIN mbed_rpc_BuiltinMessageVersion_MSG_VER_ACK_NACK
 #define _mbed_rpc_BuiltinMessageVersion_MAX mbed_rpc_BuiltinMessageVersion_MSG_VER_TICK
@@ -154,8 +169,10 @@ extern "C" {
 
 #define mbed_rpc_ErrorMessage_error_ENUMTYPE mbed_rpc_ErrorCode
 
-
 #define mbed_rpc_AckNackMessage_status_code_ENUMTYPE mbed_rpc_ErrorCode
+
+
+
 
 
 
@@ -166,20 +183,24 @@ extern "C" {
 #define mbed_rpc_BaseMessage_init_default        {mbed_rpc_Header_init_default}
 #define mbed_rpc_NullMessage_init_default        {mbed_rpc_Header_init_default}
 #define mbed_rpc_ErrorMessage_init_default       {mbed_rpc_Header_init_default, _mbed_rpc_ErrorCode_MIN, {0, {0}}}
-#define mbed_rpc_PingMessage_init_default        {mbed_rpc_Header_init_default}
 #define mbed_rpc_AckNackMessage_init_default     {mbed_rpc_Header_init_default, 0, false, _mbed_rpc_ErrorCode_MIN, false, {0, {0}}}
 #define mbed_rpc_TickMessage_init_default        {mbed_rpc_Header_init_default, 0}
 #define mbed_rpc_ConsoleMessage_init_default     {mbed_rpc_Header_init_default, 0, 0, {0, {0}}}
 #define mbed_rpc_SystemInfoMessage_init_default  {mbed_rpc_Header_init_default, "", "", ""}
+#define mbed_rpc_PingMessage_init_default        {mbed_rpc_Header_init_default}
+#define mbed_rpc_NotifyTimeElapsedRequest_init_default {mbed_rpc_Header_init_default, 0}
+#define mbed_rpc_NotifyTimeElapsedResponse_init_default {mbed_rpc_Header_init_default, 0}
 #define mbed_rpc_Header_init_zero                {0, 0, 0, 0}
 #define mbed_rpc_BaseMessage_init_zero           {mbed_rpc_Header_init_zero}
 #define mbed_rpc_NullMessage_init_zero           {mbed_rpc_Header_init_zero}
 #define mbed_rpc_ErrorMessage_init_zero          {mbed_rpc_Header_init_zero, _mbed_rpc_ErrorCode_MIN, {0, {0}}}
-#define mbed_rpc_PingMessage_init_zero           {mbed_rpc_Header_init_zero}
 #define mbed_rpc_AckNackMessage_init_zero        {mbed_rpc_Header_init_zero, 0, false, _mbed_rpc_ErrorCode_MIN, false, {0, {0}}}
 #define mbed_rpc_TickMessage_init_zero           {mbed_rpc_Header_init_zero, 0}
 #define mbed_rpc_ConsoleMessage_init_zero        {mbed_rpc_Header_init_zero, 0, 0, {0, {0}}}
 #define mbed_rpc_SystemInfoMessage_init_zero     {mbed_rpc_Header_init_zero, "", "", ""}
+#define mbed_rpc_PingMessage_init_zero           {mbed_rpc_Header_init_zero}
+#define mbed_rpc_NotifyTimeElapsedRequest_init_zero {mbed_rpc_Header_init_zero, 0}
+#define mbed_rpc_NotifyTimeElapsedResponse_init_zero {mbed_rpc_Header_init_zero, 0}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define mbed_rpc_Header_version_tag              1
@@ -191,7 +212,6 @@ extern "C" {
 #define mbed_rpc_ErrorMessage_header_tag         1
 #define mbed_rpc_ErrorMessage_error_tag          2
 #define mbed_rpc_ErrorMessage_detail_tag         3
-#define mbed_rpc_PingMessage_header_tag          1
 #define mbed_rpc_AckNackMessage_header_tag       1
 #define mbed_rpc_AckNackMessage_acknowledge_tag  2
 #define mbed_rpc_AckNackMessage_status_code_tag  3
@@ -206,6 +226,11 @@ extern "C" {
 #define mbed_rpc_SystemInfoMessage_sw_version_tag 2
 #define mbed_rpc_SystemInfoMessage_serial_number_tag 3
 #define mbed_rpc_SystemInfoMessage_description_tag 4
+#define mbed_rpc_PingMessage_header_tag          1
+#define mbed_rpc_NotifyTimeElapsedRequest_header_tag 1
+#define mbed_rpc_NotifyTimeElapsedRequest_delay_time_tag 2
+#define mbed_rpc_NotifyTimeElapsedResponse_header_tag 1
+#define mbed_rpc_NotifyTimeElapsedResponse_elapsed_time_tag 2
 
 /* Struct field encoding specification for nanopb */
 #define mbed_rpc_Header_FIELDLIST(X, a) \
@@ -235,12 +260,6 @@ X(a, STATIC,   REQUIRED, BYTES,    detail,            3)
 #define mbed_rpc_ErrorMessage_CALLBACK NULL
 #define mbed_rpc_ErrorMessage_DEFAULT NULL
 #define mbed_rpc_ErrorMessage_header_MSGTYPE mbed_rpc_Header
-
-#define mbed_rpc_PingMessage_FIELDLIST(X, a) \
-X(a, STATIC,   REQUIRED, MESSAGE,  header,            1)
-#define mbed_rpc_PingMessage_CALLBACK NULL
-#define mbed_rpc_PingMessage_DEFAULT NULL
-#define mbed_rpc_PingMessage_header_MSGTYPE mbed_rpc_Header
 
 #define mbed_rpc_AckNackMessage_FIELDLIST(X, a) \
 X(a, STATIC,   REQUIRED, MESSAGE,  header,            1) \
@@ -276,26 +295,50 @@ X(a, STATIC,   REQUIRED, STRING,   description,       4)
 #define mbed_rpc_SystemInfoMessage_DEFAULT NULL
 #define mbed_rpc_SystemInfoMessage_header_MSGTYPE mbed_rpc_Header
 
+#define mbed_rpc_PingMessage_FIELDLIST(X, a) \
+X(a, STATIC,   REQUIRED, MESSAGE,  header,            1)
+#define mbed_rpc_PingMessage_CALLBACK NULL
+#define mbed_rpc_PingMessage_DEFAULT NULL
+#define mbed_rpc_PingMessage_header_MSGTYPE mbed_rpc_Header
+
+#define mbed_rpc_NotifyTimeElapsedRequest_FIELDLIST(X, a) \
+X(a, STATIC,   REQUIRED, MESSAGE,  header,            1) \
+X(a, STATIC,   REQUIRED, UINT32,   delay_time,        2)
+#define mbed_rpc_NotifyTimeElapsedRequest_CALLBACK NULL
+#define mbed_rpc_NotifyTimeElapsedRequest_DEFAULT NULL
+#define mbed_rpc_NotifyTimeElapsedRequest_header_MSGTYPE mbed_rpc_Header
+
+#define mbed_rpc_NotifyTimeElapsedResponse_FIELDLIST(X, a) \
+X(a, STATIC,   REQUIRED, MESSAGE,  header,            1) \
+X(a, STATIC,   REQUIRED, UINT32,   elapsed_time,      2)
+#define mbed_rpc_NotifyTimeElapsedResponse_CALLBACK NULL
+#define mbed_rpc_NotifyTimeElapsedResponse_DEFAULT NULL
+#define mbed_rpc_NotifyTimeElapsedResponse_header_MSGTYPE mbed_rpc_Header
+
 extern const pb_msgdesc_t mbed_rpc_Header_msg;
 extern const pb_msgdesc_t mbed_rpc_BaseMessage_msg;
 extern const pb_msgdesc_t mbed_rpc_NullMessage_msg;
 extern const pb_msgdesc_t mbed_rpc_ErrorMessage_msg;
-extern const pb_msgdesc_t mbed_rpc_PingMessage_msg;
 extern const pb_msgdesc_t mbed_rpc_AckNackMessage_msg;
 extern const pb_msgdesc_t mbed_rpc_TickMessage_msg;
 extern const pb_msgdesc_t mbed_rpc_ConsoleMessage_msg;
 extern const pb_msgdesc_t mbed_rpc_SystemInfoMessage_msg;
+extern const pb_msgdesc_t mbed_rpc_PingMessage_msg;
+extern const pb_msgdesc_t mbed_rpc_NotifyTimeElapsedRequest_msg;
+extern const pb_msgdesc_t mbed_rpc_NotifyTimeElapsedResponse_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
 #define mbed_rpc_Header_fields &mbed_rpc_Header_msg
 #define mbed_rpc_BaseMessage_fields &mbed_rpc_BaseMessage_msg
 #define mbed_rpc_NullMessage_fields &mbed_rpc_NullMessage_msg
 #define mbed_rpc_ErrorMessage_fields &mbed_rpc_ErrorMessage_msg
-#define mbed_rpc_PingMessage_fields &mbed_rpc_PingMessage_msg
 #define mbed_rpc_AckNackMessage_fields &mbed_rpc_AckNackMessage_msg
 #define mbed_rpc_TickMessage_fields &mbed_rpc_TickMessage_msg
 #define mbed_rpc_ConsoleMessage_fields &mbed_rpc_ConsoleMessage_msg
 #define mbed_rpc_SystemInfoMessage_fields &mbed_rpc_SystemInfoMessage_msg
+#define mbed_rpc_PingMessage_fields &mbed_rpc_PingMessage_msg
+#define mbed_rpc_NotifyTimeElapsedRequest_fields &mbed_rpc_NotifyTimeElapsedRequest_msg
+#define mbed_rpc_NotifyTimeElapsedResponse_fields &mbed_rpc_NotifyTimeElapsedResponse_msg
 
 /* Maximum encoded size of messages (where known) */
 #define MBED_RPC_MBED_RPC_PB_H_MAX_SIZE          mbed_rpc_ErrorMessage_size
@@ -304,6 +347,8 @@ extern const pb_msgdesc_t mbed_rpc_SystemInfoMessage_msg;
 #define mbed_rpc_ConsoleMessage_size             151
 #define mbed_rpc_ErrorMessage_size               276
 #define mbed_rpc_Header_size                     12
+#define mbed_rpc_NotifyTimeElapsedRequest_size   20
+#define mbed_rpc_NotifyTimeElapsedResponse_size  20
 #define mbed_rpc_NullMessage_size                14
 #define mbed_rpc_PingMessage_size                14
 #define mbed_rpc_SystemInfoMessage_size          81
@@ -345,13 +390,6 @@ struct MessageDescriptor<mbed_rpc_ErrorMessage> {
     }
 };
 template <>
-struct MessageDescriptor<mbed_rpc_PingMessage> {
-    static PB_INLINE_CONSTEXPR const pb_size_t fields_array_length = 1;
-    static inline const pb_msgdesc_t* fields() {
-        return &mbed_rpc_PingMessage_msg;
-    }
-};
-template <>
 struct MessageDescriptor<mbed_rpc_AckNackMessage> {
     static PB_INLINE_CONSTEXPR const pb_size_t fields_array_length = 4;
     static inline const pb_msgdesc_t* fields() {
@@ -377,6 +415,27 @@ struct MessageDescriptor<mbed_rpc_SystemInfoMessage> {
     static PB_INLINE_CONSTEXPR const pb_size_t fields_array_length = 4;
     static inline const pb_msgdesc_t* fields() {
         return &mbed_rpc_SystemInfoMessage_msg;
+    }
+};
+template <>
+struct MessageDescriptor<mbed_rpc_PingMessage> {
+    static PB_INLINE_CONSTEXPR const pb_size_t fields_array_length = 1;
+    static inline const pb_msgdesc_t* fields() {
+        return &mbed_rpc_PingMessage_msg;
+    }
+};
+template <>
+struct MessageDescriptor<mbed_rpc_NotifyTimeElapsedRequest> {
+    static PB_INLINE_CONSTEXPR const pb_size_t fields_array_length = 2;
+    static inline const pb_msgdesc_t* fields() {
+        return &mbed_rpc_NotifyTimeElapsedRequest_msg;
+    }
+};
+template <>
+struct MessageDescriptor<mbed_rpc_NotifyTimeElapsedResponse> {
+    static PB_INLINE_CONSTEXPR const pb_size_t fields_array_length = 2;
+    static inline const pb_msgdesc_t* fields() {
+        return &mbed_rpc_NotifyTimeElapsedResponse_msg;
     }
 };
 }  // namespace nanopb

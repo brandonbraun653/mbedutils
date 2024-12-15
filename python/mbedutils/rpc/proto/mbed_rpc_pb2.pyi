@@ -107,6 +107,8 @@ class _BuiltinServiceEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper.
     """Accepts ping requests from clients"""
     SVC_TEST_ERROR: _BuiltinService.ValueType  # 1
     """Test error handling"""
+    SVC_NOTIFY_TIME_ELAPSED: _BuiltinService.ValueType  # 2
+    """Notify caller of elapsed system time"""
 
 class BuiltinService(_BuiltinService, metaclass=_BuiltinServiceEnumTypeWrapper): ...
 
@@ -114,6 +116,8 @@ SVC_PING: BuiltinService.ValueType  # 0
 """Accepts ping requests from clients"""
 SVC_TEST_ERROR: BuiltinService.ValueType  # 1
 """Test error handling"""
+SVC_NOTIFY_TIME_ELAPSED: BuiltinService.ValueType  # 2
+"""Notify caller of elapsed system time"""
 global___BuiltinService = BuiltinService
 
 class _BuiltinMessage:
@@ -129,6 +133,8 @@ class _BuiltinMessageEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper.
     MSG_TICK: _BuiltinMessage.ValueType  # 4
     MSG_CONSOLE: _BuiltinMessage.ValueType  # 5
     MSG_SYSTEM_INFO: _BuiltinMessage.ValueType  # 6
+    MSG_NOTIFY_TIME_ELAPSED_REQ: _BuiltinMessage.ValueType  # 7
+    MSG_NOTIFY_TIME_ELAPSED_RSP: _BuiltinMessage.ValueType  # 8
 
 class BuiltinMessage(_BuiltinMessage, metaclass=_BuiltinMessageEnumTypeWrapper): ...
 
@@ -139,6 +145,8 @@ MSG_ACK_NACK: BuiltinMessage.ValueType  # 3
 MSG_TICK: BuiltinMessage.ValueType  # 4
 MSG_CONSOLE: BuiltinMessage.ValueType  # 5
 MSG_SYSTEM_INFO: BuiltinMessage.ValueType  # 6
+MSG_NOTIFY_TIME_ELAPSED_REQ: BuiltinMessage.ValueType  # 7
+MSG_NOTIFY_TIME_ELAPSED_RSP: BuiltinMessage.ValueType  # 8
 global___BuiltinMessage = BuiltinMessage
 
 class _BuiltinMessageVersion:
@@ -154,6 +162,8 @@ class _BuiltinMessageVersionEnumTypeWrapper(google.protobuf.internal.enum_type_w
     MSG_VER_TICK: _BuiltinMessageVersion.ValueType  # 0
     MSG_VER_CONSOLE: _BuiltinMessageVersion.ValueType  # 0
     MSG_VER_SYSTEM_INFO: _BuiltinMessageVersion.ValueType  # 0
+    MSG_VER_NOTIFY_TIME_ELAPSED_REQ: _BuiltinMessageVersion.ValueType  # 0
+    MSG_VER_NOTIFY_TIME_ELAPSED_RSP: _BuiltinMessageVersion.ValueType  # 0
 
 class BuiltinMessageVersion(_BuiltinMessageVersion, metaclass=_BuiltinMessageVersionEnumTypeWrapper): ...
 
@@ -164,6 +174,8 @@ MSG_VER_ACK_NACK: BuiltinMessageVersion.ValueType  # 0
 MSG_VER_TICK: BuiltinMessageVersion.ValueType  # 0
 MSG_VER_CONSOLE: BuiltinMessageVersion.ValueType  # 0
 MSG_VER_SYSTEM_INFO: BuiltinMessageVersion.ValueType  # 0
+MSG_VER_NOTIFY_TIME_ELAPSED_REQ: BuiltinMessageVersion.ValueType  # 0
+MSG_VER_NOTIFY_TIME_ELAPSED_RSP: BuiltinMessageVersion.ValueType  # 0
 global___BuiltinMessageVersion = BuiltinMessageVersion
 
 @typing.final
@@ -261,25 +273,6 @@ class ErrorMessage(google.protobuf.message.Message):
     def ClearField(self, field_name: typing.Literal["detail", b"detail", "error", b"error", "header", b"header"]) -> None: ...
 
 global___ErrorMessage = ErrorMessage
-
-@typing.final
-class PingMessage(google.protobuf.message.Message):
-    """Simple ping message to test RPC connection."""
-
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor
-
-    HEADER_FIELD_NUMBER: builtins.int
-    @property
-    def header(self) -> global___Header: ...
-    def __init__(
-        self,
-        *,
-        header: global___Header | None = ...,
-    ) -> None: ...
-    def HasField(self, field_name: typing.Literal["header", b"header"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["header", b"header"]) -> None: ...
-
-global___PingMessage = PingMessage
 
 @typing.final
 class AckNackMessage(google.protobuf.message.Message):
@@ -396,3 +389,74 @@ class SystemInfoMessage(google.protobuf.message.Message):
     def ClearField(self, field_name: typing.Literal["description", b"description", "header", b"header", "serial_number", b"serial_number", "sw_version", b"sw_version"]) -> None: ...
 
 global___SystemInfoMessage = SystemInfoMessage
+
+@typing.final
+class PingMessage(google.protobuf.message.Message):
+    """****************************************************************************
+    Ping Service
+    ****************************************************************************
+
+    Simple ping message to test RPC connection.
+    """
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    HEADER_FIELD_NUMBER: builtins.int
+    @property
+    def header(self) -> global___Header: ...
+    def __init__(
+        self,
+        *,
+        header: global___Header | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["header", b"header"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["header", b"header"]) -> None: ...
+
+global___PingMessage = PingMessage
+
+@typing.final
+class NotifyTimeElapsedRequest(google.protobuf.message.Message):
+    """****************************************************************************
+    Notify Time Elapsed Service
+    ****************************************************************************
+    """
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    HEADER_FIELD_NUMBER: builtins.int
+    DELAY_TIME_FIELD_NUMBER: builtins.int
+    delay_time: builtins.int
+    """Time to delay in ms"""
+    @property
+    def header(self) -> global___Header: ...
+    def __init__(
+        self,
+        *,
+        header: global___Header | None = ...,
+        delay_time: builtins.int | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["delay_time", b"delay_time", "header", b"header"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["delay_time", b"delay_time", "header", b"header"]) -> None: ...
+
+global___NotifyTimeElapsedRequest = NotifyTimeElapsedRequest
+
+@typing.final
+class NotifyTimeElapsedResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    HEADER_FIELD_NUMBER: builtins.int
+    ELAPSED_TIME_FIELD_NUMBER: builtins.int
+    elapsed_time: builtins.int
+    """Time elapsed in ms"""
+    @property
+    def header(self) -> global___Header: ...
+    def __init__(
+        self,
+        *,
+        header: global___Header | None = ...,
+        elapsed_time: builtins.int | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["elapsed_time", b"elapsed_time", "header", b"header"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["elapsed_time", b"elapsed_time", "header", b"header"]) -> None: ...
+
+global___NotifyTimeElapsedResponse = NotifyTimeElapsedResponse

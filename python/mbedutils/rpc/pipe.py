@@ -149,7 +149,7 @@ class COBSerialPipe(Publisher):
         Writes a message to the serial pipe and waits for a response
         Args:
             msg: Message to send
-            timeout: Time to wait for a response
+            timeout: Time to wait for a response in seconds
             count: Number of responses to wait for (positive integer) or None to wait indefinitely
 
         Returns:

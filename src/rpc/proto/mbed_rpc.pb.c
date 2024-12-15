@@ -18,9 +18,6 @@ PB_BIND(mbed_rpc_NullMessage, mbed_rpc_NullMessage, AUTO)
 PB_BIND(mbed_rpc_ErrorMessage, mbed_rpc_ErrorMessage, 2)
 
 
-PB_BIND(mbed_rpc_PingMessage, mbed_rpc_PingMessage, AUTO)
-
-
 PB_BIND(mbed_rpc_AckNackMessage, mbed_rpc_AckNackMessage, AUTO)
 
 
@@ -31,6 +28,15 @@ PB_BIND(mbed_rpc_ConsoleMessage, mbed_rpc_ConsoleMessage, AUTO)
 
 
 PB_BIND(mbed_rpc_SystemInfoMessage, mbed_rpc_SystemInfoMessage, AUTO)
+
+
+PB_BIND(mbed_rpc_PingMessage, mbed_rpc_PingMessage, AUTO)
+
+
+PB_BIND(mbed_rpc_NotifyTimeElapsedRequest, mbed_rpc_NotifyTimeElapsedRequest, AUTO)
+
+
+PB_BIND(mbed_rpc_NotifyTimeElapsedResponse, mbed_rpc_NotifyTimeElapsedResponse, AUTO)
 
 
 

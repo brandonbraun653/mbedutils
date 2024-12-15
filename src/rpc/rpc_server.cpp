@@ -15,6 +15,49 @@ Includes
 #include <mbedutils/rpc.hpp>
 #include <nanoprintf.h>
 
+namespace mb::rpc::service
+{
+  /*---------------------------------------------------------------------------
+  Classes
+  ---------------------------------------------------------------------------*/
+  ErrId PingService::processRequest()
+  {
+    memcpy( &response, &request, sizeof( response ) );
+    return mbed_rpc_ErrorCode_ERR_NO_ERROR;
+  }
+
+
+  ErrId TestErrorService::processRequest()
+  {
+    return mbed_rpc_ErrorCode_ERR_SVC_FAILED;
+  }
+
+
+  mb::rpc::ErrId NotifyTimeElapsedService::processRequest()
+  {
+    start_time = mb::time::millis();
+    alarm_time = request.delay_time + start_time;
+    return mbed_rpc_ErrorCode_ERR_SVC_ASYNC;
+  }
+
+
+  void NotifyTimeElapsedService::runAsyncProcess()
+  {
+    size_t current_time = mb::time::millis();
+    if( current_time >= alarm_time )
+    {
+      response.header       = request.header;
+      response.elapsed_time = current_time - start_time;
+
+      if( this->server->publishMessage( rspId, &response ) )
+      {
+        alarm_time = std::numeric_limits<size_t>::max();
+        start_time = 0;
+      }
+    }
+  }
+}
+
 namespace mb::rpc::server
 {
   /*---------------------------------------------------------------------------
@@ -77,17 +120,20 @@ namespace mb::rpc::server
     mIsOpen = true;
 
     /*-------------------------------------------------------------------------
-    Bind default services and messages to the server
+    Bind builtin services and messages to the server
     -------------------------------------------------------------------------*/
     /* Services */
     mbed_assert_continue( addService( &mPingService ) );
     mbed_assert_continue( addService( &mTestErrorService ) );
+    mbed_assert_continue( addService( &mNotifyTimeElapsedService ) );
 
     /* Messages */
     mbed_assert_continue( message::addDescriptor( message::NullMessage ) );
     mbed_assert_continue( message::addDescriptor( message::PingMessage ) );
     mbed_assert_continue( message::addDescriptor( message::ErrorMessage ) );
     mbed_assert_continue( message::addDescriptor( message::ConsoleMessage ) );
+    mbed_assert_continue( message::addDescriptor( message::NotifyTimeElapsedRequest ) );
+    mbed_assert_continue( message::addDescriptor( message::NotifyTimeElapsedResponse ) );
 
     return true;
   }
@@ -130,11 +176,23 @@ namespace mb::rpc::server
     the proper async response pattern.
     -------------------------------------------------------------------------*/
     this->write_cobs_frame();
+
+    /*-------------------------------------------------------------------------
+    Process any asynchronous services that need to run
+    -------------------------------------------------------------------------*/
+    for ( auto &service : *mCfg.registry )
+    {
+      if( service.second->async )
+      {
+        service.second->runAsyncProcess();
+      }
+    }
+
     this->unlock();
   }
 
 
-  bool Server::addService( ::mb::rpc::IService *const service )
+  bool Server::addService( ::mb::rpc::service::IService *const service )
   {
     /*-------------------------------------------------------------------------
     Entrancy Protection
@@ -155,6 +213,7 @@ namespace mb::rpc::server
       return false;
     }
 
+    service->server = this;
     mCfg.registry->insert( { service->svcId, service } );
     return true;
   }
@@ -251,7 +310,7 @@ namespace mb::rpc::server
    */
   bool Server::process_next_request()
   {
-    mb::rpc::IService                  *service      = nullptr;
+    mb::rpc::service::IService         *service      = nullptr;
     mbed_rpc_Header                    *req_header   = nullptr;
     const mb::rpc::message::Descriptor *msg_req_iter = nullptr;
     const mb::rpc::message::Descriptor *msg_rsp_iter = nullptr;
@@ -325,7 +384,7 @@ namespace mb::rpc::server
     /*-------------------------------------------------------------------------
     Invoke the service and send the response (if any).
     -------------------------------------------------------------------------*/
-    LOG_DEBUG( "RPC: %s", service->name );
+    LOG_TRACE( "RPC: %s", service->name );
     auto   status        = service->processRequest();
     void  *response_data = nullptr;
     size_t response_size = 0;

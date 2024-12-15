@@ -17,7 +17,9 @@ Includes
 -----------------------------------------------------------------------------*/
 #include <cstddef>
 #include <cstdint>
+#include <etl/array.h>
 #include <etl/delegate.h>
+#include <etl/span.h>
 #include <etl/string.h>
 #include <etl/unordered_map.h>
 #include <mbedutils/assert.hpp>
@@ -26,14 +28,209 @@ Includes
 #include <mbedutils/drivers/rpc/rpc_message.hpp>
 #include <mbedutils/threading.hpp>
 
+
 namespace mb::rpc::server
 {
   /*---------------------------------------------------------------------------
   Forward Declarations
   ---------------------------------------------------------------------------*/
-  class IService;
-  class Server;
 
+  class Server;
+}    // namespace mb::rpc::server
+
+namespace mb::rpc::service
+{
+  /*---------------------------------------------------------------------------
+  Classes
+  ---------------------------------------------------------------------------*/
+
+  /**
+   * @brief Core interface for describing a service to the RPC server.
+   *
+   * Where possible, the number of virtual interfaces was reduced to help with
+   * code size and performance. Embedded platforms don't really have much
+   * memory to spare, so it's important to keep things as lean as possible while
+   * still abstracting the necessary functionality.
+   */
+  class IService
+  {
+  public:
+    virtual ~IService() = default;
+
+    const char     *name;   /**< Name of the service */
+    const SvcId     svcId;  /**< Expected service identifier */
+    const MsgId     reqId;  /**< Expected request identifier */
+    const MsgId     rspId;  /**< Expected response identifier */
+    const bool      async;  /**< Is the service asynchronous? */
+    server::Server *server; /**< Server instance that owns this service */
+
+
+    /**
+     * @brief Initializes the service with the necessary information
+     *
+     * @param name  Name of the service
+     * @param svcId Expected service identifier
+     * @param reqId Expected request identifier
+     * @param rspId Expected response identifier
+     * @param async Is the service asynchronous?
+     */
+    IService( const char *name, const SvcId svcId, const MsgId reqId, const MsgId rspId, const bool async ) :
+        name( name ), svcId( svcId ), reqId( reqId ), rspId( rspId ), async( async ), server( nullptr )
+    {
+    }
+
+    /**
+     * @brief Retrieves a pointer to the request data and its size
+     *
+     * @param data Pointer to the data
+     * @param size Max size of the structure storing the data
+     */
+    virtual void getRequestData( void *&data, size_t &size ) = 0;
+
+    /**
+     * @brief Retrieves a pointer to the response data and its size
+     *
+     * @param data Pointer to the data
+     * @param size Max size of the structure storing the data
+     */
+    virtual void getResponseData( void *&data, size_t &size ) = 0;
+
+    /**
+     * @brief A highly generic RPC service stub
+     *
+     * This function is called by the server to process a request. All
+     * input/output is cached in the final service object itself.
+     *
+     * @return mbed_rpc_ErrorCode_ERR_NO_ERROR   If the service executed successfully
+     * @return mbed_rpc_ErrorCode_ERR_SVC_ASYNC  If the service is async and will manually send a message later
+     * @return mbed_rpc_ErrorCode_<any>          Any other error code that may have occurred
+     */
+    virtual ErrId processRequest() = 0;
+
+    /**
+     * @brief Run asynchronous processes needed to support the service
+     */
+    virtual void runAsyncProcess() = 0;
+  };
+
+
+  /**
+   * @brief Derived service type providing storage for request and response data.
+   *
+   * @tparam Request  NanoPB message type for the request
+   * @tparam Response NanoPB message type for the response
+   */
+  template<typename Request, typename Response>
+  class BaseService : public IService
+  {
+  public:
+    /**
+     * @brief Initializes the service with the necessary information
+     *
+     * @param name  Name of the service
+     * @param svcId Expected service identifier
+     * @param reqId Expected request identifier
+     * @param rspId Expected response identifier
+     * @param async Is the service asynchronous?
+     */
+    BaseService( const char *name, const SvcId svcId, const MsgId reqId, const MsgId rspId, const bool async = false ) :
+        IService( name, svcId, reqId, rspId, async ), request(), response()
+    {
+    }
+
+    virtual ~BaseService() = default;
+
+    void getRequestData( void *&data, size_t &size ) final override
+    {
+      data = &request;
+      size = sizeof( Request );
+    }
+
+    void getResponseData( void *&data, size_t &size ) final override
+    {
+      data = &response;
+      size = sizeof( Response );
+    }
+
+    void runAsyncProcess() override
+    {
+      mbed_dbg_assert_msg( false, "%s tagged as async but no async process defined", name );
+    }
+
+  protected:
+    Request  request;  /**< Stores the request data */
+    Response response; /**< Stores the response data */
+  };
+
+
+  /**
+   * @brief Service for handling ping requests
+   */
+  class PingService : public BaseService<mbed_rpc_PingMessage, mbed_rpc_PingMessage>
+  {
+  public:
+    PingService() :
+        BaseService<mbed_rpc_PingMessage, mbed_rpc_PingMessage>( "PingService", mbed_rpc_BuiltinService_SVC_PING,
+                                                                 mbed_rpc_BuiltinMessage_MSG_PING,
+                                                                 mbed_rpc_BuiltinMessage_MSG_PING ){};
+    ~PingService() = default;
+
+    /**
+     * @copydoc IService::processRequest
+     */
+    ErrId processRequest() final override;
+  };
+
+
+  /**
+   * @brief Service for testing error handling flow
+   */
+  class TestErrorService : public BaseService<mbed_rpc_NullMessage, mbed_rpc_NullMessage>
+  {
+  public:
+    TestErrorService() :
+        BaseService<mbed_rpc_NullMessage, mbed_rpc_NullMessage>( "TestErrorService", mbed_rpc_BuiltinService_SVC_TEST_ERROR,
+                                                                 mbed_rpc_BuiltinMessage_MSG_NULL,
+                                                                 mbed_rpc_BuiltinMessage_MSG_NULL ){};
+    ~TestErrorService() = default;
+
+    /**
+     * @copydoc IService::processRequest
+     */
+    ErrId processRequest() final override;
+  };
+
+
+  /**
+   * @brief Service for notifying a client when a certain amount of time has elapsed
+   */
+  class NotifyTimeElapsedService : public BaseService<mbed_rpc_NotifyTimeElapsedRequest, mbed_rpc_NotifyTimeElapsedResponse>
+  {
+  public:
+    NotifyTimeElapsedService() :
+        BaseService<mbed_rpc_NotifyTimeElapsedRequest, mbed_rpc_NotifyTimeElapsedResponse>(
+            "NotifyTimeElapsedService", mbed_rpc_BuiltinService_SVC_NOTIFY_TIME_ELAPSED,
+            mbed_rpc_BuiltinMessage_MSG_NOTIFY_TIME_ELAPSED_REQ, mbed_rpc_BuiltinMessage_MSG_NOTIFY_TIME_ELAPSED_RSP, true ){};
+    ~NotifyTimeElapsedService() = default;
+
+    /**
+     * @copydoc IService::processRequest
+     */
+    mb::rpc::ErrId processRequest() final override;
+
+    /**
+     * @copydoc IService::runAsyncProcess
+     */
+    void runAsyncProcess() final override;
+
+  private:
+    size_t start_time; /**< Time the request was received */
+    size_t alarm_time; /**< Time in the future the message should be sent */
+  };
+}    // namespace mb::rpc::service
+
+namespace mb::rpc::server
+{
   /*---------------------------------------------------------------------------
   Aliases
   ---------------------------------------------------------------------------*/
@@ -44,12 +241,12 @@ namespace mb::rpc::server
    * @tparam N  Number of elements to store
    */
   template<const size_t N>
-  using ServiceStorage = etl::unordered_map<SvcId, ::mb::rpc::IService *, N>;
+  using ServiceStorage = etl::unordered_map<SvcId, ::mb::rpc::service::IService *, N>;
 
   /**
    * @brief A reference to a service descriptor storage location
    */
-  using ServiceRegistry = etl::iunordered_map<SvcId, ::mb::rpc::IService *>;
+  using ServiceRegistry = etl::iunordered_map<SvcId, ::mb::rpc::service::IService *>;
 
   /*---------------------------------------------------------------------------
   Structures
@@ -159,7 +356,7 @@ namespace mb::rpc::server
      * @return true   The service was registered successfully.
      * @return false  Failed to register for some reason.
      */
-    bool addService( ::mb::rpc::IService *const svc );
+    bool addService( ::mb::rpc::service::IService *const svc );
 
     /**
      * @brief Remove a service from this RPC server.
@@ -194,8 +391,9 @@ namespace mb::rpc::server
     Config mCfg;
 
     /* Builtin Services */
-    service::PingService      mPingService;
-    service::TestErrorService mTestErrorService;
+    service::PingService              mPingService;
+    service::TestErrorService         mTestErrorService;
+    service::NotifyTimeElapsedService mNotifyTimeElapsedService;
 
     bool process_next_request();
     bool read_cobs_frame();

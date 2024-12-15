@@ -28,6 +28,7 @@ enum ErrorCode {
 enum BuiltinService {
   SVC_PING = 0;       // Accepts ping requests from clients
   SVC_TEST_ERROR = 1; // Test error handling
+  SVC_NOTIFY_TIME_ELAPSED = 2; // Notify caller of elapsed system time
 }
 
 enum BuiltinMessage {
@@ -38,6 +39,8 @@ enum BuiltinMessage {
   MSG_TICK = 4;
   MSG_CONSOLE = 5;
   MSG_SYSTEM_INFO = 6;
+  MSG_NOTIFY_TIME_ELAPSED_REQ = 7;
+  MSG_NOTIFY_TIME_ELAPSED_RSP = 8;
 }
 
 enum BuiltinMessageVersion {
@@ -50,8 +53,9 @@ enum BuiltinMessageVersion {
   MSG_VER_TICK = 0;
   MSG_VER_CONSOLE = 0;
   MSG_VER_SYSTEM_INFO = 0;
+  MSG_VER_NOTIFY_TIME_ELAPSED_REQ = 0;
+  MSG_VER_NOTIFY_TIME_ELAPSED_RSP = 0;
 }
-
 
 // Core message header common to all types. Each functional message type **must**
 // have this first in their list of declarations.
@@ -77,11 +81,6 @@ message ErrorMessage {
   required Header    header = 1;
   required ErrorCode error  = 2 [(nanopb).int_size = IS_8];
   required bytes     detail = 3 [(nanopb).max_size = 256];
-}
-
-// Simple ping message to test RPC connection.
-message PingMessage {
-  required Header header = 1;
 }
 
 // Generic ACK or NACK to a previous message, with optional data payload
@@ -112,4 +111,28 @@ message SystemInfoMessage {
   required string sw_version    = 2 [(nanopb).max_size = 16, (nanopb).fixed_length = true]; // Software version
   required string serial_number = 3 [(nanopb).max_size = 16, (nanopb).fixed_length = true]; // Serial number
   required string description   = 4 [(nanopb).max_size = 32, (nanopb).fixed_length = true]; // Device description
+}
+
+
+// ****************************************************************************
+// Ping Service
+// ****************************************************************************
+
+// Simple ping message to test RPC connection.
+message PingMessage {
+  required Header header = 1;
+}
+
+// ****************************************************************************
+// Notify Time Elapsed Service
+// ****************************************************************************
+
+message NotifyTimeElapsedRequest {
+  required mbed.rpc.Header header = 1;
+  required uint32 delay_time = 2 [ (nanopb).int_size = IS_32 ]; // Time to delay in ms
+}
+
+message NotifyTimeElapsedResponse {
+  required mbed.rpc.Header header = 1;
+  required uint32 elapsed_time = 2 [ (nanopb).int_size = IS_32 ]; // Time elapsed in ms
 }

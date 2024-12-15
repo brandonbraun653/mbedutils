@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 import nanopb_pb2 as nanopb__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0embed_rpc.proto\x12\x08mbed.rpc\x1a\x0cnanopb.proto\"b\n\x06Header\x12\x16\n\x07version\x18\x01 \x02(\rB\x05\x92?\x02\x38\x08\x12\x14\n\x05seqId\x18\x02 \x02(\rB\x05\x92?\x02\x38\x08\x12\x14\n\x05msgId\x18\x03 \x02(\rB\x05\x92?\x02\x38\x08\x12\x14\n\x05svcId\x18\x04 \x02(\rB\x05\x92?\x02\x38\x08\"/\n\x0b\x42\x61seMessage\x12 \n\x06header\x18\x01 \x02(\x0b\x32\x10.mbed.rpc.Header\"/\n\x0bNullMessage\x12 \n\x06header\x18\x01 \x02(\x0b\x32\x10.mbed.rpc.Header\"s\n\x0c\x45rrorMessage\x12 \n\x06header\x18\x01 \x02(\x0b\x32\x10.mbed.rpc.Header\x12)\n\x05\x65rror\x18\x02 \x02(\x0e\x32\x13.mbed.rpc.ErrorCodeB\x05\x92?\x02\x38\x08\x12\x16\n\x06\x64\x65tail\x18\x03 \x02(\x0c\x42\x06\x92?\x03\x08\x80\x02\"/\n\x0bPingMessage\x12 \n\x06header\x18\x01 \x02(\x0b\x32\x10.mbed.rpc.Header\"\x8d\x01\n\x0e\x41\x63kNackMessage\x12 \n\x06header\x18\x01 \x02(\x0b\x32\x10.mbed.rpc.Header\x12\x13\n\x0b\x61\x63knowledge\x18\x02 \x02(\x08\x12/\n\x0bstatus_code\x18\x03 \x01(\x0e\x32\x13.mbed.rpc.ErrorCodeB\x05\x92?\x02\x38\x08\x12\x13\n\x04\x64\x61ta\x18\x04 \x01(\x0c\x42\x05\x92?\x02\x08@\"=\n\x0bTickMessage\x12 \n\x06header\x18\x01 \x02(\x0b\x32\x10.mbed.rpc.Header\x12\x0c\n\x04tick\x18\x02 \x02(\r\"\x80\x01\n\x0e\x43onsoleMessage\x12 \n\x06header\x18\x01 \x02(\x0b\x32\x10.mbed.rpc.Header\x12\x19\n\nthis_frame\x18\x02 \x02(\rB\x05\x92?\x02\x38\x08\x12\x1b\n\x0ctotal_frames\x18\x03 \x02(\rB\x05\x92?\x02\x38\x08\x12\x14\n\x04\x64\x61ta\x18\x04 \x02(\x0c\x42\x06\x92?\x03\x08\x80\x01\"\x90\x01\n\x11SystemInfoMessage\x12 \n\x06header\x18\x01 \x02(\x0b\x32\x10.mbed.rpc.Header\x12\x1b\n\nsw_version\x18\x02 \x02(\tB\x07\x92?\x04\x08\x10x\x01\x12\x1e\n\rserial_number\x18\x03 \x02(\tB\x07\x92?\x04\x08\x10x\x01\x12\x1c\n\x0b\x64\x65scription\x18\x04 \x02(\tB\x07\x92?\x04\x08 x\x01*\'\n\x0fProtocolVersion\x12\x14\n\x10RPC_PROTOCOL_VER\x10\x01*\x96\x02\n\tErrorCode\x12\x10\n\x0c\x45RR_NO_ERROR\x10\x00\x12\x11\n\rERR_SVC_ASYNC\x10\x01\x12\x10\n\x0c\x45RR_SVC_BUSY\x10\x02\x12\x0f\n\x0b\x45RR_RPC_VER\x10\x03\x12\x0f\n\x0b\x45RR_MSG_VER\x10\x04\x12\x10\n\x0c\x45RR_MSG_SIZE\x10\x05\x12\x0f\n\x0b\x45RR_MSG_CRC\x10\x06\x12\x12\n\x0e\x45RR_MSG_DECODE\x10\x07\x12\x15\n\x11\x45RR_SVC_NOT_FOUND\x10\x08\x12\x15\n\x11\x45RR_MSG_NOT_FOUND\x10\t\x12\x0f\n\x0b\x45RR_SVC_MSG\x10\n\x12\x12\n\x0e\x45RR_SVC_FAILED\x10\x0b\x12\x12\n\x0e\x45RR_SVC_NO_RSP\x10\x0c\x12\x12\n\rERR_MAX_ERROR\x10\xff\x01*2\n\x0e\x42uiltinService\x12\x0c\n\x08SVC_PING\x10\x00\x12\x12\n\x0eSVC_TEST_ERROR\x10\x01*\x81\x01\n\x0e\x42uiltinMessage\x12\x0c\n\x08MSG_NULL\x10\x00\x12\r\n\tMSG_ERROR\x10\x01\x12\x0c\n\x08MSG_PING\x10\x02\x12\x10\n\x0cMSG_ACK_NACK\x10\x03\x12\x0c\n\x08MSG_TICK\x10\x04\x12\x0f\n\x0bMSG_CONSOLE\x10\x05\x12\x13\n\x0fMSG_SYSTEM_INFO\x10\x06*\xa8\x01\n\x15\x42uiltinMessageVersion\x12\x10\n\x0cMSG_VER_NULL\x10\x00\x12\x11\n\rMSG_VER_ERROR\x10\x00\x12\x10\n\x0cMSG_VER_PING\x10\x00\x12\x14\n\x10MSG_VER_ACK_NACK\x10\x00\x12\x10\n\x0cMSG_VER_TICK\x10\x00\x12\x13\n\x0fMSG_VER_CONSOLE\x10\x00\x12\x17\n\x13MSG_VER_SYSTEM_INFO\x10\x00\x1a\x02\x10\x01')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0embed_rpc.proto\x12\x08mbed.rpc\x1a\x0cnanopb.proto\"b\n\x06Header\x12\x16\n\x07version\x18\x01 \x02(\rB\x05\x92?\x02\x38\x08\x12\x14\n\x05seqId\x18\x02 \x02(\rB\x05\x92?\x02\x38\x08\x12\x14\n\x05msgId\x18\x03 \x02(\rB\x05\x92?\x02\x38\x08\x12\x14\n\x05svcId\x18\x04 \x02(\rB\x05\x92?\x02\x38\x08\"/\n\x0b\x42\x61seMessage\x12 \n\x06header\x18\x01 \x02(\x0b\x32\x10.mbed.rpc.Header\"/\n\x0bNullMessage\x12 \n\x06header\x18\x01 \x02(\x0b\x32\x10.mbed.rpc.Header\"s\n\x0c\x45rrorMessage\x12 \n\x06header\x18\x01 \x02(\x0b\x32\x10.mbed.rpc.Header\x12)\n\x05\x65rror\x18\x02 \x02(\x0e\x32\x13.mbed.rpc.ErrorCodeB\x05\x92?\x02\x38\x08\x12\x16\n\x06\x64\x65tail\x18\x03 \x02(\x0c\x42\x06\x92?\x03\x08\x80\x02\"\x8d\x01\n\x0e\x41\x63kNackMessage\x12 \n\x06header\x18\x01 \x02(\x0b\x32\x10.mbed.rpc.Header\x12\x13\n\x0b\x61\x63knowledge\x18\x02 \x02(\x08\x12/\n\x0bstatus_code\x18\x03 \x01(\x0e\x32\x13.mbed.rpc.ErrorCodeB\x05\x92?\x02\x38\x08\x12\x13\n\x04\x64\x61ta\x18\x04 \x01(\x0c\x42\x05\x92?\x02\x08@\"=\n\x0bTickMessage\x12 \n\x06header\x18\x01 \x02(\x0b\x32\x10.mbed.rpc.Header\x12\x0c\n\x04tick\x18\x02 \x02(\r\"\x80\x01\n\x0e\x43onsoleMessage\x12 \n\x06header\x18\x01 \x02(\x0b\x32\x10.mbed.rpc.Header\x12\x19\n\nthis_frame\x18\x02 \x02(\rB\x05\x92?\x02\x38\x08\x12\x1b\n\x0ctotal_frames\x18\x03 \x02(\rB\x05\x92?\x02\x38\x08\x12\x14\n\x04\x64\x61ta\x18\x04 \x02(\x0c\x42\x06\x92?\x03\x08\x80\x01\"\x90\x01\n\x11SystemInfoMessage\x12 \n\x06header\x18\x01 \x02(\x0b\x32\x10.mbed.rpc.Header\x12\x1b\n\nsw_version\x18\x02 \x02(\tB\x07\x92?\x04\x08\x10x\x01\x12\x1e\n\rserial_number\x18\x03 \x02(\tB\x07\x92?\x04\x08\x10x\x01\x12\x1c\n\x0b\x64\x65scription\x18\x04 \x02(\tB\x07\x92?\x04\x08 x\x01\"/\n\x0bPingMessage\x12 \n\x06header\x18\x01 \x02(\x0b\x32\x10.mbed.rpc.Header\"W\n\x18NotifyTimeElapsedRequest\x12 \n\x06header\x18\x01 \x02(\x0b\x32\x10.mbed.rpc.Header\x12\x19\n\ndelay_time\x18\x02 \x02(\rB\x05\x92?\x02\x38 \"Z\n\x19NotifyTimeElapsedResponse\x12 \n\x06header\x18\x01 \x02(\x0b\x32\x10.mbed.rpc.Header\x12\x1b\n\x0c\x65lapsed_time\x18\x02 \x02(\rB\x05\x92?\x02\x38 *\'\n\x0fProtocolVersion\x12\x14\n\x10RPC_PROTOCOL_VER\x10\x01*\x96\x02\n\tErrorCode\x12\x10\n\x0c\x45RR_NO_ERROR\x10\x00\x12\x11\n\rERR_SVC_ASYNC\x10\x01\x12\x10\n\x0c\x45RR_SVC_BUSY\x10\x02\x12\x0f\n\x0b\x45RR_RPC_VER\x10\x03\x12\x0f\n\x0b\x45RR_MSG_VER\x10\x04\x12\x10\n\x0c\x45RR_MSG_SIZE\x10\x05\x12\x0f\n\x0b\x45RR_MSG_CRC\x10\x06\x12\x12\n\x0e\x45RR_MSG_DECODE\x10\x07\x12\x15\n\x11\x45RR_SVC_NOT_FOUND\x10\x08\x12\x15\n\x11\x45RR_MSG_NOT_FOUND\x10\t\x12\x0f\n\x0b\x45RR_SVC_MSG\x10\n\x12\x12\n\x0e\x45RR_SVC_FAILED\x10\x0b\x12\x12\n\x0e\x45RR_SVC_NO_RSP\x10\x0c\x12\x12\n\rERR_MAX_ERROR\x10\xff\x01*O\n\x0e\x42uiltinService\x12\x0c\n\x08SVC_PING\x10\x00\x12\x12\n\x0eSVC_TEST_ERROR\x10\x01\x12\x1b\n\x17SVC_NOTIFY_TIME_ELAPSED\x10\x02*\xc3\x01\n\x0e\x42uiltinMessage\x12\x0c\n\x08MSG_NULL\x10\x00\x12\r\n\tMSG_ERROR\x10\x01\x12\x0c\n\x08MSG_PING\x10\x02\x12\x10\n\x0cMSG_ACK_NACK\x10\x03\x12\x0c\n\x08MSG_TICK\x10\x04\x12\x0f\n\x0bMSG_CONSOLE\x10\x05\x12\x13\n\x0fMSG_SYSTEM_INFO\x10\x06\x12\x1f\n\x1bMSG_NOTIFY_TIME_ELAPSED_REQ\x10\x07\x12\x1f\n\x1bMSG_NOTIFY_TIME_ELAPSED_RSP\x10\x08*\xf2\x01\n\x15\x42uiltinMessageVersion\x12\x10\n\x0cMSG_VER_NULL\x10\x00\x12\x11\n\rMSG_VER_ERROR\x10\x00\x12\x10\n\x0cMSG_VER_PING\x10\x00\x12\x14\n\x10MSG_VER_ACK_NACK\x10\x00\x12\x10\n\x0cMSG_VER_TICK\x10\x00\x12\x13\n\x0fMSG_VER_CONSOLE\x10\x00\x12\x17\n\x13MSG_VER_SYSTEM_INFO\x10\x00\x12#\n\x1fMSG_VER_NOTIFY_TIME_ELAPSED_REQ\x10\x00\x12#\n\x1fMSG_VER_NOTIFY_TIME_ELAPSED_RSP\x10\x00\x1a\x02\x10\x01')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -62,16 +62,20 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_SYSTEMINFOMESSAGE'].fields_by_name['serial_number']._serialized_options = b'\222?\004\010\020x\001'
   _globals['_SYSTEMINFOMESSAGE'].fields_by_name['description']._loaded_options = None
   _globals['_SYSTEMINFOMESSAGE'].fields_by_name['description']._serialized_options = b'\222?\004\010 x\001'
-  _globals['_PROTOCOLVERSION']._serialized_start=891
-  _globals['_PROTOCOLVERSION']._serialized_end=930
-  _globals['_ERRORCODE']._serialized_start=933
-  _globals['_ERRORCODE']._serialized_end=1211
-  _globals['_BUILTINSERVICE']._serialized_start=1213
-  _globals['_BUILTINSERVICE']._serialized_end=1263
-  _globals['_BUILTINMESSAGE']._serialized_start=1266
-  _globals['_BUILTINMESSAGE']._serialized_end=1395
-  _globals['_BUILTINMESSAGEVERSION']._serialized_start=1398
-  _globals['_BUILTINMESSAGEVERSION']._serialized_end=1566
+  _globals['_NOTIFYTIMEELAPSEDREQUEST'].fields_by_name['delay_time']._loaded_options = None
+  _globals['_NOTIFYTIMEELAPSEDREQUEST'].fields_by_name['delay_time']._serialized_options = b'\222?\0028 '
+  _globals['_NOTIFYTIMEELAPSEDRESPONSE'].fields_by_name['elapsed_time']._loaded_options = None
+  _globals['_NOTIFYTIMEELAPSEDRESPONSE'].fields_by_name['elapsed_time']._serialized_options = b'\222?\0028 '
+  _globals['_PROTOCOLVERSION']._serialized_start=1072
+  _globals['_PROTOCOLVERSION']._serialized_end=1111
+  _globals['_ERRORCODE']._serialized_start=1114
+  _globals['_ERRORCODE']._serialized_end=1392
+  _globals['_BUILTINSERVICE']._serialized_start=1394
+  _globals['_BUILTINSERVICE']._serialized_end=1473
+  _globals['_BUILTINMESSAGE']._serialized_start=1476
+  _globals['_BUILTINMESSAGE']._serialized_end=1671
+  _globals['_BUILTINMESSAGEVERSION']._serialized_start=1674
+  _globals['_BUILTINMESSAGEVERSION']._serialized_end=1916
   _globals['_HEADER']._serialized_start=42
   _globals['_HEADER']._serialized_end=140
   _globals['_BASEMESSAGE']._serialized_start=142
@@ -80,14 +84,18 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_NULLMESSAGE']._serialized_end=238
   _globals['_ERRORMESSAGE']._serialized_start=240
   _globals['_ERRORMESSAGE']._serialized_end=355
-  _globals['_PINGMESSAGE']._serialized_start=357
-  _globals['_PINGMESSAGE']._serialized_end=404
-  _globals['_ACKNACKMESSAGE']._serialized_start=407
-  _globals['_ACKNACKMESSAGE']._serialized_end=548
-  _globals['_TICKMESSAGE']._serialized_start=550
-  _globals['_TICKMESSAGE']._serialized_end=611
-  _globals['_CONSOLEMESSAGE']._serialized_start=614
-  _globals['_CONSOLEMESSAGE']._serialized_end=742
-  _globals['_SYSTEMINFOMESSAGE']._serialized_start=745
-  _globals['_SYSTEMINFOMESSAGE']._serialized_end=889
+  _globals['_ACKNACKMESSAGE']._serialized_start=358
+  _globals['_ACKNACKMESSAGE']._serialized_end=499
+  _globals['_TICKMESSAGE']._serialized_start=501
+  _globals['_TICKMESSAGE']._serialized_end=562
+  _globals['_CONSOLEMESSAGE']._serialized_start=565
+  _globals['_CONSOLEMESSAGE']._serialized_end=693
+  _globals['_SYSTEMINFOMESSAGE']._serialized_start=696
+  _globals['_SYSTEMINFOMESSAGE']._serialized_end=840
+  _globals['_PINGMESSAGE']._serialized_start=842
+  _globals['_PINGMESSAGE']._serialized_end=889
+  _globals['_NOTIFYTIMEELAPSEDREQUEST']._serialized_start=891
+  _globals['_NOTIFYTIMEELAPSEDREQUEST']._serialized_end=978
+  _globals['_NOTIFYTIMEELAPSEDRESPONSE']._serialized_start=980
+  _globals['_NOTIFYTIMEELAPSEDRESPONSE']._serialized_end=1070
 # @@protoc_insertion_point(module_scope)

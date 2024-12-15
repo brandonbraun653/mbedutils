@@ -229,3 +229,25 @@ class SystemInfoPBMsg(BasePBMsg[SystemInfoMessage]):
     @property
     def description(self) -> str:
         return self._pb_msg.description
+
+
+class NotifyTimeElapsedRequestPBMsg(BasePBMsg[NotifyTimeElapsedRequest]):
+
+    def __init__(self):
+        super().__init__()
+        self._pb_msg = NotifyTimeElapsedRequest()
+        self._pb_msg.header.msgId = BuiltinMessage.MSG_NOTIFY_TIME_ELAPSED_REQ
+        self._pb_msg.header.version = BuiltinMessageVersion.MSG_VER_NOTIFY_TIME_ELAPSED_REQ
+        self._pb_msg.header.seqId = 0
+        self._pb_msg.header.svcId = BuiltinService.SVC_NOTIFY_TIME_ELAPSED
+
+
+class NotifyTimeElapsedResponsePBMsg(BasePBMsg[NotifyTimeElapsedResponse]):
+
+    def __init__(self):
+        super().__init__()
+        self._pb_msg = NotifyTimeElapsedResponse()
+        self._pb_msg.header.msgId = BuiltinMessage.MSG_NOTIFY_TIME_ELAPSED_RSP
+        self._pb_msg.header.version = BuiltinMessageVersion.MSG_VER_NOTIFY_TIME_ELAPSED_RSP
+        self._pb_msg.header.seqId = 0
+        self._pb_msg.header.svcId = BuiltinService.SVC_NOTIFY_TIME_ELAPSED

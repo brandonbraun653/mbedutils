@@ -23,31 +23,28 @@ namespace mb::rpc::message
   Builtin Messages
   ---------------------------------------------------------------------------*/
 
-  /**
-   * @brief Null message descriptor
-   */
   static constexpr Descriptor NullMessage{ mbed_rpc_BuiltinMessage_MSG_NULL, mbed_rpc_BuiltinMessageVersion_MSG_VER_NULL,
                                            mbed_rpc_NullMessage_fields, mbed_rpc_NullMessage_size };
 
-  /**
-   * @brief Ping message descriptor
-   */
   static constexpr Descriptor PingMessage{ mbed_rpc_BuiltinMessage_MSG_PING, mbed_rpc_BuiltinMessageVersion_MSG_VER_PING,
                                            mbed_rpc_PingMessage_fields, mbed_rpc_PingMessage_size };
 
-  /**
-   * @brief Error message descriptor
-   */
   static constexpr Descriptor ErrorMessage{ mbed_rpc_BuiltinMessage_MSG_ERROR, mbed_rpc_BuiltinMessageVersion_MSG_VER_ERROR,
                                             mbed_rpc_ErrorMessage_fields, mbed_rpc_ErrorMessage_size };
 
-  /**
-   * @brief Console message descriptor
-   */
   static constexpr Descriptor ConsoleMessage{ mbed_rpc_BuiltinMessage_MSG_CONSOLE,
                                               mbed_rpc_BuiltinMessageVersion_MSG_VER_CONSOLE,
                                               mbed_rpc_ConsoleMessage_fields, mbed_rpc_ConsoleMessage_size };
 
+  static constexpr Descriptor NotifyTimeElapsedRequest{ mbed_rpc_BuiltinMessage_MSG_NOTIFY_TIME_ELAPSED_REQ,
+                                                        mbed_rpc_BuiltinMessageVersion_MSG_VER_NOTIFY_TIME_ELAPSED_REQ,
+                                                        mbed_rpc_NotifyTimeElapsedRequest_fields,
+                                                        mbed_rpc_NotifyTimeElapsedRequest_size };
+
+  static constexpr Descriptor NotifyTimeElapsedResponse{ mbed_rpc_BuiltinMessage_MSG_NOTIFY_TIME_ELAPSED_RSP,
+                                                         mbed_rpc_BuiltinMessageVersion_MSG_VER_NOTIFY_TIME_ELAPSED_RSP,
+                                                         mbed_rpc_NotifyTimeElapsedResponse_fields,
+                                                         mbed_rpc_NotifyTimeElapsedResponse_size };
 }    // namespace mb::rpc::message
 
 #endif /* !MBEDUTILS_RPC_BUILTIN_MESSAGES_HPP */
