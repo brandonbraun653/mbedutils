@@ -238,7 +238,7 @@ namespace mb::db
     ReadFunc            reader    = {};           /**< Specify how to read data from the datacache */
     ValidateFunc        validator = {};           /**< Specify how the data is validated */
     SanitizeFunc        sanitizer = {};           /**< Specify data sanitization behavior */
-    VisitorFunc     onWrite   = {};           /**< Callback for when data is written */
+    VisitorFunc         onWrite   = {};           /**< Callback for when data is written */
     void               *datacache = nullptr;      /**< Where the data lives in memory */
     const pb_msgdesc_t *pbFields  = nullptr;      /**< NanoPB "<obj>_fields" descriptor if serialization support is desired */
     uint16_t            dataSize  = 0;            /**< Size of the datacache. If NanoPB, use the "<obj>_size" literal. */
