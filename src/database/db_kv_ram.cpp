@@ -127,7 +127,7 @@ namespace mb::db
     -------------------------------------------------------------------------*/
     mb::thread::RecursiveLockGuard lock( mRMutex );
 
-    if( exists( node.hashKey ) || mNodeDsc->full() )
+    if( RamKVDB::exists( node.hashKey ) || mNodeDsc->full() )
     {
       return false;
     }
