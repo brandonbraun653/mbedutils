@@ -77,9 +77,10 @@ namespace Analog
   static inline float calculateTempBeta( const float vOut, const float vin, const float beta, const float r_fixed,
                                          const float r0, const float t0 )
   {
-    const float r_thermistor = r_fixed * ( vin / vOut - 1.0f );
+    // Assumes the thermistor is the lower resistor in the voltage divider
+    const float r_thermistor = ( vOut * r_fixed ) / ( vin - vOut );
     const float invT         = 1.0f / ( t0 + 273.15f ) + ( 1.0f / beta ) * logf( r_thermistor / r0 );
-    return ( 1.0f / invT ) - 273.15f;    // Convert back to Celsius
+    return ( 1.0f / invT ) - 273.15f;
   }
 
   /**
@@ -100,6 +101,7 @@ namespace Analog
   static inline float calculateVoutFromTemp( const float temperature, const float vin, const float beta, const float r_fixed,
                                              const float r0, const float t0 )
   {
+    // Assumes the thermistor is the lower resistor in the voltage divider
     const float t_kelvin = temperature + 273.15f;
     const float t0_kelvin = t0 + 273.15f;
     const float r_thermistor = r0 * expf( beta * ( 1.0f / t_kelvin - 1.0f / t0_kelvin ) );
