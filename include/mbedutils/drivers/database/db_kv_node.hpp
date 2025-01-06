@@ -176,51 +176,6 @@ namespace mb::db
   };
 
   /*---------------------------------------------------------------------------
-  Public Functions
-  ---------------------------------------------------------------------------*/
-
-  /**
-   * @brief KV node writer function that uses a memcpy operation.
-   * @see ::mb::db::WriteFunc
-   */
-  bool kv_writer_memcpy( KVNode &node, const void *data, const size_t size );
-
-  /**
-   * @brief KV node writer from char* -> etl::string.
-   * @see ::mb::db::WriteFunc
-   */
-  bool kv_writer_char_to_etl_string( KVNode &node, const void *data, const size_t size );
-
-  /**
-   * @brief KV node reader using memcpy
-   * @see ::mb::db::ReadFunc
-   */
-  int kv_reader_memcpy( const KVNode &node, void *data, const size_t size );
-
-  /**
-   * @brief KV node reader from etl::string -> char *.
-   * @see ::mb::db::ReadFunc
-   */
-  int kv_reader_etl_string_to_char( const KVNode &node, void *data, const size_t size );
-
-
-  /*---------------------------------------------------------------------------
-  Public Data
-  ---------------------------------------------------------------------------*/
-
-  /* Writers */
-  static constexpr auto KVWriter_Memcpy    = WriteFunc::create<kv_writer_memcpy>();
-  static constexpr auto KVWriter_EtlString = WriteFunc::create<kv_writer_char_to_etl_string>();
-
-  /* Readers */
-  static constexpr auto KVReader_Memcpy    = ReadFunc::create<kv_reader_memcpy>();
-  static constexpr auto KVReader_EtlString = ReadFunc::create<kv_reader_etl_string_to_char>();
-
-  /* Validators */
-
-  /* Visitors */
-
-  /*---------------------------------------------------------------------------
   Structures
   ---------------------------------------------------------------------------*/
 
@@ -244,6 +199,114 @@ namespace mb::db
     uint16_t            dataSize  = 0;            /**< Size of the datacache. If NanoPB, use the "<obj>_size" literal. */
     uint16_t            flags     = 0;            /**< Flags to control behavior */
   };
+
+  /*---------------------------------------------------------------------------
+  Public Functions
+  ---------------------------------------------------------------------------*/
+
+  /**
+   * @brief KV node writer function that uses a memcpy operation.
+   * @see ::mb::db::WriteFunc
+   */
+  static bool kv_writer_memcpy( KVNode &node, const void *data, const size_t size )
+  {
+    /*-------------------------------------------------------------------------
+    Input protection
+    -------------------------------------------------------------------------*/
+    if( !data || !size || !node.datacache || ( node.dataSize < size ) )
+    {
+      return false;
+    }
+
+    /*-------------------------------------------------------------------------
+    Update the data
+    -------------------------------------------------------------------------*/
+    memcpy( node.datacache, data, size );
+    return true;
+  }
+
+  /**
+   * @brief KV node writer from char* -> etl::string.
+   * @see ::mb::db::WriteFunc
+   */
+  static bool kv_writer_char_to_etl_string( KVNode &node, const void *data, const size_t size )
+  {
+    /*-------------------------------------------------------------------------
+    Input protection
+    -------------------------------------------------------------------------*/
+    if( !data || !size || !node.datacache || ( node.dataSize < size ) )
+    {
+      return false;
+    }
+
+    /*-------------------------------------------------------------------------
+    Update the data
+    -------------------------------------------------------------------------*/
+    auto val = reinterpret_cast<etl::istring *>( node.datacache );
+    val->assign( reinterpret_cast<const char *>( data ), size );
+
+    return true;
+  }
+
+  /**
+   * @brief KV node reader using memcpy
+   * @see ::mb::db::ReadFunc
+   */
+  static int kv_reader_memcpy( const KVNode &node, void *data, const size_t size )
+  {
+    /*-------------------------------------------------------------------------
+    Input protection
+    -------------------------------------------------------------------------*/
+    if( !data || !size || !node.datacache )
+    {
+      return -1;
+    }
+
+    /*-------------------------------------------------------------------------
+    Copy the data
+    -------------------------------------------------------------------------*/
+    const size_t copy_size = node.dataSize > size ? size : node.dataSize;
+    memcpy( data, node.datacache, copy_size );
+    return static_cast<int>( copy_size );
+  }
+
+  /**
+   * @brief KV node reader from etl::string -> char *.
+   * @see ::mb::db::ReadFunc
+   */
+  static int kv_reader_etl_string_to_char( const KVNode &node, void *data, const size_t size )
+  {
+    /*-------------------------------------------------------------------------
+    Input protection
+    -------------------------------------------------------------------------*/
+    if( !data || !size || !node.datacache )
+    {
+      return -1;
+    }
+
+    /*-------------------------------------------------------------------------
+    Copy the data and return its validity
+    -------------------------------------------------------------------------*/
+    const auto   val       = reinterpret_cast<const etl::istring *>( node.datacache );
+    const size_t copy_size = val->size() > size ? size : val->size();
+
+    memcpy( data, val->c_str(), copy_size );
+    return static_cast<int>( copy_size );
+  }
+
+
+  /*---------------------------------------------------------------------------
+  Public Data
+  ---------------------------------------------------------------------------*/
+
+  /* Writers */
+  static constexpr auto KVWriter_Memcpy    = WriteFunc::create<kv_writer_memcpy>();
+  static constexpr auto KVWriter_EtlString = WriteFunc::create<kv_writer_char_to_etl_string>();
+
+  /* Readers */
+  static constexpr auto KVReader_Memcpy    = ReadFunc::create<kv_reader_memcpy>();
+  static constexpr auto KVReader_EtlString = ReadFunc::create<kv_reader_etl_string_to_char>();
+
 
   /*---------------------------------------------------------------------------
   Public Functions
