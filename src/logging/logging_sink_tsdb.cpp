@@ -15,7 +15,6 @@ Includes
 #include "mbedutils/drivers/logging/logging_sinks.hpp"
 #include "mbedutils/drivers/logging/logging_types.hpp"
 #include <cstddef>
-#include <cstdint>
 #include <fdb_def.h>
 #include <flashdb.h>
 #include <mbedutils/interfaces/time_intf.hpp>
