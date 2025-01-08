@@ -16,6 +16,7 @@
 Includes
 -----------------------------------------------------------------------------*/
 #include <cstddef>
+#include <cstdint>
 
 namespace mb::time
 {
@@ -25,17 +26,13 @@ namespace mb::time
 
   /**
    * @brief Gets the current system time in milliseconds
-   *
-   * @return size_t
    */
-  size_t millis();
+  int64_t millis();
 
   /**
    * @brief Gets the current system time in microseconds
-   *
-   * @return size_t
    */
-  size_t micros();
+  int64_t micros();
 
   /**
    * @brief Delays the current thread for a specified number of milliseconds
