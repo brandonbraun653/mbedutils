@@ -21,3 +21,11 @@ target_link_libraries(${PROJECT_NAME}_logging_stl PRIVATE
     ${PROJECT_NAME}_internal_headers
     etl::etl
 )
+
+# TimeSeries Database
+add_library(${PROJECT_NAME}_logging_tsdb STATIC logging_sink_tsdb.cpp)
+target_link_libraries(${PROJECT_NAME}_logging_tsdb PRIVATE
+    ${PROJECT_NAME}_headers
+    ${PROJECT_NAME}_internal_headers
+    etl::etl
+)

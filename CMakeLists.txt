@@ -16,7 +16,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${NANOPB_SRC_ROOT_FOLDER}/extra)
 add_library(${PROJECT_NAME}_headers INTERFACE)
 target_include_directories(${PROJECT_NAME}_headers INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/lib/flashdb/inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/flashdb
     ${CMAKE_CURRENT_SOURCE_DIR}/lib/flashdb/port/fal/inc
 )
 

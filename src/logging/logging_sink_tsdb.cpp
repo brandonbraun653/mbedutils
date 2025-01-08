@@ -12,11 +12,11 @@
 Includes
 -----------------------------------------------------------------------------*/
 #include <cstddef>
-#include <flashdb.h>
 #include <mbedutils/interfaces/time_intf.hpp>
 #include <mbedutils/assert.hpp>
 #include <mbedutils/logging.hpp>
 
+#include <fdb_cfg.h>
 #include <flashdb.h>
 
 namespace mb::logging
@@ -94,6 +94,7 @@ namespace mb::logging
 
   ErrCode TSDBSink::open()
   {
+    this->initLockable();
     return mInitialized ? ErrCode::ERR_OK : ErrCode::ERR_FAIL;
   }
 
@@ -125,7 +126,7 @@ namespace mb::logging
     /*-------------------------------------------------------------------------
     Check to see if we should even write
     -------------------------------------------------------------------------*/
-    if ( !enabled || ( level < logLevel ) || !message || !length )
+    if( !enabled || ( level < logLevel ) || !message || !length )
     {
       return ErrCode::ERR_FAIL;
     }
@@ -149,7 +150,7 @@ namespace mb::logging
     /*-------------------------------------------------------------------------
     Input Validation
     -------------------------------------------------------------------------*/
-    if( !mInitialized || !visitor  || !mReaderBuffer )
+    if( !mInitialized || !visitor || !mReaderBuffer )
     {
       return;
     }
@@ -162,4 +163,4 @@ namespace mb::logging
 
     read_func( &mDB, callback_fdb_tsl_iter, &args );
   }
-}  // namespace mb::logging
+}    // namespace mb::logging

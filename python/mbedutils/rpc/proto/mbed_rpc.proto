@@ -29,6 +29,7 @@ enum BuiltinService {
   SVC_PING = 0;       // Accepts ping requests from clients
   SVC_TEST_ERROR = 1; // Test error handling
   SVC_NOTIFY_TIME_ELAPSED = 2; // Notify caller of elapsed system time
+  SVC_LOGGER = 3;    // Logging service
 }
 
 enum BuiltinMessage {
@@ -41,6 +42,8 @@ enum BuiltinMessage {
   MSG_SYSTEM_INFO = 6;
   MSG_NOTIFY_TIME_ELAPSED_REQ = 7;
   MSG_NOTIFY_TIME_ELAPSED_RSP = 8;
+  MSG_LOGGER_REQ = 9;
+  MSG_LOGGER_RSP = 10;
 }
 
 enum BuiltinMessageVersion {
@@ -55,6 +58,8 @@ enum BuiltinMessageVersion {
   MSG_VER_SYSTEM_INFO = 0;
   MSG_VER_NOTIFY_TIME_ELAPSED_REQ = 0;
   MSG_VER_NOTIFY_TIME_ELAPSED_RSP = 0;
+  MSG_VER_LOGGER_REQ = 0;
+  MSG_VER_LOGGER_RSP = 0;
 }
 
 // Core message header common to all types. Each functional message type **must**
@@ -135,4 +140,27 @@ message NotifyTimeElapsedRequest {
 message NotifyTimeElapsedResponse {
   required mbed.rpc.Header header = 1;
   required uint32 elapsed_time = 2 [ (nanopb).int_size = IS_32 ]; // Time elapsed in ms
+}
+
+// ****************************************************************************
+// Logger Service
+// ****************************************************************************
+enum LoggerCommand {
+  LOGGER_CMD_ERASE = 0; // Clear the log
+  LOGGER_CMD_GET = 1;   // Get log contents
+  LOGGER_CMD_PUT = 2;   // Put a message in the log
+}
+
+message LoggerRequest {
+  required mbed.rpc.Header header = 1;
+  required LoggerCommand cmd = 2; // Command to execute
+  oneof payload {
+    string log_message = 3; // Message to log
+    uint32 log_index = 4;   // Index of the log entry to retrieve
+  }
+}
+
+message LoggerResponse {
+  required mbed.rpc.Header header = 1;
+  required bool success = 2; // True if the message was logged successfully
 }

@@ -15,7 +15,7 @@
 /*-----------------------------------------------------------------------------
 Includes
 -----------------------------------------------------------------------------*/
-#if __has_include("mbedutils_prj_config.hpp")
+#if __has_include( "mbedutils_prj_config.hpp" )
 #include "mbedutils_prj_config.hpp"
 #endif
 
@@ -38,7 +38,7 @@ Logging Library Configuration
 /**
  * @brief Maximum number of logging sinks that can be registered at once
  */
-#define MBEDUTILS_LOGGING_MAX_SINKS ( 4 )
+#define MBEDUTILS_LOGGING_MAX_SINKS ( 1 )
 #endif
 
 #if !defined( MBEDUTILS_LOGGING_DEFAULT_LOCK_TIMEOUT )
@@ -87,4 +87,4 @@ OSAL Library Configuration
 #define MBEDUTILS_OSAL_SEMAPHORE_POOL_SIZE ( 1 )
 #endif
 
-#endif  /* !MBEDUTILS_CONFIG_HPP */
+#endif /* !MBEDUTILS_CONFIG_HPP */
