@@ -172,7 +172,7 @@ namespace mb::logging
      *
      * @param log     Pointer to the log entry storage
      * @param length  Length of the log entry, zero if no more logs
-     * @return bool   True to read the next log, false to stop
+     * @return bool   True to terminate the read, false to read the next log
      */
     using LogReader = etl::delegate<bool( const void *const message, const size_t length )>;
 

@@ -11,14 +11,13 @@
 /*-----------------------------------------------------------------------------
 Includes
 -----------------------------------------------------------------------------*/
-#include "mbedutils/assert.hpp"
-#include "mbedutils/drivers/logging/logging_sinks.hpp"
-#include "mbedutils/drivers/logging/logging_types.hpp"
 #include <cstddef>
-#include <fdb_def.h>
 #include <flashdb.h>
 #include <mbedutils/interfaces/time_intf.hpp>
+#include <mbedutils/assert.hpp>
 #include <mbedutils/logging.hpp>
+
+#include <flashdb.h>
 
 namespace mb::logging
 {
@@ -40,8 +39,8 @@ namespace mb::logging
 
   static fdb_time_t callback_fdb_get_time()
   {
-    // TODO: Implement a real time source.
-    return static_cast<fdb_time_t>( mb::time::millis() );
+    static_assert( sizeof( fdb_time_t ) == sizeof( int64_t ), "fdb_cfg.h must define FDB_USING_TIMESTAMP_64BIT" );
+    return static_cast<fdb_time_t>( mb::time::micros() );
   }
 
 
@@ -161,6 +160,6 @@ namespace mb::logging
     auto       read_func = direction ? fdb_tsl_iter : fdb_tsl_iter_reverse;
     ReaderArgs args      = { visitor, &mDB, mReaderBuffer, mDB.max_len };
 
-    read_func( &mDB, callback_fdb_tsl_iter, &mDB );
+    read_func( &mDB, callback_fdb_tsl_iter, &args );
   }
 }  // namespace mb::logging
