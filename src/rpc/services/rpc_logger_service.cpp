@@ -11,6 +11,7 @@
 /*-----------------------------------------------------------------------------
 Includes
 -----------------------------------------------------------------------------*/
+#include "mbed_rpc.pb.h"
 #include "mbedutils/drivers/logging/logging_types.hpp"
 #include "mbedutils/interfaces/util_intf.hpp"
 #include <etl/unordered_map.h>
@@ -79,12 +80,18 @@ namespace mb::rpc::service::logger
 
   ErrId EraseService::processRequest()
   {
+    /*-------------------------------------------------------------------------
+    Find a logger maching the request ID, then erase it.
+    -------------------------------------------------------------------------*/
+    response.success = false;
+
+    auto logger = s_loggers.find( request.which );
+    if( logger != s_loggers.end() )
+    {
+      response.success = ( logger->second->erase() == logging::ErrCode::ERR_OK );
+    }
+
     return mbed_rpc_ErrorCode_ERR_NO_ERROR;
-  }
-
-
-  void EraseService::runAsyncProcess()
-  {
   }
 
 
@@ -94,12 +101,52 @@ namespace mb::rpc::service::logger
 
   ErrId WriteService::processRequest()
   {
+    /*---------------------------------------------------------------------------
+    Convert the request level to the appropriate enum
+    ---------------------------------------------------------------------------*/
+    logging::Level level;
+    switch( request.level )
+    {
+      case mbed_rpc_LoggerWriteRequest_Level_LEVEL_TRACE:
+        level = logging::Level::LVL_TRACE;
+        break;
+
+      case mbed_rpc_LoggerWriteRequest_Level_LEVEL_DEBUG:
+        level = logging::Level::LVL_DEBUG;
+        break;
+
+      case mbed_rpc_LoggerWriteRequest_Level_LEVEL_INFO:
+        level = logging::Level::LVL_INFO;
+        break;
+
+      case mbed_rpc_LoggerWriteRequest_Level_LEVEL_WARN:
+        level = logging::Level::LVL_WARN;
+        break;
+
+      case mbed_rpc_LoggerWriteRequest_Level_LEVEL_ERROR:
+        level = logging::Level::LVL_ERROR;
+        break;
+
+      case mbed_rpc_LoggerWriteRequest_Level_LEVEL_FATAL:
+        level = logging::Level::LVL_FATAL;
+        break;
+
+      default:
+        return mbed_rpc_ErrorCode_ERR_SVC_INVALID_ARG;
+    }
+
+    /*-------------------------------------------------------------------------
+    Find a logger maching the request ID, then write to it.
+    -------------------------------------------------------------------------*/
+    response.success = false;
+
+    auto logger = s_loggers.find( request.which );
+    if( logger != s_loggers.end() )
+    {
+      response.success = ( logger->second->write( level, request.data.bytes, request.data.size ) == logging::ErrCode::ERR_OK );
+    }
+
     return mbed_rpc_ErrorCode_ERR_NO_ERROR;
-  }
-
-
-  void WriteService::runAsyncProcess()
-  {
   }
 
 
@@ -109,12 +156,14 @@ namespace mb::rpc::service::logger
 
   ErrId ReadService::processRequest()
   {
-    return mbed_rpc_ErrorCode_ERR_NO_ERROR;
+    async = true;
+    return mbed_rpc_ErrorCode_ERR_SVC_ASYNC_WITH_RSP;
   }
 
 
   void ReadService::runAsyncProcess()
   {
+    async = false;
   }
 
 }    // namespace mb::rpc::service::logger

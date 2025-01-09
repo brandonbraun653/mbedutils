@@ -332,6 +332,7 @@ class LoggerWriteRequestPBMsg(BasePBMsg[LoggerWriteRequest]):
         self._pb_msg.header.seqId = 0
         self._pb_msg.header.svcId = BuiltinService.SVC_LOGGER_WRITE
         self._pb_msg.which = 0
+        self._pb_msg.level = LoggerWriteRequest.Level.LEVEL_TRACE
         self._pb_msg.data = b""
 
 

@@ -8,21 +8,23 @@ enum ProtocolVersion {
 }
 
 enum ErrorCode {
-  ERR_NO_ERROR      = 0; // No error occurred
-  ERR_SVC_ASYNC     = 1; // Used to indicate that the service is processing the request asynchronously without error so far
-  ERR_SVC_BUSY      = 2; // Service is busy and cannot process the request
-  ERR_RPC_VER       = 3; // RPC protocol version mismatch
-  ERR_MSG_VER       = 4; // Message version mismatch
-  ERR_MSG_SIZE      = 5; // Message size is incorrect
-  ERR_MSG_CRC       = 6; // Message CRC is incorrect
-  ERR_MSG_DECODE    = 7; // Message failed to decode
-  ERR_SVC_NOT_FOUND = 8; // Service not found
-  ERR_MSG_NOT_FOUND = 9; // Message not found
-  ERR_SVC_MSG       = 10; // Service does not support the message
-  ERR_SVC_FAILED    = 11; // Service failed to process the message
-  ERR_SVC_NO_RSP    = 12; // Service has no response to the message
+  ERR_NO_ERROR           = 0;  // No error occurred
+  ERR_SVC_ASYNC          = 1;  // Used to indicate that the service is processing the request asynchronously without error so far
+  ERR_SVC_BUSY           = 2;  // Service is busy and cannot process the request
+  ERR_RPC_VER            = 3;  // RPC protocol version mismatch
+  ERR_MSG_VER            = 4;  // Message version mismatch
+  ERR_MSG_SIZE           = 5;  // Message size is incorrect
+  ERR_MSG_CRC            = 6;  // Message CRC is incorrect
+  ERR_MSG_DECODE         = 7;  // Message failed to decode
+  ERR_SVC_NOT_FOUND      = 8;  // Service not found
+  ERR_MSG_NOT_FOUND      = 9;  // Message not found
+  ERR_SVC_MSG            = 10; // Service does not support the message
+  ERR_SVC_FAILED         = 11; // Service failed to process the message
+  ERR_SVC_NO_RSP         = 12; // Service has no response to the message
+  ERR_SVC_INVALID_ARG    = 13; // Service received invalid arguments
+  ERR_SVC_ASYNC_WITH_RSP = 14; // Service is processing the request asynchronously, but will send an immediate response
 
-  ERR_MAX_ERROR     = 255; // Maximum error value
+  ERR_MAX_ERROR = 255; // Maximum error value
 }
 
 enum BuiltinService {
@@ -187,9 +189,19 @@ message LoggerReadStreamResponse {
 }
 
 message LoggerWriteRequest {
+  enum Level {
+    LEVEL_TRACE = 0;
+    LEVEL_DEBUG = 1;
+    LEVEL_INFO = 2;
+    LEVEL_WARN = 3;
+    LEVEL_ERROR = 4;
+    LEVEL_FATAL = 5;
+  }
+
   required mbed.rpc.Header header = 1;
-  required uint32 which = 2 [(nanopb).int_size = IS_8]; // Which log to write
-  required bytes data = 3 [(nanopb).max_size = 512]; // Data payload
+  required Level level = 2 [(nanopb).int_size = IS_8]; // Log level
+  required uint32 which = 3 [(nanopb).int_size = IS_8]; // Which log to write
+  required bytes data = 4 [(nanopb).max_size = 512]; // Data payload
 }
 
 message LoggerWriteResponse {

@@ -28,6 +28,8 @@ typedef enum _mbed_rpc_ErrorCode {
     mbed_rpc_ErrorCode_ERR_SVC_MSG = 10, /* Service does not support the message */
     mbed_rpc_ErrorCode_ERR_SVC_FAILED = 11, /* Service failed to process the message */
     mbed_rpc_ErrorCode_ERR_SVC_NO_RSP = 12, /* Service has no response to the message */
+    mbed_rpc_ErrorCode_ERR_SVC_INVALID_ARG = 13, /* Service received invalid arguments */
+    mbed_rpc_ErrorCode_ERR_SVC_ASYNC_WITH_RSP = 14, /* Service is processing the request asynchronously, but will send an immediate response */
     mbed_rpc_ErrorCode_ERR_MAX_ERROR = 255 /* Maximum error value */
 } mbed_rpc_ErrorCode;
 
@@ -77,6 +79,15 @@ typedef enum _mbed_rpc_BuiltinMessageVersion {
     mbed_rpc_BuiltinMessageVersion_MSG_VER_LOGGER_WRITE_REQ = 0,
     mbed_rpc_BuiltinMessageVersion_MSG_VER_LOGGER_WRITE_RSP = 0
 } mbed_rpc_BuiltinMessageVersion;
+
+typedef enum _mbed_rpc_LoggerWriteRequest_Level {
+    mbed_rpc_LoggerWriteRequest_Level_LEVEL_TRACE = 0,
+    mbed_rpc_LoggerWriteRequest_Level_LEVEL_DEBUG = 1,
+    mbed_rpc_LoggerWriteRequest_Level_LEVEL_INFO = 2,
+    mbed_rpc_LoggerWriteRequest_Level_LEVEL_WARN = 3,
+    mbed_rpc_LoggerWriteRequest_Level_LEVEL_ERROR = 4,
+    mbed_rpc_LoggerWriteRequest_Level_LEVEL_FATAL = 5
+} mbed_rpc_LoggerWriteRequest_Level;
 
 /* Struct definitions */
 /* Core message header common to all types. Each functional message type **must**
@@ -187,6 +198,7 @@ typedef struct _mbed_rpc_LoggerReadStreamResponse {
 typedef PB_BYTES_ARRAY_T(512) mbed_rpc_LoggerWriteRequest_data_t;
 typedef struct _mbed_rpc_LoggerWriteRequest {
     mbed_rpc_Header header;
+    mbed_rpc_LoggerWriteRequest_Level level; /* Log level */
     uint8_t which; /* Which log to write */
     mbed_rpc_LoggerWriteRequest_data_t data; /* Data payload */
 } mbed_rpc_LoggerWriteRequest;
@@ -222,6 +234,10 @@ extern "C" {
 #define _mbed_rpc_BuiltinMessageVersion_MAX mbed_rpc_BuiltinMessageVersion_MSG_VER_TICK
 #define _mbed_rpc_BuiltinMessageVersion_ARRAYSIZE ((mbed_rpc_BuiltinMessageVersion)(mbed_rpc_BuiltinMessageVersion_MSG_VER_TICK+1))
 
+#define _mbed_rpc_LoggerWriteRequest_Level_MIN mbed_rpc_LoggerWriteRequest_Level_LEVEL_TRACE
+#define _mbed_rpc_LoggerWriteRequest_Level_MAX mbed_rpc_LoggerWriteRequest_Level_LEVEL_FATAL
+#define _mbed_rpc_LoggerWriteRequest_Level_ARRAYSIZE ((mbed_rpc_LoggerWriteRequest_Level)(mbed_rpc_LoggerWriteRequest_Level_LEVEL_FATAL+1))
+
 
 
 
@@ -240,6 +256,7 @@ extern "C" {
 
 
 
+#define mbed_rpc_LoggerWriteRequest_level_ENUMTYPE mbed_rpc_LoggerWriteRequest_Level
 
 
 
@@ -260,7 +277,7 @@ extern "C" {
 #define mbed_rpc_LoggerReadRequest_init_default  {mbed_rpc_Header_init_default, 0, 0, 0}
 #define mbed_rpc_LoggerReadResponse_init_default {mbed_rpc_Header_init_default, 0}
 #define mbed_rpc_LoggerReadStreamResponse_init_default {mbed_rpc_Header_init_default, 0, {0, {0}}}
-#define mbed_rpc_LoggerWriteRequest_init_default {mbed_rpc_Header_init_default, 0, {0, {0}}}
+#define mbed_rpc_LoggerWriteRequest_init_default {mbed_rpc_Header_init_default, _mbed_rpc_LoggerWriteRequest_Level_MIN, 0, {0, {0}}}
 #define mbed_rpc_LoggerWriteResponse_init_default {mbed_rpc_Header_init_default, 0}
 #define mbed_rpc_Header_init_zero                {0, 0, 0, 0}
 #define mbed_rpc_BaseMessage_init_zero           {mbed_rpc_Header_init_zero}
@@ -278,7 +295,7 @@ extern "C" {
 #define mbed_rpc_LoggerReadRequest_init_zero     {mbed_rpc_Header_init_zero, 0, 0, 0}
 #define mbed_rpc_LoggerReadResponse_init_zero    {mbed_rpc_Header_init_zero, 0}
 #define mbed_rpc_LoggerReadStreamResponse_init_zero {mbed_rpc_Header_init_zero, 0, {0, {0}}}
-#define mbed_rpc_LoggerWriteRequest_init_zero    {mbed_rpc_Header_init_zero, 0, {0, {0}}}
+#define mbed_rpc_LoggerWriteRequest_init_zero    {mbed_rpc_Header_init_zero, _mbed_rpc_LoggerWriteRequest_Level_MIN, 0, {0, {0}}}
 #define mbed_rpc_LoggerWriteResponse_init_zero   {mbed_rpc_Header_init_zero, 0}
 
 /* Field tags (for use in manual encoding/decoding) */
@@ -324,8 +341,9 @@ extern "C" {
 #define mbed_rpc_LoggerReadStreamResponse_index_tag 2
 #define mbed_rpc_LoggerReadStreamResponse_data_tag 3
 #define mbed_rpc_LoggerWriteRequest_header_tag   1
-#define mbed_rpc_LoggerWriteRequest_which_tag    2
-#define mbed_rpc_LoggerWriteRequest_data_tag     3
+#define mbed_rpc_LoggerWriteRequest_level_tag    2
+#define mbed_rpc_LoggerWriteRequest_which_tag    3
+#define mbed_rpc_LoggerWriteRequest_data_tag     4
 #define mbed_rpc_LoggerWriteResponse_header_tag  1
 #define mbed_rpc_LoggerWriteResponse_success_tag 2
 
@@ -452,8 +470,9 @@ X(a, STATIC,   REQUIRED, BYTES,    data,              3)
 
 #define mbed_rpc_LoggerWriteRequest_FIELDLIST(X, a) \
 X(a, STATIC,   REQUIRED, MESSAGE,  header,            1) \
-X(a, STATIC,   REQUIRED, UINT32,   which,             2) \
-X(a, STATIC,   REQUIRED, BYTES,    data,              3)
+X(a, STATIC,   REQUIRED, UENUM,    level,             2) \
+X(a, STATIC,   REQUIRED, UINT32,   which,             3) \
+X(a, STATIC,   REQUIRED, BYTES,    data,              4)
 #define mbed_rpc_LoggerWriteRequest_CALLBACK NULL
 #define mbed_rpc_LoggerWriteRequest_DEFAULT NULL
 #define mbed_rpc_LoggerWriteRequest_header_MSGTYPE mbed_rpc_Header
@@ -505,7 +524,7 @@ extern const pb_msgdesc_t mbed_rpc_LoggerWriteResponse_msg;
 #define mbed_rpc_LoggerWriteResponse_fields &mbed_rpc_LoggerWriteResponse_msg
 
 /* Maximum encoded size of messages (where known) */
-#define MBED_RPC_MBED_RPC_PB_H_MAX_SIZE          mbed_rpc_LoggerReadStreamResponse_size
+#define MBED_RPC_MBED_RPC_PB_H_MAX_SIZE          mbed_rpc_LoggerWriteRequest_size
 #define mbed_rpc_AckNackMessage_size             85
 #define mbed_rpc_BaseMessage_size                14
 #define mbed_rpc_ConsoleMessage_size             151
@@ -516,7 +535,7 @@ extern const pb_msgdesc_t mbed_rpc_LoggerWriteResponse_msg;
 #define mbed_rpc_LoggerReadRequest_size          30
 #define mbed_rpc_LoggerReadResponse_size         16
 #define mbed_rpc_LoggerReadStreamResponse_size   533
-#define mbed_rpc_LoggerWriteRequest_size         532
+#define mbed_rpc_LoggerWriteRequest_size         534
 #define mbed_rpc_LoggerWriteResponse_size        16
 #define mbed_rpc_NotifyTimeElapsedRequest_size   20
 #define mbed_rpc_NotifyTimeElapsedResponse_size  20
@@ -646,7 +665,7 @@ struct MessageDescriptor<mbed_rpc_LoggerReadStreamResponse> {
 };
 template <>
 struct MessageDescriptor<mbed_rpc_LoggerWriteRequest> {
-    static PB_INLINE_CONSTEXPR const pb_size_t fields_array_length = 3;
+    static PB_INLINE_CONSTEXPR const pb_size_t fields_array_length = 4;
     static inline const pb_msgdesc_t* fields() {
         return &mbed_rpc_LoggerWriteRequest_msg;
     }

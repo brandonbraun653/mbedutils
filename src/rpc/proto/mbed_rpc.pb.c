@@ -66,3 +66,4 @@ PB_BIND(mbed_rpc_LoggerWriteResponse, mbed_rpc_LoggerWriteResponse, AUTO)
 
 
 
+

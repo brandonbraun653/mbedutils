@@ -52,18 +52,13 @@ namespace mb::rpc::service::logger
     EraseService() :
         BaseService<mbed_rpc_LoggerEraseRequest, mbed_rpc_LoggerEraseResponse>(
             "LoggerEraseService", mbed_rpc_BuiltinService_SVC_LOGGER_ERASE, mbed_rpc_BuiltinMessage_MSG_LOGGER_ERASE_REQ,
-            mbed_rpc_BuiltinMessage_MSG_LOGGER_ERASE_RSP, false ){};
+            mbed_rpc_BuiltinMessage_MSG_LOGGER_ERASE_RSP ){};
     ~EraseService() = default;
 
     /**
      * @copydoc IService::processRequest
      */
     mb::rpc::ErrId processRequest() final override;
-
-    /**
-     * @copydoc IService::runAsyncProcess
-     */
-    void runAsyncProcess() final override;
   };
 
 
@@ -73,18 +68,13 @@ namespace mb::rpc::service::logger
     WriteService() :
         BaseService<mbed_rpc_LoggerWriteRequest, mbed_rpc_LoggerWriteResponse>(
             "LoggerWriteService", mbed_rpc_BuiltinService_SVC_LOGGER_WRITE, mbed_rpc_BuiltinMessage_MSG_LOGGER_WRITE_REQ,
-            mbed_rpc_BuiltinMessage_MSG_LOGGER_WRITE_RSP, false ){};
+            mbed_rpc_BuiltinMessage_MSG_LOGGER_WRITE_RSP ){};
     ~WriteService() = default;
 
     /**
      * @copydoc IService::processRequest
      */
     mb::rpc::ErrId processRequest() final override;
-
-    /**
-     * @copydoc IService::runAsyncProcess
-     */
-    void runAsyncProcess() final override;
   };
 
 
@@ -94,7 +84,7 @@ namespace mb::rpc::service::logger
     ReadService() :
         BaseService<mbed_rpc_LoggerReadRequest, mbed_rpc_LoggerReadResponse>(
             "LoggerReadService", mbed_rpc_BuiltinService_SVC_LOGGER_READ, mbed_rpc_BuiltinMessage_MSG_LOGGER_READ_REQ,
-            mbed_rpc_BuiltinMessage_MSG_LOGGER_READ_RSP, false ){};
+            mbed_rpc_BuiltinMessage_MSG_LOGGER_READ_RSP ){};
     ~ReadService() = default;
 
     /**

@@ -12,17 +12,21 @@ from mbedutils.rpc.observer import MessageObserver
 
 
 class ConsoleObserver(MessageObserver):
-    """ Simple observer for listening to console messages """
+    """Simple observer for listening to console messages"""
 
     class FrameBuffer:
-        """ Internal accumulator of frames for a single message """
+        """Internal accumulator of frames for a single message"""
+
         def __init__(self):
             self.start_time = time.time()
             self.total_frames = 0
             self.frames: List[ConsolePBMsg] = []
 
         def message(self) -> str:
-            self.frames = sorted(self.frames, key=cmp_to_key(lambda x1, x2: x1.frame_number - x2.frame_number))
+            self.frames = sorted(
+                self.frames,
+                key=cmp_to_key(lambda x1, x2: x1.frame_number - x2.frame_number),
+            )
             final_msg = ""
             try:
                 for frame in self.frames:
@@ -42,7 +46,9 @@ class ConsoleObserver(MessageObserver):
         self._frame_lock = Lock()
         self._on_msg_rx = on_msg_rx
         self._in_progress_frames = {}  # type: Dict[int, ConsoleObserver.FrameBuffer]
-        self._processing_thread = Thread(target=self._frame_processor, name="FrameProcessor", daemon=True)
+        self._processing_thread = Thread(
+            target=self._frame_processor, name="FrameProcessor", daemon=True
+        )
         self._processing_thread.start()
 
     def _frame_accumulator(self, msg: ConsolePBMsg) -> None:
@@ -80,9 +86,13 @@ class ConsoleObserver(MessageObserver):
                 uuid_delete_list = []
                 for uuid, tracker in self._in_progress_frames.items():
                     # Delete messages that haven't accumulated enough frames in time
-                    if len(tracker.frames) != tracker.total_frames and ((time.time() - tracker.start_time) > 30.0):
+                    if len(tracker.frames) != tracker.total_frames and (
+                        (time.time() - tracker.start_time) > 30.0
+                    ):
                         uuid_delete_list.append(uuid)
-                        logger.warning(f"Deleting message {uuid}. Not enough frames to reconstruct packet.")
+                        logger.warning(
+                            f"Deleting message {uuid}. Not enough frames to reconstruct packet."
+                        )
 
                     # Publish messages that are complete
                     if len(tracker.frames) == tracker.total_frames:
@@ -96,9 +106,11 @@ class ConsoleObserver(MessageObserver):
 
 
 class TransactionResponseObserver(MessageObserver):
-    """ Observer for listening to the response of a specific message """
+    """Observer for listening to the response of a specific message"""
 
-    def __init__(self, txn_uuid: int, timeout: Union[int, float], count: Optional[int] = 1):
+    def __init__(
+        self, txn_uuid: int, timeout: Union[int, float], count: Optional[int] = 1
+    ):
         """
         Args:
             txn_uuid: UUID of the message we're waiting for
@@ -106,30 +118,45 @@ class TransactionResponseObserver(MessageObserver):
             count: Number of responses to wait for, or None to accumulate all responses until timeout
         """
         assert timeout > 0, f"Timeout must be greater than zero. Got {timeout}"
-        assert count is None or count > 0, f"Count must be None or greater than zero. Got {count}"
+        assert (
+            count is None or count > 0
+        ), f"Count must be None or greater than zero. Got {count}"
 
         # Register the observer to listen to all messages
-        super().__init__(func=self._uuid_matcher_observer, msg_type=type(None), timeout=timeout)
+        super().__init__(
+            func=self._uuid_matcher_observer, msg_type=type(None), timeout=timeout
+        )
         self._result: List[BasePBMsg] = []
         self._event = Event()
         self._timeout = timeout
         self._txn_uuid = txn_uuid
         self._count = count
 
-    def wait(self) -> Optional[Union[BasePBMsg, List[BasePBMsg]]]:
+    def wait(
+        self, as_list: bool = False
+    ) -> Optional[Union[BasePBMsg, List[BasePBMsg]]]:
         """
         Waits for the response to the message we're observing
+
+        Args:
+            as_list: True to always return a list
+
         Returns:
             List of messages received if count > 1, or a single message if count == 1. None if no response.
         """
         self._event.wait(timeout=self._timeout)
+        if as_list:
+            return self._result
+
+        # TODO BMB: Need to update existing callers to just expect a list for all time. This is a breaking change.
         if not self._result:
             return None
         elif len(self._result) == 1 and self._count == 1:
             return self._result[0]
         else:
-            assert self._count is None or len(self._result) <= self._count, \
-                f"Expected {self._count} messages, but got {len(self._result)}"
+            assert (
+                self._count is None or len(self._result) <= self._count
+            ), f"Expected {self._count} messages, but got {len(self._result)}"
             return self._result
 
     def _uuid_matcher_observer(self, _msg: BasePBMsg) -> None:
@@ -151,9 +178,14 @@ class TransactionResponseObserver(MessageObserver):
 
 
 class PredicateObserver(MessageObserver):
-    """ Observer that accepts messages based on a user defined predicate """
+    """Observer that accepts messages based on a user defined predicate"""
 
-    def __init__(self, func: Callable[[BasePBMsg], bool], qty: int = 1, timeout: Union[int, float] = 1.0):
+    def __init__(
+        self,
+        func: Callable[[BasePBMsg], bool],
+        qty: int = 1,
+        timeout: Union[int, float] = 1.0,
+    ):
         """
         Args:
             func: Predicate function that accepts a message and returns True if it should be accepted
@@ -163,7 +195,9 @@ class PredicateObserver(MessageObserver):
         assert qty > 0, "Must observe at least one message"
         assert timeout > 0, "Timeout must be greater than zero"
 
-        super().__init__(func=self._predicate_matcher_observer, msg_type=type(None), timeout=timeout)
+        super().__init__(
+            func=self._predicate_matcher_observer, msg_type=type(None), timeout=timeout
+        )
         self._event = Event()
         self._msg_queue = Queue(qty)
         self._timeout = timeout
@@ -191,7 +225,11 @@ class PredicateObserver(MessageObserver):
             return
 
         # Accept the message if we can
-        if not self._event.is_set() and not self._msg_queue.full() and self._predicate(msg):
+        if (
+            not self._event.is_set()
+            and not self._msg_queue.full()
+            and self._predicate(msg)
+        ):
             self._msg_queue.put(copy.copy(msg))
 
         # Notify the listener if we're done

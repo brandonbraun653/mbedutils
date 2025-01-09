@@ -61,7 +61,7 @@ namespace mb::rpc::service
     const SvcId     svcId;  /**< Expected service identifier */
     const MsgId     reqId;  /**< Expected request identifier */
     const MsgId     rspId;  /**< Expected response identifier */
-    const bool      async;  /**< Is the service asynchronous? */
+    bool            async;  /**< Is the service processing asynchronously? */
     server::Server *server; /**< Server instance that owns this service */
 
 
@@ -72,10 +72,9 @@ namespace mb::rpc::service
      * @param svcId Expected service identifier
      * @param reqId Expected request identifier
      * @param rspId Expected response identifier
-     * @param async Is the service asynchronous?
      */
-    IService( const char *name, const SvcId svcId, const MsgId reqId, const MsgId rspId, const bool async ) :
-        name( name ), svcId( svcId ), reqId( reqId ), rspId( rspId ), async( async ), server( nullptr )
+    IService( const char *name, const SvcId svcId, const MsgId reqId, const MsgId rspId ) :
+        name( name ), svcId( svcId ), reqId( reqId ), rspId( rspId ), async( false ), server( nullptr )
     {
     }
 
@@ -101,9 +100,10 @@ namespace mb::rpc::service
      * This function is called by the server to process a request. All
      * input/output is cached in the final service object itself.
      *
-     * @return mbed_rpc_ErrorCode_ERR_NO_ERROR   If the service executed successfully
-     * @return mbed_rpc_ErrorCode_ERR_SVC_ASYNC  If the service is async and will manually send a message later
-     * @return mbed_rpc_ErrorCode_<any>          Any other error code that may have occurred
+     * @return mbed_rpc_ErrorCode_ERR_NO_ERROR            If the service executed successfully. Sends a response.
+     * @return mbed_rpc_ErrorCode_ERR_SVC_ASYNC           If the service is async and will manually send a message later
+     * @return mbed_rpc_ErrorCode_ERR_SVC_ASYNC_WITH_RSP  If the service is async but still needs to send a response immediately
+     * @return mbed_rpc_ErrorCode_<any>                   Any other error code that may have occurred
      */
     virtual ErrId processRequest() = 0;
 
@@ -133,8 +133,8 @@ namespace mb::rpc::service
      * @param rspId Expected response identifier
      * @param async Is the service asynchronous?
      */
-    BaseService( const char *name, const SvcId svcId, const MsgId reqId, const MsgId rspId, const bool async = false ) :
-        IService( name, svcId, reqId, rspId, async ), request(), response()
+    BaseService( const char *name, const SvcId svcId, const MsgId reqId, const MsgId rspId ) :
+        IService( name, svcId, reqId, rspId ), request(), response()
     {
     }
 
@@ -154,7 +154,8 @@ namespace mb::rpc::service
 
     void runAsyncProcess() override
     {
-      mbed_dbg_assert_msg( false, "%s tagged as async but no async process defined", name );
+      mbed_dbg_assert_msg( false, "%s async enabled but no async process defined", name );
+      async = false;
     }
 
   protected:
@@ -210,7 +211,7 @@ namespace mb::rpc::service
     NotifyTimeElapsedService() :
         BaseService<mbed_rpc_NotifyTimeElapsedRequest, mbed_rpc_NotifyTimeElapsedResponse>(
             "NotifyTimeElapsedService", mbed_rpc_BuiltinService_SVC_NOTIFY_TIME_ELAPSED,
-            mbed_rpc_BuiltinMessage_MSG_NOTIFY_TIME_ELAPSED_REQ, mbed_rpc_BuiltinMessage_MSG_NOTIFY_TIME_ELAPSED_RSP, true ){};
+            mbed_rpc_BuiltinMessage_MSG_NOTIFY_TIME_ELAPSED_REQ, mbed_rpc_BuiltinMessage_MSG_NOTIFY_TIME_ELAPSED_RSP ){};
     ~NotifyTimeElapsedService() = default;
 
     /**

@@ -62,6 +62,10 @@ class _ErrorCodeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._Enum
     """Service failed to process the message"""
     ERR_SVC_NO_RSP: _ErrorCode.ValueType  # 12
     """Service has no response to the message"""
+    ERR_SVC_INVALID_ARG: _ErrorCode.ValueType  # 13
+    """Service received invalid arguments"""
+    ERR_SVC_ASYNC_WITH_RSP: _ErrorCode.ValueType  # 14
+    """Service is processing the request asynchronously, but will send an immediate response"""
     ERR_MAX_ERROR: _ErrorCode.ValueType  # 255
     """Maximum error value"""
 
@@ -93,6 +97,10 @@ ERR_SVC_FAILED: ErrorCode.ValueType  # 11
 """Service failed to process the message"""
 ERR_SVC_NO_RSP: ErrorCode.ValueType  # 12
 """Service has no response to the message"""
+ERR_SVC_INVALID_ARG: ErrorCode.ValueType  # 13
+"""Service received invalid arguments"""
+ERR_SVC_ASYNC_WITH_RSP: ErrorCode.ValueType  # 14
+"""Service is processing the request asynchronously, but will send an immediate response"""
 ERR_MAX_ERROR: ErrorCode.ValueType  # 255
 """Maximum error value"""
 global___ErrorCode = ErrorCode
@@ -627,9 +635,33 @@ global___LoggerReadStreamResponse = LoggerReadStreamResponse
 class LoggerWriteRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
+    class _Level:
+        ValueType = typing.NewType("ValueType", builtins.int)
+        V: typing_extensions.TypeAlias = ValueType
+
+    class _LevelEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[LoggerWriteRequest._Level.ValueType], builtins.type):
+        DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+        LEVEL_TRACE: LoggerWriteRequest._Level.ValueType  # 0
+        LEVEL_DEBUG: LoggerWriteRequest._Level.ValueType  # 1
+        LEVEL_INFO: LoggerWriteRequest._Level.ValueType  # 2
+        LEVEL_WARN: LoggerWriteRequest._Level.ValueType  # 3
+        LEVEL_ERROR: LoggerWriteRequest._Level.ValueType  # 4
+        LEVEL_FATAL: LoggerWriteRequest._Level.ValueType  # 5
+
+    class Level(_Level, metaclass=_LevelEnumTypeWrapper): ...
+    LEVEL_TRACE: LoggerWriteRequest.Level.ValueType  # 0
+    LEVEL_DEBUG: LoggerWriteRequest.Level.ValueType  # 1
+    LEVEL_INFO: LoggerWriteRequest.Level.ValueType  # 2
+    LEVEL_WARN: LoggerWriteRequest.Level.ValueType  # 3
+    LEVEL_ERROR: LoggerWriteRequest.Level.ValueType  # 4
+    LEVEL_FATAL: LoggerWriteRequest.Level.ValueType  # 5
+
     HEADER_FIELD_NUMBER: builtins.int
+    LEVEL_FIELD_NUMBER: builtins.int
     WHICH_FIELD_NUMBER: builtins.int
     DATA_FIELD_NUMBER: builtins.int
+    level: global___LoggerWriteRequest.Level.ValueType
+    """Log level"""
     which: builtins.int
     """Which log to write"""
     data: builtins.bytes
@@ -640,11 +672,12 @@ class LoggerWriteRequest(google.protobuf.message.Message):
         self,
         *,
         header: global___Header | None = ...,
+        level: global___LoggerWriteRequest.Level.ValueType | None = ...,
         which: builtins.int | None = ...,
         data: builtins.bytes | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["data", b"data", "header", b"header", "which", b"which"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["data", b"data", "header", b"header", "which", b"which"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["data", b"data", "header", b"header", "level", b"level", "which", b"which"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["data", b"data", "header", b"header", "level", b"level", "which", b"which"]) -> None: ...
 
 global___LoggerWriteRequest = LoggerWriteRequest
 

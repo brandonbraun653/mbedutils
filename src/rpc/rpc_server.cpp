@@ -37,6 +37,8 @@ namespace mb::rpc::service
   {
     start_time = mb::time::millis();
     alarm_time = request.delay_time + start_time;
+    async      = true;
+
     return mbed_rpc_ErrorCode_ERR_SVC_ASYNC;
   }
 
@@ -53,6 +55,7 @@ namespace mb::rpc::service
       {
         alarm_time = std::numeric_limits<size_t>::max();
         start_time = 0;
+        async      = false;
       }
     }
   }
@@ -394,7 +397,8 @@ namespace mb::rpc::server
       /*-----------------------------------------------------------------------
       Nominal path. Service completed and wants to send a response.
       -----------------------------------------------------------------------*/
-      case mbed_rpc_ErrorCode_ERR_NO_ERROR: {
+      case mbed_rpc_ErrorCode_ERR_NO_ERROR:
+      case mbed_rpc_ErrorCode_ERR_SVC_ASYNC_WITH_RSP: {
         service->getResponseData( response_data, response_size );
 
         /*---------------------------------------------------------------------
