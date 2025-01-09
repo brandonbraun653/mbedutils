@@ -29,7 +29,9 @@ enum BuiltinService {
   SVC_PING = 0;       // Accepts ping requests from clients
   SVC_TEST_ERROR = 1; // Test error handling
   SVC_NOTIFY_TIME_ELAPSED = 2; // Notify caller of elapsed system time
-  SVC_LOGGER = 3;    // Logging service
+  SVC_LOGGER_ERASE = 3;    // Logger service to erase logs
+  SVC_LOGGER_READ = 4;     // Logger service to read logs
+  SVC_LOGGER_WRITE = 5;    // Logger service to write logs
 }
 
 enum BuiltinMessage {
@@ -42,8 +44,13 @@ enum BuiltinMessage {
   MSG_SYSTEM_INFO = 6;
   MSG_NOTIFY_TIME_ELAPSED_REQ = 7;
   MSG_NOTIFY_TIME_ELAPSED_RSP = 8;
-  MSG_LOGGER_REQ = 9;
-  MSG_LOGGER_RSP = 10;
+  MSG_LOGGER_ERASE_REQ = 9;
+  MSG_LOGGER_ERASE_RSP = 10;
+  MSG_LOGGER_READ_REQ = 11;
+  MSG_LOGGER_READ_RSP = 12;
+  MSG_LOGGER_READ_STREAM_RSP = 13;
+  MSG_LOGGER_WRITE_REQ = 14;
+  MSG_LOGGER_WRITE_RSP = 15;
 }
 
 enum BuiltinMessageVersion {
@@ -58,8 +65,13 @@ enum BuiltinMessageVersion {
   MSG_VER_SYSTEM_INFO = 0;
   MSG_VER_NOTIFY_TIME_ELAPSED_REQ = 0;
   MSG_VER_NOTIFY_TIME_ELAPSED_RSP = 0;
-  MSG_VER_LOGGER_REQ = 0;
-  MSG_VER_LOGGER_RSP = 0;
+  MSG_VER_LOGGER_ERASE_REQ = 0;
+  MSG_VER_LOGGER_ERASE_RSP = 0;
+  MSG_VER_LOGGER_READ_REQ = 0;
+  MSG_VER_LOGGER_READ_RSP = 0;
+  MSG_VER_LOGGER_READ_STREAM_RSP = 0;
+  MSG_VER_LOGGER_WRITE_REQ = 0;
+  MSG_VER_LOGGER_WRITE_RSP = 0;
 }
 
 // Core message header common to all types. Each functional message type **must**
@@ -145,22 +157,42 @@ message NotifyTimeElapsedResponse {
 // ****************************************************************************
 // Logger Service
 // ****************************************************************************
-enum LoggerCommand {
-  LOGGER_CMD_ERASE = 0; // Clear the log
-  LOGGER_CMD_GET = 1;   // Get log contents
-  LOGGER_CMD_PUT = 2;   // Put a message in the log
+
+message LoggerEraseRequest {
+  required mbed.rpc.Header header = 1;
+  required uint32 which = 2 [(nanopb).int_size = IS_8]; // Which log to erase
 }
 
-message LoggerRequest {
+message LoggerEraseResponse {
   required mbed.rpc.Header header = 1;
-  required LoggerCommand cmd = 2; // Command to execute
-  oneof payload {
-    string log_message = 3; // Message to log
-    uint32 log_index = 4;   // Index of the log entry to retrieve
-  }
+  required bool success = 2; // True if the log was erased successfully
 }
 
-message LoggerResponse {
+message LoggerReadRequest {
   required mbed.rpc.Header header = 1;
-  required bool success = 2; // True if the message was logged successfully
+  required uint32 which = 2 [(nanopb).int_size = IS_8]; // Which log to read
+  required bool direction = 3; // True for forward (FIFO), false for backward (LIFO)
+  required int32 count = 4 [(nanopb).int_size = IS_32]; // Number of entries to read, -1 for all
+}
+
+message LoggerReadResponse {
+  required mbed.rpc.Header header = 1;
+  required bool success = 2; // True if data is available
+}
+
+message LoggerReadStreamResponse {
+  required mbed.rpc.Header header = 1;
+  required uint32 index = 2 [(nanopb).int_size = IS_16]; // Index of the log entry
+  required bytes data = 3 [(nanopb).max_size = 512]; // Data payload
+}
+
+message LoggerWriteRequest {
+  required mbed.rpc.Header header = 1;
+  required uint32 which = 2 [(nanopb).int_size = IS_8]; // Which log to write
+  required bytes data = 3 [(nanopb).max_size = 512]; // Data payload
+}
+
+message LoggerWriteResponse {
+  required mbed.rpc.Header header = 1;
+  required bool success = 2; // True if the data was logged successfully
 }

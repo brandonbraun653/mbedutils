@@ -39,6 +39,27 @@ PB_BIND(mbed_rpc_NotifyTimeElapsedRequest, mbed_rpc_NotifyTimeElapsedRequest, AU
 PB_BIND(mbed_rpc_NotifyTimeElapsedResponse, mbed_rpc_NotifyTimeElapsedResponse, AUTO)
 
 
+PB_BIND(mbed_rpc_LoggerEraseRequest, mbed_rpc_LoggerEraseRequest, AUTO)
+
+
+PB_BIND(mbed_rpc_LoggerEraseResponse, mbed_rpc_LoggerEraseResponse, AUTO)
+
+
+PB_BIND(mbed_rpc_LoggerReadRequest, mbed_rpc_LoggerReadRequest, AUTO)
+
+
+PB_BIND(mbed_rpc_LoggerReadResponse, mbed_rpc_LoggerReadResponse, AUTO)
+
+
+PB_BIND(mbed_rpc_LoggerReadStreamResponse, mbed_rpc_LoggerReadStreamResponse, 2)
+
+
+PB_BIND(mbed_rpc_LoggerWriteRequest, mbed_rpc_LoggerWriteRequest, 2)
+
+
+PB_BIND(mbed_rpc_LoggerWriteResponse, mbed_rpc_LoggerWriteResponse, AUTO)
+
+
 
 
 

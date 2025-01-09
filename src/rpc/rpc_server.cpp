@@ -56,7 +56,7 @@ namespace mb::rpc::service
       }
     }
   }
-}
+}    // namespace mb::rpc::service
 
 namespace mb::rpc::server
 {
@@ -180,7 +180,7 @@ namespace mb::rpc::server
     /*-------------------------------------------------------------------------
     Process any asynchronous services that need to run
     -------------------------------------------------------------------------*/
-    for ( auto &service : *mCfg.registry )
+    for( auto &service : *mCfg.registry )
     {
       if( service.second->async )
       {
@@ -353,7 +353,7 @@ namespace mb::rpc::server
       service = svc_iter->second;
       if( service->reqId != req_header->msgId )
       {
-        mbed_assert_continue_msg( false, "RPC %s does not handle message %d", service->name, req_header->msgId );
+        mbed_assert_continue_msg( false, "RPC %s invalid request message %d ", service->name, req_header->msgId );
         return false;
       }
 

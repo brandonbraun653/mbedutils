@@ -33,8 +33,8 @@ namespace mb::rpc::message
                                             mbed_rpc_ErrorMessage_fields, mbed_rpc_ErrorMessage_size };
 
   static constexpr Descriptor ConsoleMessage{ mbed_rpc_BuiltinMessage_MSG_CONSOLE,
-                                              mbed_rpc_BuiltinMessageVersion_MSG_VER_CONSOLE,
-                                              mbed_rpc_ConsoleMessage_fields, mbed_rpc_ConsoleMessage_size };
+                                              mbed_rpc_BuiltinMessageVersion_MSG_VER_CONSOLE, mbed_rpc_ConsoleMessage_fields,
+                                              mbed_rpc_ConsoleMessage_size };
 
   static constexpr Descriptor NotifyTimeElapsedRequest{ mbed_rpc_BuiltinMessage_MSG_NOTIFY_TIME_ELAPSED_REQ,
                                                         mbed_rpc_BuiltinMessageVersion_MSG_VER_NOTIFY_TIME_ELAPSED_REQ,
@@ -45,6 +45,35 @@ namespace mb::rpc::message
                                                          mbed_rpc_BuiltinMessageVersion_MSG_VER_NOTIFY_TIME_ELAPSED_RSP,
                                                          mbed_rpc_NotifyTimeElapsedResponse_fields,
                                                          mbed_rpc_NotifyTimeElapsedResponse_size };
+
+  static constexpr Descriptor LoggerEraseRequest{ mbed_rpc_BuiltinMessage_MSG_LOGGER_ERASE_REQ,
+                                                  mbed_rpc_BuiltinMessageVersion_MSG_VER_LOGGER_ERASE_REQ,
+                                                  mbed_rpc_LoggerEraseRequest_fields, mbed_rpc_LoggerEraseRequest_size };
+
+  static constexpr Descriptor LoggerEraseResponse{ mbed_rpc_BuiltinMessage_MSG_LOGGER_ERASE_RSP,
+                                                   mbed_rpc_BuiltinMessageVersion_MSG_VER_LOGGER_ERASE_RSP,
+                                                   mbed_rpc_LoggerEraseResponse_fields, mbed_rpc_LoggerEraseResponse_size };
+
+  static constexpr Descriptor LoggerReadRequest{ mbed_rpc_BuiltinMessage_MSG_LOGGER_READ_REQ,
+                                                 mbed_rpc_BuiltinMessageVersion_MSG_VER_LOGGER_READ_REQ,
+                                                 mbed_rpc_LoggerReadRequest_fields, mbed_rpc_LoggerReadRequest_size };
+
+  static constexpr Descriptor LoggerReadResponse{ mbed_rpc_BuiltinMessage_MSG_LOGGER_READ_RSP,
+                                                  mbed_rpc_BuiltinMessageVersion_MSG_VER_LOGGER_READ_RSP,
+                                                  mbed_rpc_LoggerReadResponse_fields, mbed_rpc_LoggerReadResponse_size };
+
+  static constexpr Descriptor LoggerReadStreamResponse{ mbed_rpc_BuiltinMessage_MSG_LOGGER_READ_STREAM_RSP,
+                                                        mbed_rpc_BuiltinMessageVersion_MSG_VER_LOGGER_READ_STREAM_RSP,
+                                                        mbed_rpc_LoggerReadStreamResponse_fields,
+                                                        mbed_rpc_LoggerReadStreamResponse_size };
+
+  static constexpr Descriptor LoggerWriteRequest{ mbed_rpc_BuiltinMessage_MSG_LOGGER_WRITE_REQ,
+                                                  mbed_rpc_BuiltinMessageVersion_MSG_VER_LOGGER_WRITE_REQ,
+                                                  mbed_rpc_LoggerWriteRequest_fields, mbed_rpc_LoggerWriteRequest_size };
+
+  static constexpr Descriptor LoggerWriteResponse{ mbed_rpc_BuiltinMessage_MSG_LOGGER_WRITE_RSP,
+                                                   mbed_rpc_BuiltinMessageVersion_MSG_VER_LOGGER_WRITE_RSP,
+                                                   mbed_rpc_LoggerWriteResponse_fields, mbed_rpc_LoggerWriteResponse_size };
 }    // namespace mb::rpc::message
 
 #endif /* !MBEDUTILS_RPC_BUILTIN_MESSAGES_HPP */

@@ -34,7 +34,10 @@ typedef enum _mbed_rpc_ErrorCode {
 typedef enum _mbed_rpc_BuiltinService {
     mbed_rpc_BuiltinService_SVC_PING = 0, /* Accepts ping requests from clients */
     mbed_rpc_BuiltinService_SVC_TEST_ERROR = 1, /* Test error handling */
-    mbed_rpc_BuiltinService_SVC_NOTIFY_TIME_ELAPSED = 2 /* Notify caller of elapsed system time */
+    mbed_rpc_BuiltinService_SVC_NOTIFY_TIME_ELAPSED = 2, /* Notify caller of elapsed system time */
+    mbed_rpc_BuiltinService_SVC_LOGGER_ERASE = 3, /* Logger service to erase logs */
+    mbed_rpc_BuiltinService_SVC_LOGGER_READ = 4, /* Logger service to read logs */
+    mbed_rpc_BuiltinService_SVC_LOGGER_WRITE = 5 /* Logger service to write logs */
 } mbed_rpc_BuiltinService;
 
 typedef enum _mbed_rpc_BuiltinMessage {
@@ -46,7 +49,14 @@ typedef enum _mbed_rpc_BuiltinMessage {
     mbed_rpc_BuiltinMessage_MSG_CONSOLE = 5,
     mbed_rpc_BuiltinMessage_MSG_SYSTEM_INFO = 6,
     mbed_rpc_BuiltinMessage_MSG_NOTIFY_TIME_ELAPSED_REQ = 7,
-    mbed_rpc_BuiltinMessage_MSG_NOTIFY_TIME_ELAPSED_RSP = 8
+    mbed_rpc_BuiltinMessage_MSG_NOTIFY_TIME_ELAPSED_RSP = 8,
+    mbed_rpc_BuiltinMessage_MSG_LOGGER_ERASE_REQ = 9,
+    mbed_rpc_BuiltinMessage_MSG_LOGGER_ERASE_RSP = 10,
+    mbed_rpc_BuiltinMessage_MSG_LOGGER_READ_REQ = 11,
+    mbed_rpc_BuiltinMessage_MSG_LOGGER_READ_RSP = 12,
+    mbed_rpc_BuiltinMessage_MSG_LOGGER_READ_STREAM_RSP = 13,
+    mbed_rpc_BuiltinMessage_MSG_LOGGER_WRITE_REQ = 14,
+    mbed_rpc_BuiltinMessage_MSG_LOGGER_WRITE_RSP = 15
 } mbed_rpc_BuiltinMessage;
 
 typedef enum _mbed_rpc_BuiltinMessageVersion {
@@ -58,7 +68,14 @@ typedef enum _mbed_rpc_BuiltinMessageVersion {
     mbed_rpc_BuiltinMessageVersion_MSG_VER_CONSOLE = 0,
     mbed_rpc_BuiltinMessageVersion_MSG_VER_SYSTEM_INFO = 0,
     mbed_rpc_BuiltinMessageVersion_MSG_VER_NOTIFY_TIME_ELAPSED_REQ = 0,
-    mbed_rpc_BuiltinMessageVersion_MSG_VER_NOTIFY_TIME_ELAPSED_RSP = 0
+    mbed_rpc_BuiltinMessageVersion_MSG_VER_NOTIFY_TIME_ELAPSED_RSP = 0,
+    mbed_rpc_BuiltinMessageVersion_MSG_VER_LOGGER_ERASE_REQ = 0,
+    mbed_rpc_BuiltinMessageVersion_MSG_VER_LOGGER_ERASE_RSP = 0,
+    mbed_rpc_BuiltinMessageVersion_MSG_VER_LOGGER_READ_REQ = 0,
+    mbed_rpc_BuiltinMessageVersion_MSG_VER_LOGGER_READ_RSP = 0,
+    mbed_rpc_BuiltinMessageVersion_MSG_VER_LOGGER_READ_STREAM_RSP = 0,
+    mbed_rpc_BuiltinMessageVersion_MSG_VER_LOGGER_WRITE_REQ = 0,
+    mbed_rpc_BuiltinMessageVersion_MSG_VER_LOGGER_WRITE_RSP = 0
 } mbed_rpc_BuiltinMessageVersion;
 
 /* Struct definitions */
@@ -138,6 +155,47 @@ typedef struct _mbed_rpc_NotifyTimeElapsedResponse {
     uint32_t elapsed_time; /* Time elapsed in ms */
 } mbed_rpc_NotifyTimeElapsedResponse;
 
+typedef struct _mbed_rpc_LoggerEraseRequest {
+    mbed_rpc_Header header;
+    uint8_t which; /* Which log to erase */
+} mbed_rpc_LoggerEraseRequest;
+
+typedef struct _mbed_rpc_LoggerEraseResponse {
+    mbed_rpc_Header header;
+    bool success; /* True if the log was erased successfully */
+} mbed_rpc_LoggerEraseResponse;
+
+typedef struct _mbed_rpc_LoggerReadRequest {
+    mbed_rpc_Header header;
+    uint8_t which; /* Which log to read */
+    bool direction; /* True for forward (FIFO), false for backward (LIFO) */
+    int32_t count; /* Number of entries to read, -1 for all */
+} mbed_rpc_LoggerReadRequest;
+
+typedef struct _mbed_rpc_LoggerReadResponse {
+    mbed_rpc_Header header;
+    bool success; /* True if data is available */
+} mbed_rpc_LoggerReadResponse;
+
+typedef PB_BYTES_ARRAY_T(512) mbed_rpc_LoggerReadStreamResponse_data_t;
+typedef struct _mbed_rpc_LoggerReadStreamResponse {
+    mbed_rpc_Header header;
+    uint16_t index; /* Index of the log entry */
+    mbed_rpc_LoggerReadStreamResponse_data_t data; /* Data payload */
+} mbed_rpc_LoggerReadStreamResponse;
+
+typedef PB_BYTES_ARRAY_T(512) mbed_rpc_LoggerWriteRequest_data_t;
+typedef struct _mbed_rpc_LoggerWriteRequest {
+    mbed_rpc_Header header;
+    uint8_t which; /* Which log to write */
+    mbed_rpc_LoggerWriteRequest_data_t data; /* Data payload */
+} mbed_rpc_LoggerWriteRequest;
+
+typedef struct _mbed_rpc_LoggerWriteResponse {
+    mbed_rpc_Header header;
+    bool success; /* True if the data was logged successfully */
+} mbed_rpc_LoggerWriteResponse;
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -153,12 +211,12 @@ extern "C" {
 #define _mbed_rpc_ErrorCode_ARRAYSIZE ((mbed_rpc_ErrorCode)(mbed_rpc_ErrorCode_ERR_MAX_ERROR+1))
 
 #define _mbed_rpc_BuiltinService_MIN mbed_rpc_BuiltinService_SVC_PING
-#define _mbed_rpc_BuiltinService_MAX mbed_rpc_BuiltinService_SVC_NOTIFY_TIME_ELAPSED
-#define _mbed_rpc_BuiltinService_ARRAYSIZE ((mbed_rpc_BuiltinService)(mbed_rpc_BuiltinService_SVC_NOTIFY_TIME_ELAPSED+1))
+#define _mbed_rpc_BuiltinService_MAX mbed_rpc_BuiltinService_SVC_LOGGER_WRITE
+#define _mbed_rpc_BuiltinService_ARRAYSIZE ((mbed_rpc_BuiltinService)(mbed_rpc_BuiltinService_SVC_LOGGER_WRITE+1))
 
 #define _mbed_rpc_BuiltinMessage_MIN mbed_rpc_BuiltinMessage_MSG_NULL
-#define _mbed_rpc_BuiltinMessage_MAX mbed_rpc_BuiltinMessage_MSG_NOTIFY_TIME_ELAPSED_RSP
-#define _mbed_rpc_BuiltinMessage_ARRAYSIZE ((mbed_rpc_BuiltinMessage)(mbed_rpc_BuiltinMessage_MSG_NOTIFY_TIME_ELAPSED_RSP+1))
+#define _mbed_rpc_BuiltinMessage_MAX mbed_rpc_BuiltinMessage_MSG_LOGGER_WRITE_RSP
+#define _mbed_rpc_BuiltinMessage_ARRAYSIZE ((mbed_rpc_BuiltinMessage)(mbed_rpc_BuiltinMessage_MSG_LOGGER_WRITE_RSP+1))
 
 #define _mbed_rpc_BuiltinMessageVersion_MIN mbed_rpc_BuiltinMessageVersion_MSG_VER_ACK_NACK
 #define _mbed_rpc_BuiltinMessageVersion_MAX mbed_rpc_BuiltinMessageVersion_MSG_VER_TICK
@@ -170,6 +228,13 @@ extern "C" {
 #define mbed_rpc_ErrorMessage_error_ENUMTYPE mbed_rpc_ErrorCode
 
 #define mbed_rpc_AckNackMessage_status_code_ENUMTYPE mbed_rpc_ErrorCode
+
+
+
+
+
+
+
 
 
 
@@ -190,6 +255,13 @@ extern "C" {
 #define mbed_rpc_PingMessage_init_default        {mbed_rpc_Header_init_default}
 #define mbed_rpc_NotifyTimeElapsedRequest_init_default {mbed_rpc_Header_init_default, 0}
 #define mbed_rpc_NotifyTimeElapsedResponse_init_default {mbed_rpc_Header_init_default, 0}
+#define mbed_rpc_LoggerEraseRequest_init_default {mbed_rpc_Header_init_default, 0}
+#define mbed_rpc_LoggerEraseResponse_init_default {mbed_rpc_Header_init_default, 0}
+#define mbed_rpc_LoggerReadRequest_init_default  {mbed_rpc_Header_init_default, 0, 0, 0}
+#define mbed_rpc_LoggerReadResponse_init_default {mbed_rpc_Header_init_default, 0}
+#define mbed_rpc_LoggerReadStreamResponse_init_default {mbed_rpc_Header_init_default, 0, {0, {0}}}
+#define mbed_rpc_LoggerWriteRequest_init_default {mbed_rpc_Header_init_default, 0, {0, {0}}}
+#define mbed_rpc_LoggerWriteResponse_init_default {mbed_rpc_Header_init_default, 0}
 #define mbed_rpc_Header_init_zero                {0, 0, 0, 0}
 #define mbed_rpc_BaseMessage_init_zero           {mbed_rpc_Header_init_zero}
 #define mbed_rpc_NullMessage_init_zero           {mbed_rpc_Header_init_zero}
@@ -201,6 +273,13 @@ extern "C" {
 #define mbed_rpc_PingMessage_init_zero           {mbed_rpc_Header_init_zero}
 #define mbed_rpc_NotifyTimeElapsedRequest_init_zero {mbed_rpc_Header_init_zero, 0}
 #define mbed_rpc_NotifyTimeElapsedResponse_init_zero {mbed_rpc_Header_init_zero, 0}
+#define mbed_rpc_LoggerEraseRequest_init_zero    {mbed_rpc_Header_init_zero, 0}
+#define mbed_rpc_LoggerEraseResponse_init_zero   {mbed_rpc_Header_init_zero, 0}
+#define mbed_rpc_LoggerReadRequest_init_zero     {mbed_rpc_Header_init_zero, 0, 0, 0}
+#define mbed_rpc_LoggerReadResponse_init_zero    {mbed_rpc_Header_init_zero, 0}
+#define mbed_rpc_LoggerReadStreamResponse_init_zero {mbed_rpc_Header_init_zero, 0, {0, {0}}}
+#define mbed_rpc_LoggerWriteRequest_init_zero    {mbed_rpc_Header_init_zero, 0, {0, {0}}}
+#define mbed_rpc_LoggerWriteResponse_init_zero   {mbed_rpc_Header_init_zero, 0}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define mbed_rpc_Header_version_tag              1
@@ -231,6 +310,24 @@ extern "C" {
 #define mbed_rpc_NotifyTimeElapsedRequest_delay_time_tag 2
 #define mbed_rpc_NotifyTimeElapsedResponse_header_tag 1
 #define mbed_rpc_NotifyTimeElapsedResponse_elapsed_time_tag 2
+#define mbed_rpc_LoggerEraseRequest_header_tag   1
+#define mbed_rpc_LoggerEraseRequest_which_tag    2
+#define mbed_rpc_LoggerEraseResponse_header_tag  1
+#define mbed_rpc_LoggerEraseResponse_success_tag 2
+#define mbed_rpc_LoggerReadRequest_header_tag    1
+#define mbed_rpc_LoggerReadRequest_which_tag     2
+#define mbed_rpc_LoggerReadRequest_direction_tag 3
+#define mbed_rpc_LoggerReadRequest_count_tag     4
+#define mbed_rpc_LoggerReadResponse_header_tag   1
+#define mbed_rpc_LoggerReadResponse_success_tag  2
+#define mbed_rpc_LoggerReadStreamResponse_header_tag 1
+#define mbed_rpc_LoggerReadStreamResponse_index_tag 2
+#define mbed_rpc_LoggerReadStreamResponse_data_tag 3
+#define mbed_rpc_LoggerWriteRequest_header_tag   1
+#define mbed_rpc_LoggerWriteRequest_which_tag    2
+#define mbed_rpc_LoggerWriteRequest_data_tag     3
+#define mbed_rpc_LoggerWriteResponse_header_tag  1
+#define mbed_rpc_LoggerWriteResponse_success_tag 2
 
 /* Struct field encoding specification for nanopb */
 #define mbed_rpc_Header_FIELDLIST(X, a) \
@@ -315,6 +412,59 @@ X(a, STATIC,   REQUIRED, UINT32,   elapsed_time,      2)
 #define mbed_rpc_NotifyTimeElapsedResponse_DEFAULT NULL
 #define mbed_rpc_NotifyTimeElapsedResponse_header_MSGTYPE mbed_rpc_Header
 
+#define mbed_rpc_LoggerEraseRequest_FIELDLIST(X, a) \
+X(a, STATIC,   REQUIRED, MESSAGE,  header,            1) \
+X(a, STATIC,   REQUIRED, UINT32,   which,             2)
+#define mbed_rpc_LoggerEraseRequest_CALLBACK NULL
+#define mbed_rpc_LoggerEraseRequest_DEFAULT NULL
+#define mbed_rpc_LoggerEraseRequest_header_MSGTYPE mbed_rpc_Header
+
+#define mbed_rpc_LoggerEraseResponse_FIELDLIST(X, a) \
+X(a, STATIC,   REQUIRED, MESSAGE,  header,            1) \
+X(a, STATIC,   REQUIRED, BOOL,     success,           2)
+#define mbed_rpc_LoggerEraseResponse_CALLBACK NULL
+#define mbed_rpc_LoggerEraseResponse_DEFAULT NULL
+#define mbed_rpc_LoggerEraseResponse_header_MSGTYPE mbed_rpc_Header
+
+#define mbed_rpc_LoggerReadRequest_FIELDLIST(X, a) \
+X(a, STATIC,   REQUIRED, MESSAGE,  header,            1) \
+X(a, STATIC,   REQUIRED, UINT32,   which,             2) \
+X(a, STATIC,   REQUIRED, BOOL,     direction,         3) \
+X(a, STATIC,   REQUIRED, INT32,    count,             4)
+#define mbed_rpc_LoggerReadRequest_CALLBACK NULL
+#define mbed_rpc_LoggerReadRequest_DEFAULT NULL
+#define mbed_rpc_LoggerReadRequest_header_MSGTYPE mbed_rpc_Header
+
+#define mbed_rpc_LoggerReadResponse_FIELDLIST(X, a) \
+X(a, STATIC,   REQUIRED, MESSAGE,  header,            1) \
+X(a, STATIC,   REQUIRED, BOOL,     success,           2)
+#define mbed_rpc_LoggerReadResponse_CALLBACK NULL
+#define mbed_rpc_LoggerReadResponse_DEFAULT NULL
+#define mbed_rpc_LoggerReadResponse_header_MSGTYPE mbed_rpc_Header
+
+#define mbed_rpc_LoggerReadStreamResponse_FIELDLIST(X, a) \
+X(a, STATIC,   REQUIRED, MESSAGE,  header,            1) \
+X(a, STATIC,   REQUIRED, UINT32,   index,             2) \
+X(a, STATIC,   REQUIRED, BYTES,    data,              3)
+#define mbed_rpc_LoggerReadStreamResponse_CALLBACK NULL
+#define mbed_rpc_LoggerReadStreamResponse_DEFAULT NULL
+#define mbed_rpc_LoggerReadStreamResponse_header_MSGTYPE mbed_rpc_Header
+
+#define mbed_rpc_LoggerWriteRequest_FIELDLIST(X, a) \
+X(a, STATIC,   REQUIRED, MESSAGE,  header,            1) \
+X(a, STATIC,   REQUIRED, UINT32,   which,             2) \
+X(a, STATIC,   REQUIRED, BYTES,    data,              3)
+#define mbed_rpc_LoggerWriteRequest_CALLBACK NULL
+#define mbed_rpc_LoggerWriteRequest_DEFAULT NULL
+#define mbed_rpc_LoggerWriteRequest_header_MSGTYPE mbed_rpc_Header
+
+#define mbed_rpc_LoggerWriteResponse_FIELDLIST(X, a) \
+X(a, STATIC,   REQUIRED, MESSAGE,  header,            1) \
+X(a, STATIC,   REQUIRED, BOOL,     success,           2)
+#define mbed_rpc_LoggerWriteResponse_CALLBACK NULL
+#define mbed_rpc_LoggerWriteResponse_DEFAULT NULL
+#define mbed_rpc_LoggerWriteResponse_header_MSGTYPE mbed_rpc_Header
+
 extern const pb_msgdesc_t mbed_rpc_Header_msg;
 extern const pb_msgdesc_t mbed_rpc_BaseMessage_msg;
 extern const pb_msgdesc_t mbed_rpc_NullMessage_msg;
@@ -326,6 +476,13 @@ extern const pb_msgdesc_t mbed_rpc_SystemInfoMessage_msg;
 extern const pb_msgdesc_t mbed_rpc_PingMessage_msg;
 extern const pb_msgdesc_t mbed_rpc_NotifyTimeElapsedRequest_msg;
 extern const pb_msgdesc_t mbed_rpc_NotifyTimeElapsedResponse_msg;
+extern const pb_msgdesc_t mbed_rpc_LoggerEraseRequest_msg;
+extern const pb_msgdesc_t mbed_rpc_LoggerEraseResponse_msg;
+extern const pb_msgdesc_t mbed_rpc_LoggerReadRequest_msg;
+extern const pb_msgdesc_t mbed_rpc_LoggerReadResponse_msg;
+extern const pb_msgdesc_t mbed_rpc_LoggerReadStreamResponse_msg;
+extern const pb_msgdesc_t mbed_rpc_LoggerWriteRequest_msg;
+extern const pb_msgdesc_t mbed_rpc_LoggerWriteResponse_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
 #define mbed_rpc_Header_fields &mbed_rpc_Header_msg
@@ -339,14 +496,28 @@ extern const pb_msgdesc_t mbed_rpc_NotifyTimeElapsedResponse_msg;
 #define mbed_rpc_PingMessage_fields &mbed_rpc_PingMessage_msg
 #define mbed_rpc_NotifyTimeElapsedRequest_fields &mbed_rpc_NotifyTimeElapsedRequest_msg
 #define mbed_rpc_NotifyTimeElapsedResponse_fields &mbed_rpc_NotifyTimeElapsedResponse_msg
+#define mbed_rpc_LoggerEraseRequest_fields &mbed_rpc_LoggerEraseRequest_msg
+#define mbed_rpc_LoggerEraseResponse_fields &mbed_rpc_LoggerEraseResponse_msg
+#define mbed_rpc_LoggerReadRequest_fields &mbed_rpc_LoggerReadRequest_msg
+#define mbed_rpc_LoggerReadResponse_fields &mbed_rpc_LoggerReadResponse_msg
+#define mbed_rpc_LoggerReadStreamResponse_fields &mbed_rpc_LoggerReadStreamResponse_msg
+#define mbed_rpc_LoggerWriteRequest_fields &mbed_rpc_LoggerWriteRequest_msg
+#define mbed_rpc_LoggerWriteResponse_fields &mbed_rpc_LoggerWriteResponse_msg
 
 /* Maximum encoded size of messages (where known) */
-#define MBED_RPC_MBED_RPC_PB_H_MAX_SIZE          mbed_rpc_ErrorMessage_size
+#define MBED_RPC_MBED_RPC_PB_H_MAX_SIZE          mbed_rpc_LoggerReadStreamResponse_size
 #define mbed_rpc_AckNackMessage_size             85
 #define mbed_rpc_BaseMessage_size                14
 #define mbed_rpc_ConsoleMessage_size             151
 #define mbed_rpc_ErrorMessage_size               276
 #define mbed_rpc_Header_size                     12
+#define mbed_rpc_LoggerEraseRequest_size         17
+#define mbed_rpc_LoggerEraseResponse_size        16
+#define mbed_rpc_LoggerReadRequest_size          30
+#define mbed_rpc_LoggerReadResponse_size         16
+#define mbed_rpc_LoggerReadStreamResponse_size   533
+#define mbed_rpc_LoggerWriteRequest_size         532
+#define mbed_rpc_LoggerWriteResponse_size        16
 #define mbed_rpc_NotifyTimeElapsedRequest_size   20
 #define mbed_rpc_NotifyTimeElapsedResponse_size  20
 #define mbed_rpc_NullMessage_size                14
@@ -436,6 +607,55 @@ struct MessageDescriptor<mbed_rpc_NotifyTimeElapsedResponse> {
     static PB_INLINE_CONSTEXPR const pb_size_t fields_array_length = 2;
     static inline const pb_msgdesc_t* fields() {
         return &mbed_rpc_NotifyTimeElapsedResponse_msg;
+    }
+};
+template <>
+struct MessageDescriptor<mbed_rpc_LoggerEraseRequest> {
+    static PB_INLINE_CONSTEXPR const pb_size_t fields_array_length = 2;
+    static inline const pb_msgdesc_t* fields() {
+        return &mbed_rpc_LoggerEraseRequest_msg;
+    }
+};
+template <>
+struct MessageDescriptor<mbed_rpc_LoggerEraseResponse> {
+    static PB_INLINE_CONSTEXPR const pb_size_t fields_array_length = 2;
+    static inline const pb_msgdesc_t* fields() {
+        return &mbed_rpc_LoggerEraseResponse_msg;
+    }
+};
+template <>
+struct MessageDescriptor<mbed_rpc_LoggerReadRequest> {
+    static PB_INLINE_CONSTEXPR const pb_size_t fields_array_length = 4;
+    static inline const pb_msgdesc_t* fields() {
+        return &mbed_rpc_LoggerReadRequest_msg;
+    }
+};
+template <>
+struct MessageDescriptor<mbed_rpc_LoggerReadResponse> {
+    static PB_INLINE_CONSTEXPR const pb_size_t fields_array_length = 2;
+    static inline const pb_msgdesc_t* fields() {
+        return &mbed_rpc_LoggerReadResponse_msg;
+    }
+};
+template <>
+struct MessageDescriptor<mbed_rpc_LoggerReadStreamResponse> {
+    static PB_INLINE_CONSTEXPR const pb_size_t fields_array_length = 3;
+    static inline const pb_msgdesc_t* fields() {
+        return &mbed_rpc_LoggerReadStreamResponse_msg;
+    }
+};
+template <>
+struct MessageDescriptor<mbed_rpc_LoggerWriteRequest> {
+    static PB_INLINE_CONSTEXPR const pb_size_t fields_array_length = 3;
+    static inline const pb_msgdesc_t* fields() {
+        return &mbed_rpc_LoggerWriteRequest_msg;
+    }
+};
+template <>
+struct MessageDescriptor<mbed_rpc_LoggerWriteResponse> {
+    static PB_INLINE_CONSTEXPR const pb_size_t fields_array_length = 2;
+    static inline const pb_msgdesc_t* fields() {
+        return &mbed_rpc_LoggerWriteResponse_msg;
     }
 };
 }  // namespace nanopb

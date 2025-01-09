@@ -109,6 +109,12 @@ class _BuiltinServiceEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper.
     """Test error handling"""
     SVC_NOTIFY_TIME_ELAPSED: _BuiltinService.ValueType  # 2
     """Notify caller of elapsed system time"""
+    SVC_LOGGER_ERASE: _BuiltinService.ValueType  # 3
+    """Logger service to erase logs"""
+    SVC_LOGGER_READ: _BuiltinService.ValueType  # 4
+    """Logger service to read logs"""
+    SVC_LOGGER_WRITE: _BuiltinService.ValueType  # 5
+    """Logger service to write logs"""
 
 class BuiltinService(_BuiltinService, metaclass=_BuiltinServiceEnumTypeWrapper): ...
 
@@ -118,6 +124,12 @@ SVC_TEST_ERROR: BuiltinService.ValueType  # 1
 """Test error handling"""
 SVC_NOTIFY_TIME_ELAPSED: BuiltinService.ValueType  # 2
 """Notify caller of elapsed system time"""
+SVC_LOGGER_ERASE: BuiltinService.ValueType  # 3
+"""Logger service to erase logs"""
+SVC_LOGGER_READ: BuiltinService.ValueType  # 4
+"""Logger service to read logs"""
+SVC_LOGGER_WRITE: BuiltinService.ValueType  # 5
+"""Logger service to write logs"""
 global___BuiltinService = BuiltinService
 
 class _BuiltinMessage:
@@ -135,6 +147,13 @@ class _BuiltinMessageEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper.
     MSG_SYSTEM_INFO: _BuiltinMessage.ValueType  # 6
     MSG_NOTIFY_TIME_ELAPSED_REQ: _BuiltinMessage.ValueType  # 7
     MSG_NOTIFY_TIME_ELAPSED_RSP: _BuiltinMessage.ValueType  # 8
+    MSG_LOGGER_ERASE_REQ: _BuiltinMessage.ValueType  # 9
+    MSG_LOGGER_ERASE_RSP: _BuiltinMessage.ValueType  # 10
+    MSG_LOGGER_READ_REQ: _BuiltinMessage.ValueType  # 11
+    MSG_LOGGER_READ_RSP: _BuiltinMessage.ValueType  # 12
+    MSG_LOGGER_READ_STREAM_RSP: _BuiltinMessage.ValueType  # 13
+    MSG_LOGGER_WRITE_REQ: _BuiltinMessage.ValueType  # 14
+    MSG_LOGGER_WRITE_RSP: _BuiltinMessage.ValueType  # 15
 
 class BuiltinMessage(_BuiltinMessage, metaclass=_BuiltinMessageEnumTypeWrapper): ...
 
@@ -147,6 +166,13 @@ MSG_CONSOLE: BuiltinMessage.ValueType  # 5
 MSG_SYSTEM_INFO: BuiltinMessage.ValueType  # 6
 MSG_NOTIFY_TIME_ELAPSED_REQ: BuiltinMessage.ValueType  # 7
 MSG_NOTIFY_TIME_ELAPSED_RSP: BuiltinMessage.ValueType  # 8
+MSG_LOGGER_ERASE_REQ: BuiltinMessage.ValueType  # 9
+MSG_LOGGER_ERASE_RSP: BuiltinMessage.ValueType  # 10
+MSG_LOGGER_READ_REQ: BuiltinMessage.ValueType  # 11
+MSG_LOGGER_READ_RSP: BuiltinMessage.ValueType  # 12
+MSG_LOGGER_READ_STREAM_RSP: BuiltinMessage.ValueType  # 13
+MSG_LOGGER_WRITE_REQ: BuiltinMessage.ValueType  # 14
+MSG_LOGGER_WRITE_RSP: BuiltinMessage.ValueType  # 15
 global___BuiltinMessage = BuiltinMessage
 
 class _BuiltinMessageVersion:
@@ -164,6 +190,13 @@ class _BuiltinMessageVersionEnumTypeWrapper(google.protobuf.internal.enum_type_w
     MSG_VER_SYSTEM_INFO: _BuiltinMessageVersion.ValueType  # 0
     MSG_VER_NOTIFY_TIME_ELAPSED_REQ: _BuiltinMessageVersion.ValueType  # 0
     MSG_VER_NOTIFY_TIME_ELAPSED_RSP: _BuiltinMessageVersion.ValueType  # 0
+    MSG_VER_LOGGER_ERASE_REQ: _BuiltinMessageVersion.ValueType  # 0
+    MSG_VER_LOGGER_ERASE_RSP: _BuiltinMessageVersion.ValueType  # 0
+    MSG_VER_LOGGER_READ_REQ: _BuiltinMessageVersion.ValueType  # 0
+    MSG_VER_LOGGER_READ_RSP: _BuiltinMessageVersion.ValueType  # 0
+    MSG_VER_LOGGER_READ_STREAM_RSP: _BuiltinMessageVersion.ValueType  # 0
+    MSG_VER_LOGGER_WRITE_REQ: _BuiltinMessageVersion.ValueType  # 0
+    MSG_VER_LOGGER_WRITE_RSP: _BuiltinMessageVersion.ValueType  # 0
 
 class BuiltinMessageVersion(_BuiltinMessageVersion, metaclass=_BuiltinMessageVersionEnumTypeWrapper): ...
 
@@ -176,6 +209,13 @@ MSG_VER_CONSOLE: BuiltinMessageVersion.ValueType  # 0
 MSG_VER_SYSTEM_INFO: BuiltinMessageVersion.ValueType  # 0
 MSG_VER_NOTIFY_TIME_ELAPSED_REQ: BuiltinMessageVersion.ValueType  # 0
 MSG_VER_NOTIFY_TIME_ELAPSED_RSP: BuiltinMessageVersion.ValueType  # 0
+MSG_VER_LOGGER_ERASE_REQ: BuiltinMessageVersion.ValueType  # 0
+MSG_VER_LOGGER_ERASE_RSP: BuiltinMessageVersion.ValueType  # 0
+MSG_VER_LOGGER_READ_REQ: BuiltinMessageVersion.ValueType  # 0
+MSG_VER_LOGGER_READ_RSP: BuiltinMessageVersion.ValueType  # 0
+MSG_VER_LOGGER_READ_STREAM_RSP: BuiltinMessageVersion.ValueType  # 0
+MSG_VER_LOGGER_WRITE_REQ: BuiltinMessageVersion.ValueType  # 0
+MSG_VER_LOGGER_WRITE_RSP: BuiltinMessageVersion.ValueType  # 0
 global___BuiltinMessageVersion = BuiltinMessageVersion
 
 @typing.final
@@ -460,3 +500,171 @@ class NotifyTimeElapsedResponse(google.protobuf.message.Message):
     def ClearField(self, field_name: typing.Literal["elapsed_time", b"elapsed_time", "header", b"header"]) -> None: ...
 
 global___NotifyTimeElapsedResponse = NotifyTimeElapsedResponse
+
+@typing.final
+class LoggerEraseRequest(google.protobuf.message.Message):
+    """****************************************************************************
+    Logger Service
+    ****************************************************************************
+    """
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    HEADER_FIELD_NUMBER: builtins.int
+    WHICH_FIELD_NUMBER: builtins.int
+    which: builtins.int
+    """Which log to erase"""
+    @property
+    def header(self) -> global___Header: ...
+    def __init__(
+        self,
+        *,
+        header: global___Header | None = ...,
+        which: builtins.int | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["header", b"header", "which", b"which"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["header", b"header", "which", b"which"]) -> None: ...
+
+global___LoggerEraseRequest = LoggerEraseRequest
+
+@typing.final
+class LoggerEraseResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    HEADER_FIELD_NUMBER: builtins.int
+    SUCCESS_FIELD_NUMBER: builtins.int
+    success: builtins.bool
+    """True if the log was erased successfully"""
+    @property
+    def header(self) -> global___Header: ...
+    def __init__(
+        self,
+        *,
+        header: global___Header | None = ...,
+        success: builtins.bool | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["header", b"header", "success", b"success"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["header", b"header", "success", b"success"]) -> None: ...
+
+global___LoggerEraseResponse = LoggerEraseResponse
+
+@typing.final
+class LoggerReadRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    HEADER_FIELD_NUMBER: builtins.int
+    WHICH_FIELD_NUMBER: builtins.int
+    DIRECTION_FIELD_NUMBER: builtins.int
+    COUNT_FIELD_NUMBER: builtins.int
+    which: builtins.int
+    """Which log to read"""
+    direction: builtins.bool
+    """True for forward (FIFO), false for backward (LIFO)"""
+    count: builtins.int
+    """Number of entries to read, -1 for all"""
+    @property
+    def header(self) -> global___Header: ...
+    def __init__(
+        self,
+        *,
+        header: global___Header | None = ...,
+        which: builtins.int | None = ...,
+        direction: builtins.bool | None = ...,
+        count: builtins.int | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["count", b"count", "direction", b"direction", "header", b"header", "which", b"which"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["count", b"count", "direction", b"direction", "header", b"header", "which", b"which"]) -> None: ...
+
+global___LoggerReadRequest = LoggerReadRequest
+
+@typing.final
+class LoggerReadResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    HEADER_FIELD_NUMBER: builtins.int
+    SUCCESS_FIELD_NUMBER: builtins.int
+    success: builtins.bool
+    """True if data is available"""
+    @property
+    def header(self) -> global___Header: ...
+    def __init__(
+        self,
+        *,
+        header: global___Header | None = ...,
+        success: builtins.bool | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["header", b"header", "success", b"success"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["header", b"header", "success", b"success"]) -> None: ...
+
+global___LoggerReadResponse = LoggerReadResponse
+
+@typing.final
+class LoggerReadStreamResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    HEADER_FIELD_NUMBER: builtins.int
+    INDEX_FIELD_NUMBER: builtins.int
+    DATA_FIELD_NUMBER: builtins.int
+    index: builtins.int
+    """Index of the log entry"""
+    data: builtins.bytes
+    """Data payload"""
+    @property
+    def header(self) -> global___Header: ...
+    def __init__(
+        self,
+        *,
+        header: global___Header | None = ...,
+        index: builtins.int | None = ...,
+        data: builtins.bytes | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["data", b"data", "header", b"header", "index", b"index"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["data", b"data", "header", b"header", "index", b"index"]) -> None: ...
+
+global___LoggerReadStreamResponse = LoggerReadStreamResponse
+
+@typing.final
+class LoggerWriteRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    HEADER_FIELD_NUMBER: builtins.int
+    WHICH_FIELD_NUMBER: builtins.int
+    DATA_FIELD_NUMBER: builtins.int
+    which: builtins.int
+    """Which log to write"""
+    data: builtins.bytes
+    """Data payload"""
+    @property
+    def header(self) -> global___Header: ...
+    def __init__(
+        self,
+        *,
+        header: global___Header | None = ...,
+        which: builtins.int | None = ...,
+        data: builtins.bytes | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["data", b"data", "header", b"header", "which", b"which"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["data", b"data", "header", b"header", "which", b"which"]) -> None: ...
+
+global___LoggerWriteRequest = LoggerWriteRequest
+
+@typing.final
+class LoggerWriteResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    HEADER_FIELD_NUMBER: builtins.int
+    SUCCESS_FIELD_NUMBER: builtins.int
+    success: builtins.bool
+    """True if the data was logged successfully"""
+    @property
+    def header(self) -> global___Header: ...
+    def __init__(
+        self,
+        *,
+        header: global___Header | None = ...,
+        success: builtins.bool | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["header", b"header", "success", b"success"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["header", b"header", "success", b"success"]) -> None: ...
+
+global___LoggerWriteResponse = LoggerWriteResponse

@@ -21,7 +21,11 @@ def get_module_messages(module_name: str) -> List[BasePBMsg]:
 
     module = importlib.import_module(module_name)
     classes = inspect.getmembers(module, inspect.isclass)
-    return [cls() for name, cls in classes if issubclass(cls, BasePBMsg) and cls != BasePBMsg]
+    return [
+        cls()
+        for name, cls in classes
+        if issubclass(cls, BasePBMsg) and cls != BasePBMsg
+    ]
 
 
 class CRCMismatchException(Exception):
@@ -29,7 +33,8 @@ class CRCMismatchException(Exception):
 
 
 class SeqIdGenerator(metaclass=Singleton):
-    """ Unique identifier generator for messages. This is used for the seqId field in the message header. """
+    """Unique identifier generator for messages. This is used for the seqId field in the message header."""
+
     def __init__(self):
         self._seq_id = 0
         self._lock = RLock()
@@ -42,7 +47,7 @@ class SeqIdGenerator(metaclass=Singleton):
 
 
 # Core type for messages that inherit from this class
-PBMsgType = TypeVar('PBMsgType')
+PBMsgType = TypeVar("PBMsgType")
 
 
 class BasePBMsg(Generic[PBMsgType]):
@@ -237,7 +242,9 @@ class NotifyTimeElapsedRequestPBMsg(BasePBMsg[NotifyTimeElapsedRequest]):
         super().__init__()
         self._pb_msg = NotifyTimeElapsedRequest()
         self._pb_msg.header.msgId = BuiltinMessage.MSG_NOTIFY_TIME_ELAPSED_REQ
-        self._pb_msg.header.version = BuiltinMessageVersion.MSG_VER_NOTIFY_TIME_ELAPSED_REQ
+        self._pb_msg.header.version = (
+            BuiltinMessageVersion.MSG_VER_NOTIFY_TIME_ELAPSED_REQ
+        )
         self._pb_msg.header.seqId = 0
         self._pb_msg.header.svcId = BuiltinService.SVC_NOTIFY_TIME_ELAPSED
 
@@ -248,6 +255,92 @@ class NotifyTimeElapsedResponsePBMsg(BasePBMsg[NotifyTimeElapsedResponse]):
         super().__init__()
         self._pb_msg = NotifyTimeElapsedResponse()
         self._pb_msg.header.msgId = BuiltinMessage.MSG_NOTIFY_TIME_ELAPSED_RSP
-        self._pb_msg.header.version = BuiltinMessageVersion.MSG_VER_NOTIFY_TIME_ELAPSED_RSP
+        self._pb_msg.header.version = (
+            BuiltinMessageVersion.MSG_VER_NOTIFY_TIME_ELAPSED_RSP
+        )
         self._pb_msg.header.seqId = 0
         self._pb_msg.header.svcId = BuiltinService.SVC_NOTIFY_TIME_ELAPSED
+
+
+class LoggerEraseRequestPBMsg(BasePBMsg[LoggerEraseRequest]):
+
+    def __init__(self):
+        super().__init__()
+        self._pb_msg = LoggerEraseRequest()
+        self._pb_msg.header.msgId = BuiltinMessage.MSG_LOGGER_ERASE_REQ
+        self._pb_msg.header.version = BuiltinMessageVersion.MSG_VER_LOGGER_ERASE_REQ
+        self._pb_msg.header.seqId = 0
+        self._pb_msg.header.svcId = BuiltinService.SVC_LOGGER_ERASE
+        self._pb_msg.which = 0
+
+
+class LoggerEraseResponsePBMsg(BasePBMsg[LoggerEraseResponse]):
+    def __init__(self):
+        super().__init__()
+        self._pb_msg = LoggerEraseResponse()
+        self._pb_msg.header.msgId = BuiltinMessage.MSG_LOGGER_ERASE_RSP
+        self._pb_msg.header.version = BuiltinMessageVersion.MSG_VER_LOGGER_ERASE_RSP
+        self._pb_msg.header.seqId = 0
+        self._pb_msg.header.svcId = BuiltinService.SVC_LOGGER_ERASE
+        self._pb_msg.success = False
+
+
+class LoggerReadRequestPBMsg(BasePBMsg[LoggerReadRequest]):
+    def __init__(self):
+        super().__init__()
+        self._pb_msg = LoggerReadRequest()
+        self._pb_msg.header.msgId = BuiltinMessage.MSG_LOGGER_READ_REQ
+        self._pb_msg.header.version = BuiltinMessageVersion.MSG_VER_LOGGER_READ_REQ
+        self._pb_msg.header.seqId = 0
+        self._pb_msg.header.svcId = BuiltinService.SVC_LOGGER_READ
+        self._pb_msg.which = 0
+        self._pb_msg.direction = False
+        self._pb_msg.count = -1
+
+
+class LoggerReadResponsePBMsg(BasePBMsg[LoggerReadResponse]):
+    def __init__(self):
+        super().__init__()
+        self._pb_msg = LoggerReadResponse()
+        self._pb_msg.header.msgId = BuiltinMessage.MSG_LOGGER_READ_RSP
+        self._pb_msg.header.version = BuiltinMessageVersion.MSG_VER_LOGGER_READ_RSP
+        self._pb_msg.header.seqId = 0
+        self._pb_msg.header.svcId = BuiltinService.SVC_LOGGER_READ
+        self._pb_msg.success = False
+
+
+class LoggerReadStreamResponsePBMsg(BasePBMsg[LoggerReadStreamResponse]):
+    def __init__(self):
+        super().__init__()
+        self._pb_msg = LoggerReadStreamResponse()
+        self._pb_msg.header.msgId = BuiltinMessage.MSG_LOGGER_READ_STREAM_RSP
+        self._pb_msg.header.version = (
+            BuiltinMessageVersion.MSG_VER_LOGGER_READ_STREAM_RSP
+        )
+        self._pb_msg.header.seqId = 0
+        self._pb_msg.header.svcId = BuiltinService.SVC_LOGGER_READ
+        self._pb_msg.index = 0
+        self._pb_msg.data = b""
+
+
+class LoggerWriteRequestPBMsg(BasePBMsg[LoggerWriteRequest]):
+    def __init__(self):
+        super().__init__()
+        self._pb_msg = LoggerWriteRequest()
+        self._pb_msg.header.msgId = BuiltinMessage.MSG_LOGGER_WRITE_REQ
+        self._pb_msg.header.version = BuiltinMessageVersion.MSG_VER_LOGGER_WRITE_REQ
+        self._pb_msg.header.seqId = 0
+        self._pb_msg.header.svcId = BuiltinService.SVC_LOGGER_WRITE
+        self._pb_msg.which = 0
+        self._pb_msg.data = b""
+
+
+class LoggerWriteResponsePBMsg(BasePBMsg[LoggerWriteResponse]):
+    def __init__(self):
+        super().__init__()
+        self._pb_msg = LoggerWriteResponse()
+        self._pb_msg.header.msgId = BuiltinMessage.MSG_LOGGER_WRITE_RSP
+        self._pb_msg.header.version = BuiltinMessageVersion.MSG_VER_LOGGER_WRITE_RSP
+        self._pb_msg.header.seqId = 0
+        self._pb_msg.header.svcId = BuiltinService.SVC_LOGGER_WRITE
+        self._pb_msg.success = False

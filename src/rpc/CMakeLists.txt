@@ -15,6 +15,7 @@ target_include_directories(${MBED_RPC_HEADERS} INTERFACE
 set(RPC_SERVER_LIB_NAME ${PROJECT_NAME}_lib_rpc_server)
 add_library(${RPC_SERVER_LIB_NAME} STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/rpc_server.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/services/rpc_logger_service.cpp
 )
 target_link_libraries(${RPC_SERVER_LIB_NAME} PRIVATE
     ${PROJECT_NAME}_headers

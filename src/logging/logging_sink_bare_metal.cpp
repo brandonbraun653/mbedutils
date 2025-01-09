@@ -50,12 +50,12 @@ namespace mb::logging
   }
 
 
-  ErrCode SerialSink::insert( const Level level, const void *const message, const size_t length )
+  ErrCode SerialSink::write( const Level level, const void *const message, const size_t length )
   {
     /*-------------------------------------------------------------------------
     Check to see if we should even write
     -------------------------------------------------------------------------*/
-    if ( !enabled || ( level < logLevel ) || !message || !length )
+    if( !enabled || ( level < logLevel ) || !message || !length )
     {
       return ErrCode::ERR_FAIL;
     }
@@ -79,4 +79,4 @@ namespace mb::logging
     mSerial = &serial;
   }
 
-}  // namespace mb::logging
+}    // namespace mb::logging

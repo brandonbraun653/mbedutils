@@ -25,6 +25,22 @@ Includes
 namespace mb::logging
 {
   /*---------------------------------------------------------------------------
+  Aliases
+  ---------------------------------------------------------------------------*/
+
+  /**
+   * @brief Callback for reading a log entry from the logger.
+   * @see https://github.com/armink/FlashDB/blob/master/samples/tsdb_sample.c
+   *
+   * Use the examples in the link above to understand context of this callback.
+   *
+   * @param log     Pointer to the log entry storage
+   * @param length  Length of the log entry, zero if no more logs
+   * @return bool   True to terminate the read, false to read the next log
+   */
+  using LogReader = etl::delegate<bool( const void *const message, const size_t length )>;
+
+  /*---------------------------------------------------------------------------
   Classes
   ---------------------------------------------------------------------------*/
 
@@ -70,6 +86,13 @@ namespace mb::logging
     virtual ErrCode flush() = 0;
 
     /**
+     * @brief Erases all data from the sink
+     *
+     * @return ErrCode
+     */
+    virtual ErrCode erase() = 0;
+
+    /**
      * @brief Provides the core functionality of the sink by logging messages.
      *
      * @note   Assume the memory can be modified/destroyed after return
@@ -79,7 +102,19 @@ namespace mb::logging
      * @param length    How large the message is in bytes
      * @return ErrCode  Whether or not the logging action succeeded
      */
-    virtual ErrCode insert( const Level level, const void *const message, const size_t length ) = 0;
+    virtual ErrCode write( const Level level, const void *const message, const size_t length ) = 0;
+
+    /**
+     * @brief Extremely simple reader to iterate over log entries.
+     *
+     * This will iterate the entire database and call the visitor function for each log entry.
+     * It is up to the visitor to determine if the log entry is of interest or if the iteration
+     * should be terminated early. See the LogReader delegate for more information.
+     *
+     * @param visitor Function to call for each log entry
+     * @param direction Direction to read the logs, true = oldest to newest, false = newest to oldest
+     */
+    virtual void read( LogReader visitor, const bool direction = false ) = 0;
 
   protected:
     friend thread::Lockable<SinkInterface>;
@@ -92,12 +127,23 @@ namespace mb::logging
   class ConsoleSink : public SinkInterface
   {
   public:
-    ConsoleSink() = default;
+    ConsoleSink()  = default;
     ~ConsoleSink() = default;
     ErrCode open() final override;
     ErrCode close() final override;
     ErrCode flush() final override;
-    ErrCode insert( const Level level, const void *const message, const size_t length ) final override;
+    ErrCode write( const Level level, const void *const message, const size_t length ) final override;
+
+    ErrCode erase() final override
+    {
+      return ErrCode::ERR_OK;
+    };
+
+    void read( LogReader visitor, const bool direction = false ) final override
+    {
+      ( void )visitor;
+      ( void )direction;
+    };
   };
 
   /**
@@ -112,7 +158,9 @@ namespace mb::logging
     ErrCode open() final override;
     ErrCode close() final override;
     ErrCode flush() final override;
-    ErrCode insert( const Level level, const void *const message, const size_t length ) final override;
+    ErrCode write( const Level level, const void *const message, const size_t length ) final override;
+    ErrCode erase() final override;
+    void    read( LogReader visitor, const bool direction = false ) final override;
 
     /**
      * @brief Assigns the file to write logs to
@@ -123,7 +171,7 @@ namespace mb::logging
 
   private:
     etl::string<128> mFile;
-    int mFileHandle;
+    int              mFileHandle;
   };
 
   /**
@@ -140,7 +188,18 @@ namespace mb::logging
     ErrCode open() final override;
     ErrCode close() final override;
     ErrCode flush() final override;
-    ErrCode insert( const Level level, const void *const message, const size_t length ) final override;
+    ErrCode write( const Level level, const void *const message, const size_t length ) final override;
+
+    ErrCode erase() final override
+    {
+      return ErrCode::ERR_OK;
+    };
+
+    void read( LogReader visitor, const bool direction = false ) final override
+    {
+      ( void )visitor;
+      ( void )direction;
+    };
 
     /**
      * @brief Assigns the serial driver to use for logging
@@ -165,22 +224,10 @@ namespace mb::logging
     using FALString = etl::string<FAL_DEV_NAME_MAX>;
 
     /**
-     * @brief Callback for reading a log entry from the database.
-     * @see https://github.com/armink/FlashDB/blob/master/samples/tsdb_sample.c
+     * @brief Configuration data for the NVM based KVDB
      *
-     * Use the examples in the link above to understand context of this callback.
-     *
-     * @param log     Pointer to the log entry storage
-     * @param length  Length of the log entry, zero if no more logs
-     * @return bool   True to terminate the read, false to read the next log
+     * This should be built via binding to the Storage struct members.
      */
-    using LogReader = etl::delegate<bool( const void *const message, const size_t length )>;
-
-    /**
-    * @brief Configuration data for the NVM based KVDB
-    *
-    * This should be built via binding to the Storage struct members.
-    */
     struct Config
     {
       FALString dev_name;      /**< Which device is being accessed */
@@ -194,7 +241,9 @@ namespace mb::logging
     ErrCode open() final override;
     ErrCode close() final override;
     ErrCode flush() final override;
-    ErrCode insert( const Level level, const void *const message, const size_t length ) final override;
+    ErrCode write( const Level level, const void *const message, const size_t length ) final override;
+    ErrCode erase() final override;
+    void    read( LogReader visitor, const bool direction = false ) final override;
 
     /**
      * @brief Configures the resources used for the sink
@@ -203,24 +252,12 @@ namespace mb::logging
      */
     void configure( const Config &config );
 
-    /**
-     * @brief Extremely simple reader to iterate over log entries.
-     *
-     * This will iterate the entire database and call the visitor function for each log entry.
-     * It is up to the visitor to determine if the log entry is of interest or if the iteration
-     * should be terminated early. See the LogReader delegate for more information.
-     *
-     * @param visitor Function to call for each log entry
-     * @param direction Direction to read the logs, true = oldest to newest, false = newest to oldest
-     */
-    void read( LogReader visitor, const bool direction = false );
-
   private:
     bool     mInitialized;      /**< Has the sink been initialized? */
     fdb_tsdb mDB;               /**< Timeseries DB control structure */
     alignas( 4 ) uint32_t _pad; /**< See db_kv_mgr.hpp for explanation on why this is here */
     uint8_t *mReaderBuffer;     /**< Buffer for reading log entries into */
   };
-}  // namespace mb::logging
+}    // namespace mb::logging
 
-#endif  /* !MBEDUTILS_LOGGING_SINK_INTERFACE_HPP */
+#endif /* !MBEDUTILS_LOGGING_SINK_INTERFACE_HPP */

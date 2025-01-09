@@ -11,6 +11,8 @@
 /*-----------------------------------------------------------------------------
 Includes
 -----------------------------------------------------------------------------*/
+#include "mbedutils/drivers/logging/logging_sinks.hpp"
+#include "mbedutils/drivers/logging/logging_types.hpp"
 #include <cstddef>
 #include <mbedutils/interfaces/time_intf.hpp>
 #include <mbedutils/assert.hpp>
@@ -27,10 +29,10 @@ namespace mb::logging
 
   struct ReaderArgs
   {
-    TSDBSink::LogReader visitor;
-    fdb_tsdb_t          db;
-    void               *output;
-    size_t              size;
+    LogReader  visitor;
+    fdb_tsdb_t db;
+    void      *output;
+    size_t     size;
   };
 
   /*---------------------------------------------------------------------------
@@ -119,7 +121,27 @@ namespace mb::logging
   }
 
 
-  ErrCode TSDBSink::insert( const Level level, const void *const message, const size_t length )
+  ErrCode TSDBSink::erase()
+  {
+    thread::RecursiveLockGuard lock( this->mLockableMutex );
+
+    /*-------------------------------------------------------------------------
+    Input Validation
+    -------------------------------------------------------------------------*/
+    if( !mInitialized )
+    {
+      return ErrCode::ERR_FAIL;
+    }
+
+    /*-------------------------------------------------------------------------
+    Erase the logs from the database (may take a minute)
+    -------------------------------------------------------------------------*/
+    fdb_tsl_clean( &mDB );
+    return ErrCode::ERR_OK;
+  }
+
+
+  ErrCode TSDBSink::write( const Level level, const void *const message, const size_t length )
   {
     thread::RecursiveLockGuard lock( this->mLockableMutex );
 
