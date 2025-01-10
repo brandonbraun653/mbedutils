@@ -12,6 +12,7 @@
 Includes
 -----------------------------------------------------------------------------*/
 #include "mbed_rpc.pb.h"
+#include "mbedutils/assert.hpp"
 #include "mbedutils/drivers/logging/logging_types.hpp"
 #include "mbedutils/drivers/threading/thread.hpp"
 #include "mbedutils/interfaces/util_intf.hpp"
@@ -222,7 +223,6 @@ namespace mb::rpc::service::logger
 
     size_t copy_size = std::min( length, sizeof( response.data.bytes ) );
     memcpy( response.data.bytes, message, copy_size );
-    mbed_assert_continue_msg( copy_size == length, "Log data truncated" );
 
     /*-------------------------------------------------------------------------
     Try to send the response
@@ -235,12 +235,13 @@ namespace mb::rpc::service::logger
       mb::thread::this_thread::sleep_for( sleep_time );
       if( ++attempts >= 3 )
       {
-        return false;    // Give up, stop the read
+        mbed_assert_continue_msg( false, "Failed to send response" );
+        return true;    // Give up, stop the read
       }
 
       sleep_time *= 2;    // Exponential backoff
     }
 
-    return true;    // Request the next message in the log
+    return false;    // Request the next message in the log
   }
 }    // namespace mb::rpc::service::logger
