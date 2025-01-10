@@ -11,6 +11,8 @@
  *****************************************************************************/
 
 #pragma once
+#include "mbed_rpc.pb.h"
+#include <cstdint>
 #ifndef MBEDUTILS_RPC_LOGGER_SERVICE_HPP
 #define MBEDUTILS_RPC_LOGGER_SERVICE_HPP
 
@@ -78,13 +80,13 @@ namespace mb::rpc::service::logger
   };
 
 
-  class ReadService : public BaseService<mbed_rpc_LoggerReadRequest, mbed_rpc_LoggerReadResponse>
+  class ReadService : public BaseService<mbed_rpc_LoggerReadRequest, mbed_rpc_LoggerReadStreamResponse>
   {
   public:
     ReadService() :
-        BaseService<mbed_rpc_LoggerReadRequest, mbed_rpc_LoggerReadResponse>(
+        BaseService<mbed_rpc_LoggerReadRequest, mbed_rpc_LoggerReadStreamResponse>(
             "LoggerReadService", mbed_rpc_BuiltinService_SVC_LOGGER_READ, mbed_rpc_BuiltinMessage_MSG_LOGGER_READ_REQ,
-            mbed_rpc_BuiltinMessage_MSG_LOGGER_READ_RSP ){};
+            mbed_rpc_BuiltinMessage_MSG_LOGGER_READ_STREAM_RSP ){};
     ~ReadService() = default;
 
     /**
@@ -96,6 +98,18 @@ namespace mb::rpc::service::logger
      * @copydoc IService::runAsyncProcess
      */
     void runAsyncProcess() final override;
+
+  protected:
+    /**
+     * @copydoc mb::logging::LogReader
+     */
+    bool reader_callback( const void *const message, const size_t length );
+
+  private:
+    uint16_t mReadIdx;   /**< Index of the current read operation */
+    uint16_t mReadCount; /**< Number of messages to read */
+    bool     mDirection; /**< Direction of the read operation */
+    uint8_t  mId;        /**< ID of the logger to read from */
   };
 
 }    // namespace mb::rpc::service::logger

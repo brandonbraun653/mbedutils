@@ -13,6 +13,7 @@ Includes
 -----------------------------------------------------------------------------*/
 #include "mbed_rpc.pb.h"
 #include "mbedutils/drivers/logging/logging_types.hpp"
+#include "mbedutils/drivers/threading/thread.hpp"
 #include "mbedutils/interfaces/util_intf.hpp"
 #include <etl/unordered_map.h>
 #include <mbedutils/drivers/rpc/rpc_logger_service.hpp>
@@ -156,14 +157,90 @@ namespace mb::rpc::service::logger
 
   ErrId ReadService::processRequest()
   {
-    async = true;
-    return mbed_rpc_ErrorCode_ERR_SVC_ASYNC_WITH_RSP;
+    /*-------------------------------------------------------------------------
+    Request already in progress?
+    -------------------------------------------------------------------------*/
+    if( async )
+    {
+      return mbed_rpc_ErrorCode_ERR_SVC_BUSY;
+    }
+
+    /*-------------------------------------------------------------------------
+    Look up the logger
+    -------------------------------------------------------------------------*/
+    auto logger = s_loggers.find( mId );
+    if( logger == s_loggers.end() )
+    {
+      return mbed_rpc_ErrorCode_ERR_SVC_INVALID_ARG;
+    }
+
+    /*-------------------------------------------------------------------------
+    Enable the async behavior
+    -------------------------------------------------------------------------*/
+    async      = true;
+    mReadIdx   = 0;
+    mReadCount = request.count;
+    mDirection = request.direction;
+    mId        = request.which;
+
+    return mbed_rpc_ErrorCode_ERR_SVC_ASYNC;
   }
 
 
   void ReadService::runAsyncProcess()
   {
+    using namespace logging;
+
+    /*-------------------------------------------------------------------------
+    Look up the logger, which should exist
+    -------------------------------------------------------------------------*/
+    auto logger = s_loggers.find( mId );
+    if( logger == s_loggers.end() )
+    {
+      async = false;
+      mbed_assert_continue_msg( false, "Logger not found: %d", mId );
+      return;
+    }
+
+    /*-------------------------------------------------------------------------
+    Invoke the read, then disable the async behavior once it completes
+    -------------------------------------------------------------------------*/
+    auto cb = LogReader::create<ReadService, &ReadService::reader_callback>( *this );
+    logger->second->read( cb, mDirection );
     async = false;
   }
 
+
+  bool ReadService::reader_callback( const void *const message, const size_t length )
+  {
+    /*-------------------------------------------------------------------------
+    Prepare the response
+    -------------------------------------------------------------------------*/
+    response.header    = request.header;
+    response.index     = mReadIdx++;
+    response.data.size = length;
+
+    size_t copy_size = std::min( length, sizeof( response.data.bytes ) );
+    memcpy( response.data.bytes, message, copy_size );
+    mbed_assert_continue_msg( copy_size == length, "Log data truncated" );
+
+    /*-------------------------------------------------------------------------
+    Try to send the response
+    -------------------------------------------------------------------------*/
+    size_t attempts   = 0;
+    size_t sleep_time = 5;
+
+    while( !server->publishMessage( rspId, &response ) )
+    {
+      mb::thread::this_thread::sleep_for( sleep_time );
+      if( ++attempts >= 3 )
+      {
+        return false;    // Give up, stop the read
+      }
+
+      sleep_time *= 2;    // Exponential backoff
+    }
+
+    return true;    // Request the next message in the log
+  }
 }    // namespace mb::rpc::service::logger

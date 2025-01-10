@@ -586,27 +586,6 @@ class LoggerReadRequest(google.protobuf.message.Message):
 global___LoggerReadRequest = LoggerReadRequest
 
 @typing.final
-class LoggerReadResponse(google.protobuf.message.Message):
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor
-
-    HEADER_FIELD_NUMBER: builtins.int
-    SUCCESS_FIELD_NUMBER: builtins.int
-    success: builtins.bool
-    """True if data is available"""
-    @property
-    def header(self) -> global___Header: ...
-    def __init__(
-        self,
-        *,
-        header: global___Header | None = ...,
-        success: builtins.bool | None = ...,
-    ) -> None: ...
-    def HasField(self, field_name: typing.Literal["header", b"header", "success", b"success"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["header", b"header", "success", b"success"]) -> None: ...
-
-global___LoggerReadResponse = LoggerReadResponse
-
-@typing.final
 class LoggerReadStreamResponse(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 

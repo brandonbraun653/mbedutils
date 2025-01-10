@@ -45,11 +45,18 @@ class ConsoleObserver(MessageObserver):
         super().__init__(func=self._frame_accumulator, msg_type=ConsolePBMsg)
         self._frame_lock = Lock()
         self._on_msg_rx = on_msg_rx
-        self._in_progress_frames = {}  # type: Dict[int, ConsoleObserver.FrameBuffer]
-        self._processing_thread = Thread(
+        self._in_progress_frames: Dict[int, ConsoleObserver.FrameBuffer] = {}
+        self._kill_signal = Event()
+        self._frame_thread = Thread(
             target=self._frame_processor, name="FrameProcessor", daemon=True
         )
-        self._processing_thread.start()
+
+    def open(self):
+        self._frame_thread.start()
+
+    def close(self) -> None:
+        self._kill_signal.set()
+        self._frame_thread.join() if self._frame_thread.is_alive() else None
 
     def _frame_accumulator(self, msg: ConsolePBMsg) -> None:
         """
@@ -77,7 +84,7 @@ class ConsoleObserver(MessageObserver):
         Returns:
             None
         """
-        while True:
+        while not self._kill_signal.is_set():
             # Yield time quantum to other threads
             time.sleep(0.01)
 
@@ -132,9 +139,7 @@ class TransactionResponseObserver(MessageObserver):
         self._txn_uuid = txn_uuid
         self._count = count
 
-    def wait(
-        self, as_list: bool = False
-    ) -> Optional[Union[BasePBMsg, List[BasePBMsg]]]:
+    def wait(self) -> List[BasePBMsg]:
         """
         Waits for the response to the message we're observing
 
@@ -145,19 +150,7 @@ class TransactionResponseObserver(MessageObserver):
             List of messages received if count > 1, or a single message if count == 1. None if no response.
         """
         self._event.wait(timeout=self._timeout)
-        if as_list:
-            return self._result
-
-        # TODO BMB: Need to update existing callers to just expect a list for all time. This is a breaking change.
-        if not self._result:
-            return None
-        elif len(self._result) == 1 and self._count == 1:
-            return self._result[0]
-        else:
-            assert (
-                self._count is None or len(self._result) <= self._count
-            ), f"Expected {self._count} messages, but got {len(self._result)}"
-            return self._result
+        return self._result
 
     def _uuid_matcher_observer(self, _msg: BasePBMsg) -> None:
         """

@@ -14,9 +14,13 @@ class ZMQPipe(metaclass=ISerial):
     pipe, allowing Python code to communicate with a C++ simulator with automatic reconnection.
     """
 
-    def __init__(self, endpoint: str, bind: bool = False,
-                 reconnect_interval: float = 1.0,
-                 max_retries: int = -1):  # -1 means infinite retries
+    def __init__(
+        self,
+        endpoint: str,
+        bind: bool = False,
+        reconnect_interval: float = 1.0,
+        max_retries: int = -1,
+    ):
         """
         Args:
             endpoint: ZMQ endpoint like "tcp://localhost:5555"
@@ -80,13 +84,27 @@ class ZMQPipe(metaclass=ISerial):
         try:
             return self.recv_queue.get_nowait()
         except queue.Empty:
-            return b''
+            return b""
 
-    def write(self, data: bytes):
-        self.send_queue.put(data)
+    def write(self, data: bytes) -> bool:
+        """
+        Write data to the pipe
+        Args:
+            data: Data to write
+
+        Returns:
+            True if the write was successful, False otherwise
+        """
+        try:
+            self.send_queue.put(data, timeout=1.0)
+            return True
+        except queue.Full:
+            logger.warning("Send queue full, dropping message")
+            return False
 
     def flush(self):
-        pass
+        self._flush_rx()
+        self._flush_tx()
 
     def _init_zmq(self) -> bool:
         try:
@@ -99,6 +117,8 @@ class ZMQPipe(metaclass=ISerial):
 
                 self.socket = self.context.socket(zmq.PAIR)
                 self.socket.setsockopt(zmq.LINGER, 0)
+                self.socket.setsockopt(zmq.SNDHWM, 250)
+                self.socket.setsockopt(zmq.RCVHWM, 250)
 
                 if self.should_bind:
                     self.socket.bind(self.endpoint)
@@ -106,7 +126,8 @@ class ZMQPipe(metaclass=ISerial):
                     self.socket.connect(self.endpoint)
 
                 self.connected = True
-                self._flush_socket()
+                self.flush()
+
                 return True
 
         except zmq.ZMQError as e:
@@ -114,7 +135,7 @@ class ZMQPipe(metaclass=ISerial):
             self.connected = False
             return False
 
-    def _flush_socket(self):
+    def _flush_rx(self):
         """
         Flushes the socket of any pending messages
         Returns:
@@ -130,6 +151,19 @@ class ZMQPipe(metaclass=ISerial):
                 except zmq.ZMQError:
                     break
 
+    def _flush_tx(self):
+        """
+        Flushes the send queue of any pending messages
+        Returns:
+            None
+        """
+        with self.socket_lock:
+            while True:
+                try:
+                    self.send_queue.get_nowait()
+                except queue.Empty:
+                    break
+
     def _reconnect_loop(self):
         while self.running and not self.connected:
             if self.max_retries != -1 and self.retry_count >= self.max_retries:
@@ -138,12 +172,14 @@ class ZMQPipe(metaclass=ISerial):
                 break
 
             logger.info(f"Attempting to reconnect... (attempt {self.retry_count + 1})")
-            if self._init_zmq():
-                logger.info("Successfully reconnected")
-                self._ensure_threads_running()
-            else:
-                self.retry_count += 1
-                time.sleep(self.reconnect_interval)
+            with self.socket_lock:
+                if self._init_zmq():
+                    logger.info("Successfully reconnected")
+                    self._ensure_threads_running()
+                    break
+                else:
+                    self.retry_count += 1
+            time.sleep(self.reconnect_interval)
 
     def _ensure_threads_running(self):
         if not self.transaction_thread or not self.transaction_thread.is_alive():
@@ -152,38 +188,34 @@ class ZMQPipe(metaclass=ISerial):
             time.sleep(0.1)
 
     def _transaction_loop(self):
+        logger.warning("Transaction loop started")
         while self.running:
             # Don't do anything if not connected
             if not self.socket or not self.connected:
                 time.sleep(0.1)
                 continue
 
-            # Receive data
+            # Receive data. Polling here also acts as a rate limiter.
             try:
-                if self.socket.poll(0) != 0:
-                    data = self.socket.recv(zmq.NOBLOCK)
-                    if data:
-                        self.recv_queue.put(data)
+                if self.socket.poll(10) != 0:
+                    if data := self.socket.recv(zmq.NOBLOCK):
+                        with self.socket_lock:
+                            self.recv_queue.put(data)
 
             except zmq.ZMQError as e:
                 logger.error(f"Receive error: {e}")
                 self.connected = False
-                if self.running and self.reconnect_thread is None:
-                    self.reconnect_thread = threading.Thread(target=self._reconnect_loop)
-                    self.reconnect_thread.start()
+                break
 
             # Write data
             try:
-                data = self.send_queue.get_nowait()
-                logger.trace(f"Sending data: {data}")
+                with self.socket_lock:
+                    data = self.send_queue.get_nowait()
+
                 self.socket.send(data)
             except queue.Empty:
                 continue
             except zmq.ZMQError as e:
                 logger.error(f"Send error: {e}")
                 self.connected = False
-                if self.running and self.reconnect_thread is None:
-                    self.reconnect_thread = threading.Thread(target=self._reconnect_loop)
-                    self.reconnect_thread.start()
-
-            time.sleep(0.01)
+                break

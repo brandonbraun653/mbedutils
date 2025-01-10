@@ -27,6 +27,7 @@ class PipeType(Enum):
     """
     Enumerated type for the type of pipe to use
     """
+
     DEVICE = 0  # Typical serial connection like COM port
     SOCKET = 1  # Socket connection based connection
     ZMQ = 2  # ZeroMQ based connection, typically for simulators
@@ -56,7 +57,9 @@ class COBSerialPipe(Publisher):
         # Dispatch resources
         self._dispatch_thread = Thread()
 
-    def add_message_descriptor(self, msg_type: Union[BasePBMsg, Type[BasePBMsg]]) -> None:
+    def add_message_descriptor(
+        self, msg_type: Union[BasePBMsg, Type[BasePBMsg]]
+    ) -> None:
         """
         Adds a message descriptor to the publisher so that it can encode/decode messages
         Args:
@@ -65,10 +68,14 @@ class COBSerialPipe(Publisher):
         Returns:
             None
         """
-        assert isinstance(msg_type, BasePBMsg), "Message type must be a subclass of BasePBMsg"
+        assert isinstance(
+            msg_type, BasePBMsg
+        ), "Message type must be a subclass of BasePBMsg"
         self._message_descriptors[msg_type.msg_id] = type(msg_type)
 
-    def open(self, pipe_type: PipeType, port: Union[str, int], baud: int = None) -> None:
+    def open(
+        self, pipe_type: PipeType, port: Union[str, int], baud: int = None
+    ) -> None:
         """
         Opens a serial port for communication
         Args:
@@ -107,7 +114,9 @@ class COBSerialPipe(Publisher):
         self._rx_thread.start()
         self._tx_thread = Thread(target=self._tx_encoder_thread, name="TXEncoder")
         self._tx_thread.start()
-        self._dispatch_thread = Thread(target=self._rx_dispatcher_thread, name="RXDispatch")
+        self._dispatch_thread = Thread(
+            target=self._rx_dispatcher_thread, name="RXDispatch"
+        )
         self._dispatch_thread.start()
 
         # Allow the threads to start up
@@ -119,16 +128,19 @@ class COBSerialPipe(Publisher):
         Returns:
             None
         """
+        # Kill the data generator first
+        if self._serial and self._serial.is_open:
+            self._serial.flush()
+            self._serial.close()
+
         # Kill the threads first since they consume the serial port
         self._kill_event.set()
         self._rx_thread.join() if self._rx_thread.is_alive() else None
         self._tx_thread.join() if self._tx_thread.is_alive() else None
         self._dispatch_thread.join() if self._dispatch_thread.is_alive() else None
 
-        # Push any remaining information and then close out resources
-        if self._serial and self._serial.is_open:
-            self._serial.flush()
-            self._serial.close()
+        # Kill all registered observers
+        super().close()
 
     def write(self, msg: BasePBMsg) -> None:
         """
@@ -143,8 +155,9 @@ class COBSerialPipe(Publisher):
         logger.trace(f"Sending {repr(msg)}")
         self._tx_msgs.put(msg.serialize(), block=True)
 
-    def write_and_wait(self, msg: BasePBMsg, timeout: Union[int, float], count: Optional[int] = 1) -> Optional[
-        Union[BasePBMsg, List[BasePBMsg]]]:
+    def write_and_wait(
+        self, msg: BasePBMsg, timeout: Union[int, float], count: Optional[int] = 1
+    ) -> List[BasePBMsg]:
         """
         Writes a message to the serial pipe and waits for a response
         Args:
@@ -155,7 +168,9 @@ class COBSerialPipe(Publisher):
         Returns:
             List of messages received if count > 1, or a single message if count == 1. None if no response.
         """
-        observer = TransactionResponseObserver(txn_uuid=msg.uuid, timeout=timeout, count=count)
+        observer = TransactionResponseObserver(
+            txn_uuid=msg.uuid, timeout=timeout, count=count
+        )
         sub_id = self.subscribe_observer(observer)
 
         # Send the message and wait for the response
@@ -166,8 +181,12 @@ class COBSerialPipe(Publisher):
         self.unsubscribe(sub_id)
         return result
 
-    def filter(self, predicate: Callable[[BasePBMsg], bool], qty: int = 1,
-               timeout: Union[int, float] = 1.0) -> List[BasePBMsg]:
+    def filter(
+        self,
+        predicate: Callable[[BasePBMsg], bool],
+        qty: int = 1,
+        timeout: Union[int, float] = 1.0,
+    ) -> List[BasePBMsg]:
         """
         Filters incoming the incoming message stream based on a user defined predicate, then returns the
         messages that fulfilled the predicate.
@@ -198,11 +217,15 @@ class COBSerialPipe(Publisher):
             True if the response was an ACK, False otherwise
         """
         if not msg or not isinstance(msg, AckNackPBMsg):
-            logger.error(f"No valid response from server {'. Got type ' + str(type(msg)) if msg else ''}")
+            logger.error(
+                f"No valid response from server {'. Got type ' + str(type(msg)) if msg else ''}"
+            )
             return False
 
         if not msg.ack:
-            logger.error(f"NACK: {repr(msg.error_code)} ' -- {error_string if error_string else ''}")
+            logger.error(
+                f"NACK: {repr(msg.error_code)} ' -- {error_string if error_string else ''}"
+            )
             return False
         else:
             return True
@@ -226,7 +249,7 @@ class COBSerialPipe(Publisher):
             crc_bytes = struct.pack("<H", crc16)
 
             # Encode the frame w/termination byte, then transmit
-            encoded_frame = cobs.encode(crc_bytes + raw_frame) + b'\x00'
+            encoded_frame = cobs.encode(crc_bytes + raw_frame) + b"\x00"
             self._serial.write(encoded_frame)
             logger.trace(f"Write {len(encoded_frame)} byte frame")
 
@@ -284,11 +307,11 @@ class COBSerialPipe(Publisher):
         try:
             while True:
                 # Search for the frame delimiter and extract an entire frame if it exists
-                eof_idx = self._rx_byte_buffer.index(b'\x00')
+                eof_idx = self._rx_byte_buffer.index(b"\x00")
                 cobs_frame = self._rx_byte_buffer[:eof_idx]
 
                 # Remove the frame from the buffer by slicing it out
-                self._rx_byte_buffer = self._rx_byte_buffer[eof_idx + 1:]
+                self._rx_byte_buffer = self._rx_byte_buffer[eof_idx + 1 :]
                 logger.trace(f"Read {len(cobs_frame) + 1} byte frame")
 
                 # Decode the message into a higher level message type
@@ -315,7 +338,9 @@ class COBSerialPipe(Publisher):
             return cobs.decode(frame)
         except cobs.DecodeError:
             # Nothing much to do here if this fails. Just move on to the next frame.
-            logger.trace("Failed to decode COBS frame. Likely partially received message.")
+            logger.trace(
+                "Failed to decode COBS frame. Likely partially received message."
+            )
             return None
 
     def _decode_pb_frame(self, frame: bytes) -> Optional[BasePBMsg]:

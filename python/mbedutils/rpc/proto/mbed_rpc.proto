@@ -177,11 +177,6 @@ message LoggerReadRequest {
   required int32 count = 4 [(nanopb).int_size = IS_32]; // Number of entries to read, -1 for all
 }
 
-message LoggerReadResponse {
-  required mbed.rpc.Header header = 1;
-  required bool success = 2; // True if data is available
-}
-
 message LoggerReadStreamResponse {
   required mbed.rpc.Header header = 1;
   required uint32 index = 2 [(nanopb).int_size = IS_16]; // Index of the log entry

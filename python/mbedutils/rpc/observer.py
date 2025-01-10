@@ -8,7 +8,7 @@ from loguru import logger
 
 
 class ObserverUniqueId:
-    """ Unique ID for an observer type """
+    """Unique ID for an observer type"""
 
     def __init__(self):
         self._uuid = uuid.UUID(int=0)
@@ -23,9 +23,14 @@ class ObserverUniqueId:
 
 
 class MessageObserver(ObserverUniqueId):
-    """ Custom observer handle for reacting to a received message """
+    """Custom observer handle for reacting to a received message"""
 
-    def __init__(self, func: Callable[[Union[Any, None]], None], msg_type: Any, timeout: Union[float, int] = 0):
+    def __init__(
+        self,
+        func: Callable[[Union[Any, None]], None],
+        msg_type: Any,
+        timeout: Union[float, int] = 0,
+    ):
         """
         Args:
             func: Function to invoke upon receiving a message with the configured arbitration id
@@ -38,11 +43,33 @@ class MessageObserver(ObserverUniqueId):
         self.timeout = timeout
         self.start_time = time.time()
 
+    def open(self) -> None:
+        """
+        Opens the observer for listening. Intended to be overridden by subclasses.
+        Returns:
+            None
+        """
+        pass
+
+    def close(self) -> None:
+        """
+        Closes the observer. Intended to be overridden by subclasses.
+        Returns:
+            None
+        """
+        pass
+
 
 class MessageQueue(ObserverUniqueId):
-    """ Listener utility for holding messages as they arrive """
+    """Listener utility for holding messages as they arrive"""
 
-    def __init__(self, msg: Any, qty: int = 0, timeout: Union[float, int] = 0, verbose: bool = False):
+    def __init__(
+        self,
+        msg: Any,
+        qty: int = 0,
+        timeout: Union[float, int] = 0,
+        verbose: bool = False,
+    ):
         """
         Args:
             msg: An object or class type for the desired message type to accumulate
@@ -66,13 +93,18 @@ class MessageQueue(ObserverUniqueId):
         self._msg_queue = queue.Queue(maxsize=qty)
         self._event = Event()
         self._filled = False
-        self._observer_instance = MessageObserver(func=self._message_observer, msg_type=self._msg_type,
-                                                  timeout=self._timeout)
+        self._observer_instance = MessageObserver(
+            func=self._message_observer, msg_type=self._msg_type, timeout=self._timeout
+        )
 
     def __del__(self):
         self.notify_expiry()
         time.sleep(0.1)
-        logger.trace(f"Subscription {str(self.unique_id)}: Terminated") if self._verbose else None
+        (
+            logger.trace(f"Subscription {str(self.unique_id)}: Terminated")
+            if self._verbose
+            else None
+        )
 
     @property
     def persistent(self) -> bool:
@@ -89,7 +121,9 @@ class MessageQueue(ObserverUniqueId):
         Returns:
             True if expired, False if not
         """
-        return self._timeout and ((time.time() - self._observer_instance.start_time) > self._timeout)
+        return self._timeout and (
+            (time.time() - self._observer_instance.start_time) > self._timeout
+        )
 
     @property
     def threshold_met(self) -> bool:
@@ -180,5 +214,9 @@ class MessageQueue(ObserverUniqueId):
                 self._event.set()
 
         except queue.Full:
-            logger.trace(f"Subscription {str(self._uuid)}: Queue full") if self._verbose else None
+            (
+                logger.trace(f"Subscription {str(self._uuid)}: Queue full")
+                if self._verbose
+                else None
+            )
             self._event.set()

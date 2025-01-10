@@ -11,11 +11,10 @@
 /*-----------------------------------------------------------------------------
 Includes
 -----------------------------------------------------------------------------*/
-#include "mbedutils/drivers/logging/logging_sinks.hpp"
-#include "mbedutils/drivers/logging/logging_types.hpp"
 #include <cstddef>
-#include <mbedutils/interfaces/time_intf.hpp>
 #include <mbedutils/assert.hpp>
+#include <mbedutils/interfaces/system_intf.hpp>
+#include <mbedutils/interfaces/time_intf.hpp>
 #include <mbedutils/logging.hpp>
 
 #include <fdb_cfg.h>
@@ -39,10 +38,33 @@ namespace mb::logging
   Private Functions
   ---------------------------------------------------------------------------*/
 
+  /**
+   * @brief Callback function for the FDB library to get the current time.
+   *
+   * The TSDB library uses absolute UTC time for its timestamps, meaning we can't
+   * use the system clock directly. Instead, we use the system boot count and the
+   * current time in microseconds to generate a timestamp that is unique and
+   * monotonically increasing.
+   *
+   * @return fdb_time_t
+   */
   static fdb_time_t callback_fdb_get_time()
   {
     static_assert( sizeof( fdb_time_t ) == sizeof( int64_t ), "fdb_cfg.h must define FDB_USING_TIMESTAMP_64BIT" );
-    return static_cast<fdb_time_t>( mb::time::micros() );
+
+    /*-------------------------------------------------------------------------
+    Get the data feeding the timestamp
+    -------------------------------------------------------------------------*/
+    size_t   boot_count   = mb::system::intf::get_boot_count();
+    uint64_t microseconds = mb::time::micros();
+
+    /*-------------------------------------------------------------------------
+    Combine the boot count and current time to generate a unique timestamp.
+    Boot count takes up highest 16 bits, microseconds in lower 47 bits.
+    -------------------------------------------------------------------------*/
+    uint64_t timestamp = ( static_cast<uint64_t>( boot_count ) << 47 ) | ( microseconds & ( ( 1ULL << 47 ) - 1 ) );
+
+    return static_cast<fdb_time_t>( timestamp );
   }
 
 

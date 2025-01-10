@@ -45,7 +45,7 @@ def online_checker(method: Callable) -> Any:
 
 
 class RPCClient:
-    """ High level client to connect with a remote RPC server listening on a port """
+    """High level client to connect with a remote RPC server listening on a port"""
 
     def __init__(self):
         # Initialize the transport layer and add default messages
@@ -59,9 +59,11 @@ class RPCClient:
         self._last_tick = 0
         self._kill_signal = Event()
         self._notify_signal = Event()
-        self._thread = Thread(target=self._background_thread, daemon=True, name=f"SerialClient_Background")
+        self._thread = Thread(
+            target=self._background_thread, daemon=True, name=f"SerialClient_Background"
+        )
 
-        atexit.register(self._teardown)
+        atexit.register(self.close)
 
     @property
     def com_pipe(self) -> COBSerialPipe:
@@ -83,7 +85,9 @@ class RPCClient:
             logger.warning("Node did not respond to ping")
         return bool(responses)
 
-    def sleep_on_server_time_ms(self, milliseconds: int, percent_tolerance: float = 0.1) -> None:
+    def sleep_on_server_time_ms(
+        self, milliseconds: int, percent_tolerance: float = 0.1
+    ) -> None:
         """
         Sleep the current context based on the remote server's perception of time. A message is
         sent to the remote server to notify it to wait a certain amount of time before notifying us
@@ -98,7 +102,9 @@ class RPCClient:
         """
         assert isinstance(milliseconds, int)
         assert milliseconds > 0
-        assert milliseconds < 2 ** 32  # Remote servers are typically 32-bit microcontrollers
+        assert (
+            milliseconds < 2**32
+        )  # Remote servers are typically 32-bit microcontrollers
         assert percent_tolerance >= 0.0
         assert percent_tolerance <= 1.0
 
@@ -108,18 +114,24 @@ class RPCClient:
         # Allow a larger timeout b/c depending on the system load, the node may take a while to respond
         # while still accurately simulating the time. This should provide reasonable bounds for testing
         # and communication.
-        rsp = self.com_pipe.write_and_wait(req, timeout=2 * (milliseconds / 1000))
-        if not rsp:
+        response = self.com_pipe.write_and_wait(req, timeout=2 * (milliseconds / 1000))
+        if not response:
             raise RuntimeWarning("Node did not respond to sleep request")
 
         # Check the response to ensure the node slept for the correct amount of time. Generally speaking
         # the time elapsed should be within a certain percentage of the expected value.
-        assert isinstance(rsp, NotifyTimeElapsedResponsePBMsg)
-        percent_error = abs(rsp.pb_message.elapsed_time - milliseconds) / milliseconds
+        assert isinstance(response[0], NotifyTimeElapsedResponsePBMsg)
+        percent_error = (
+            abs(response[0].pb_message.elapsed_time - milliseconds) / milliseconds
+        )
         if percent_error >= percent_tolerance:
-            raise RuntimeWarning(f"Node time elapsed response was off by {percent_error:.2f}%")
+            raise RuntimeWarning(
+                f"Node time elapsed response was off by {percent_error:.2f}%"
+            )
 
-    def open(self, pipe_type: PipeType, port: Union[str, int], baud: int = None) -> None:
+    def open(
+        self, pipe_type: PipeType, port: Union[str, int], baud: int = None
+    ) -> None:
         """
         Opens a connection to the remote node
         Args:
@@ -130,19 +142,27 @@ class RPCClient:
         self._transport.open(pipe_type=pipe_type, port=port, baud=baud)
 
         # Register known observers
-        self._transport.subscribe_observer(MessageObserver(func=self._observer_remote_tick, msg_type=TickPBMsg))
-        self._transport.subscribe_observer(ConsoleObserver(on_msg_rx=lambda x: logger.info(x.strip('\n'))))
+        self._transport.subscribe_observer(
+            MessageObserver(func=self._observer_remote_tick, msg_type=TickPBMsg)
+        )
+        self._transport.subscribe_observer(
+            ConsoleObserver(on_msg_rx=lambda x: logger.info(x.strip("\n")))
+        )
 
         self._thread.start()
         time.sleep(0.05)
 
     def close(self) -> None:
-        return self._teardown()
-
-    def _teardown(self) -> None:
+        """
+        Closes the connection to the remote node
+        Returns:
+            None
+        """
+        # Close the background thread
         self._kill_signal.set()
         self._thread.join() if self._thread.is_alive() else None
 
+        # Close injected dependencies
         self._transport.close()
 
     def _background_thread(self) -> None:

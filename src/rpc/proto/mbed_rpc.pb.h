@@ -183,11 +183,6 @@ typedef struct _mbed_rpc_LoggerReadRequest {
     int32_t count; /* Number of entries to read, -1 for all */
 } mbed_rpc_LoggerReadRequest;
 
-typedef struct _mbed_rpc_LoggerReadResponse {
-    mbed_rpc_Header header;
-    bool success; /* True if data is available */
-} mbed_rpc_LoggerReadResponse;
-
 typedef PB_BYTES_ARRAY_T(512) mbed_rpc_LoggerReadStreamResponse_data_t;
 typedef struct _mbed_rpc_LoggerReadStreamResponse {
     mbed_rpc_Header header;
@@ -255,7 +250,6 @@ extern "C" {
 
 
 
-
 #define mbed_rpc_LoggerWriteRequest_level_ENUMTYPE mbed_rpc_LoggerWriteRequest_Level
 
 
@@ -275,7 +269,6 @@ extern "C" {
 #define mbed_rpc_LoggerEraseRequest_init_default {mbed_rpc_Header_init_default, 0}
 #define mbed_rpc_LoggerEraseResponse_init_default {mbed_rpc_Header_init_default, 0}
 #define mbed_rpc_LoggerReadRequest_init_default  {mbed_rpc_Header_init_default, 0, 0, 0}
-#define mbed_rpc_LoggerReadResponse_init_default {mbed_rpc_Header_init_default, 0}
 #define mbed_rpc_LoggerReadStreamResponse_init_default {mbed_rpc_Header_init_default, 0, {0, {0}}}
 #define mbed_rpc_LoggerWriteRequest_init_default {mbed_rpc_Header_init_default, _mbed_rpc_LoggerWriteRequest_Level_MIN, 0, {0, {0}}}
 #define mbed_rpc_LoggerWriteResponse_init_default {mbed_rpc_Header_init_default, 0}
@@ -293,7 +286,6 @@ extern "C" {
 #define mbed_rpc_LoggerEraseRequest_init_zero    {mbed_rpc_Header_init_zero, 0}
 #define mbed_rpc_LoggerEraseResponse_init_zero   {mbed_rpc_Header_init_zero, 0}
 #define mbed_rpc_LoggerReadRequest_init_zero     {mbed_rpc_Header_init_zero, 0, 0, 0}
-#define mbed_rpc_LoggerReadResponse_init_zero    {mbed_rpc_Header_init_zero, 0}
 #define mbed_rpc_LoggerReadStreamResponse_init_zero {mbed_rpc_Header_init_zero, 0, {0, {0}}}
 #define mbed_rpc_LoggerWriteRequest_init_zero    {mbed_rpc_Header_init_zero, _mbed_rpc_LoggerWriteRequest_Level_MIN, 0, {0, {0}}}
 #define mbed_rpc_LoggerWriteResponse_init_zero   {mbed_rpc_Header_init_zero, 0}
@@ -335,8 +327,6 @@ extern "C" {
 #define mbed_rpc_LoggerReadRequest_which_tag     2
 #define mbed_rpc_LoggerReadRequest_direction_tag 3
 #define mbed_rpc_LoggerReadRequest_count_tag     4
-#define mbed_rpc_LoggerReadResponse_header_tag   1
-#define mbed_rpc_LoggerReadResponse_success_tag  2
 #define mbed_rpc_LoggerReadStreamResponse_header_tag 1
 #define mbed_rpc_LoggerReadStreamResponse_index_tag 2
 #define mbed_rpc_LoggerReadStreamResponse_data_tag 3
@@ -453,13 +443,6 @@ X(a, STATIC,   REQUIRED, INT32,    count,             4)
 #define mbed_rpc_LoggerReadRequest_DEFAULT NULL
 #define mbed_rpc_LoggerReadRequest_header_MSGTYPE mbed_rpc_Header
 
-#define mbed_rpc_LoggerReadResponse_FIELDLIST(X, a) \
-X(a, STATIC,   REQUIRED, MESSAGE,  header,            1) \
-X(a, STATIC,   REQUIRED, BOOL,     success,           2)
-#define mbed_rpc_LoggerReadResponse_CALLBACK NULL
-#define mbed_rpc_LoggerReadResponse_DEFAULT NULL
-#define mbed_rpc_LoggerReadResponse_header_MSGTYPE mbed_rpc_Header
-
 #define mbed_rpc_LoggerReadStreamResponse_FIELDLIST(X, a) \
 X(a, STATIC,   REQUIRED, MESSAGE,  header,            1) \
 X(a, STATIC,   REQUIRED, UINT32,   index,             2) \
@@ -498,7 +481,6 @@ extern const pb_msgdesc_t mbed_rpc_NotifyTimeElapsedResponse_msg;
 extern const pb_msgdesc_t mbed_rpc_LoggerEraseRequest_msg;
 extern const pb_msgdesc_t mbed_rpc_LoggerEraseResponse_msg;
 extern const pb_msgdesc_t mbed_rpc_LoggerReadRequest_msg;
-extern const pb_msgdesc_t mbed_rpc_LoggerReadResponse_msg;
 extern const pb_msgdesc_t mbed_rpc_LoggerReadStreamResponse_msg;
 extern const pb_msgdesc_t mbed_rpc_LoggerWriteRequest_msg;
 extern const pb_msgdesc_t mbed_rpc_LoggerWriteResponse_msg;
@@ -518,7 +500,6 @@ extern const pb_msgdesc_t mbed_rpc_LoggerWriteResponse_msg;
 #define mbed_rpc_LoggerEraseRequest_fields &mbed_rpc_LoggerEraseRequest_msg
 #define mbed_rpc_LoggerEraseResponse_fields &mbed_rpc_LoggerEraseResponse_msg
 #define mbed_rpc_LoggerReadRequest_fields &mbed_rpc_LoggerReadRequest_msg
-#define mbed_rpc_LoggerReadResponse_fields &mbed_rpc_LoggerReadResponse_msg
 #define mbed_rpc_LoggerReadStreamResponse_fields &mbed_rpc_LoggerReadStreamResponse_msg
 #define mbed_rpc_LoggerWriteRequest_fields &mbed_rpc_LoggerWriteRequest_msg
 #define mbed_rpc_LoggerWriteResponse_fields &mbed_rpc_LoggerWriteResponse_msg
@@ -533,7 +514,6 @@ extern const pb_msgdesc_t mbed_rpc_LoggerWriteResponse_msg;
 #define mbed_rpc_LoggerEraseRequest_size         17
 #define mbed_rpc_LoggerEraseResponse_size        16
 #define mbed_rpc_LoggerReadRequest_size          30
-#define mbed_rpc_LoggerReadResponse_size         16
 #define mbed_rpc_LoggerReadStreamResponse_size   533
 #define mbed_rpc_LoggerWriteRequest_size         534
 #define mbed_rpc_LoggerWriteResponse_size        16
@@ -647,13 +627,6 @@ struct MessageDescriptor<mbed_rpc_LoggerReadRequest> {
     static PB_INLINE_CONSTEXPR const pb_size_t fields_array_length = 4;
     static inline const pb_msgdesc_t* fields() {
         return &mbed_rpc_LoggerReadRequest_msg;
-    }
-};
-template <>
-struct MessageDescriptor<mbed_rpc_LoggerReadResponse> {
-    static PB_INLINE_CONSTEXPR const pb_size_t fields_array_length = 2;
-    static inline const pb_msgdesc_t* fields() {
-        return &mbed_rpc_LoggerReadResponse_msg;
     }
 };
 template <>

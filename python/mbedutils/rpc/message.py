@@ -298,17 +298,6 @@ class LoggerReadRequestPBMsg(BasePBMsg[LoggerReadRequest]):
         self._pb_msg.count = -1
 
 
-class LoggerReadResponsePBMsg(BasePBMsg[LoggerReadResponse]):
-    def __init__(self):
-        super().__init__()
-        self._pb_msg = LoggerReadResponse()
-        self._pb_msg.header.msgId = BuiltinMessage.MSG_LOGGER_READ_RSP
-        self._pb_msg.header.version = BuiltinMessageVersion.MSG_VER_LOGGER_READ_RSP
-        self._pb_msg.header.seqId = 0
-        self._pb_msg.header.svcId = BuiltinService.SVC_LOGGER_READ
-        self._pb_msg.success = False
-
-
 class LoggerReadStreamResponsePBMsg(BasePBMsg[LoggerReadStreamResponse]):
     def __init__(self):
         super().__init__()

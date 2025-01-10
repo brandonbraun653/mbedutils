@@ -58,10 +58,6 @@ namespace mb::rpc::message
                                                  mbed_rpc_BuiltinMessageVersion_MSG_VER_LOGGER_READ_REQ,
                                                  mbed_rpc_LoggerReadRequest_fields, mbed_rpc_LoggerReadRequest_size };
 
-  static constexpr Descriptor LoggerReadResponse{ mbed_rpc_BuiltinMessage_MSG_LOGGER_READ_RSP,
-                                                  mbed_rpc_BuiltinMessageVersion_MSG_VER_LOGGER_READ_RSP,
-                                                  mbed_rpc_LoggerReadResponse_fields, mbed_rpc_LoggerReadResponse_size };
-
   static constexpr Descriptor LoggerReadStreamResponse{ mbed_rpc_BuiltinMessage_MSG_LOGGER_READ_STREAM_RSP,
                                                         mbed_rpc_BuiltinMessageVersion_MSG_VER_LOGGER_READ_STREAM_RSP,
                                                         mbed_rpc_LoggerReadStreamResponse_fields,

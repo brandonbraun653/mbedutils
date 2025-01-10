@@ -55,7 +55,7 @@ namespace mb::logging
   class SinkInterface : public thread::Lockable<SinkInterface>
   {
   public:
-    bool  enabled;  /**< Is this sink enabled?  */
+    bool  enabled;  /**< Is this sink enabled? */
     Level logLevel; /**< Current minimum log level the sink will accept */
 
     SinkInterface() : enabled( false ), logLevel( Level::LVL_MAX )

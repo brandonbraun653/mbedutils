@@ -48,9 +48,6 @@ PB_BIND(mbed_rpc_LoggerEraseResponse, mbed_rpc_LoggerEraseResponse, AUTO)
 PB_BIND(mbed_rpc_LoggerReadRequest, mbed_rpc_LoggerReadRequest, AUTO)
 
 
-PB_BIND(mbed_rpc_LoggerReadResponse, mbed_rpc_LoggerReadResponse, AUTO)
-
-
 PB_BIND(mbed_rpc_LoggerReadStreamResponse, mbed_rpc_LoggerReadStreamResponse, 2)
 
 
