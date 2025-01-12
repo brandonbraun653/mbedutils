@@ -396,10 +396,10 @@ namespace mb::rpc::server
     service::TestErrorService         mTestErrorService;
     service::NotifyTimeElapsedService mNotifyTimeElapsedService;
 
-    bool process_next_request();
-    bool read_cobs_frame();
-    bool write_cobs_frame();
-    void isr_on_io_read_complete();
+    bool   process_next_request();
+    size_t read_cobs_frame();
+    bool   write_cobs_frame();
+    void   isr_on_io_read_complete();
   };
 }    // namespace mb::rpc::server
 

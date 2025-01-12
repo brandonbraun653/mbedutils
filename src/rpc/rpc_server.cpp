@@ -327,7 +327,8 @@ namespace mb::rpc::server
       /*-----------------------------------------------------------------------
       Try to pull a COBS frame out of the RX buffer and into the scratch buffer
       -----------------------------------------------------------------------*/
-      if( !this->read_cobs_frame() )
+      size_t frame_size = read_cobs_frame();
+      if( frame_size == 0 )
       {
         return false;
       }
@@ -335,7 +336,7 @@ namespace mb::rpc::server
       /*-----------------------------------------------------------------------
       Decode the message
       -----------------------------------------------------------------------*/
-      if( !message::decode_from_wire( mCfg.decodeBuffer.data(), mCfg.decodeBuffer.size() ) )
+      if( !message::decode_from_wire( mCfg.decodeBuffer.data(), frame_size ) )
       {
         mbed_assert_continue_msg( false, "Failed to decode message" );
         return false;
@@ -438,10 +439,9 @@ namespace mb::rpc::server
   /**
    * @brief Reads the next full COBS frame from the RX buffer
    *
-   * @return true  A full frame was read
-   * @return false No full frame was read
+   * @return Zero if no frame was found, otherwise the size of the frame
    */
-  bool Server::read_cobs_frame()
+  size_t Server::read_cobs_frame()
   {
     /*-------------------------------------------------------------------------
     Empty the RX buffer of any null bytes that may have been left over from
@@ -455,56 +455,52 @@ namespace mb::rpc::server
     /*-------------------------------------------------------------------------
     Scan the RX buffer for a full frame
     -------------------------------------------------------------------------*/
-    size_t scratch_idx = 0;
+    size_t frame_size = 0;
 
     for( auto iter = mCfg.streamBuffer->begin();
-         ( iter != mCfg.streamBuffer->end() ) && ( scratch_idx < mCfg.decodeBuffer.max_size() ); iter++ )
+         ( iter != mCfg.streamBuffer->end() ) && ( frame_size < mCfg.decodeBuffer.max_size() ); iter++ )
     {
-      mCfg.decodeBuffer[ scratch_idx ] = *iter;
-
+      mCfg.decodeBuffer[ frame_size++ ] = *iter;
       if( *iter == 0 )
       {
         break;
       }
-
-      scratch_idx++;
     }
 
     /*-------------------------------------------------------------------------
     Remove the frame data if a full COBS frame was found.
     -------------------------------------------------------------------------*/
-    if( ( scratch_idx != 0 ) && ( mCfg.decodeBuffer[ scratch_idx ] == 0 ) )
+    if( ( frame_size > 1 ) && ( mCfg.decodeBuffer[ frame_size - 1 ] == 0 ) )
     {
-      for( size_t i = 0; i < scratch_idx; i++ )
+      for( size_t i = 0; i < frame_size; i++ )
       {
         mCfg.streamBuffer->pop();
       }
 
       /*-----------------------------------------------------------------------
-      If the frame was larger than all known frame sizes, it's invalid.
+      The found frame must be less than the largest known message size, else
+      we've received a new message type or the data is bad.
       -----------------------------------------------------------------------*/
-      if( scratch_idx > message::largest_known_wire_message() )
+      if( frame_size <= message::largest_known_wire_message() )
       {
-        return false;
+        return frame_size;
       }
-
-      return true;
     }
 
     /*-------------------------------------------------------------------------
     If the buffer is full and no frame was found, then we have to flush it.
     This effectively means it's not possible to find a full frame anymore.
     -------------------------------------------------------------------------*/
-    else if( scratch_idx == mCfg.decodeBuffer.max_size() )
+    else if( frame_size == mCfg.decodeBuffer.max_size() )
     {
-      mbed_assert_continue_msg( false, "RX buffer full with no COBS frame. Discarding %d bytes.", scratch_idx );
-      for( size_t i = 0; i < scratch_idx; i++ )
+      mbed_assert_continue_msg( false, "RX buffer full with no COBS frame. Discarding %d bytes.", frame_size );
+      for( size_t i = 0; i < frame_size; i++ )
       {
         mCfg.streamBuffer->pop();
       }
     }
 
-    return false;
+    return 0;
   }
 
 

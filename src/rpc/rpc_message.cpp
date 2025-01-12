@@ -38,11 +38,11 @@ namespace mb::rpc::message
   Static Data
   ---------------------------------------------------------------------------*/
 
-  static DescriptorRegistry  *s_msg_reg;
-  static volatile SeqId       s_msg_uuid;
-  static mb::osal::mb_mutex_t s_seq_mutex;
+  static DescriptorRegistry            *s_msg_reg;
+  static volatile SeqId                 s_msg_uuid;
+  static mb::osal::mb_mutex_t           s_seq_mutex;
   static mb::osal::mb_recursive_mutex_t s_msg_reg_rmutex;
-  static size_t               s_largest_known_wire_message;
+  static size_t                         s_largest_known_wire_message;
 
 
   /*---------------------------------------------------------------------------
@@ -134,7 +134,7 @@ namespace mb::rpc::message
     }
 
     mb::thread::RecursiveLockGuard _lock( s_msg_reg_rmutex );
-    auto msg_iter = s_msg_reg->find( id );
+    auto                           msg_iter = s_msg_reg->find( id );
     if( msg_iter == s_msg_reg->end() )
     {
       return;
@@ -226,9 +226,9 @@ namespace mb::rpc::message
     static constexpr size_t CRC_START_OFFSET = 1u;
     static constexpr size_t NPB_START_OFFSET = CRC_START_OFFSET + COBS_CRC_SIZE;
 
-    uint8_t  *cob_start = static_cast<uint8_t *>( cobs_out_buf );
-    uint8_t  *npb_start = cob_start + NPB_START_OFFSET;
-    size_t    npb_size  = cobs_out_size - NPB_START_OFFSET - COBS_TERM_SIZE;
+    uint8_t *cob_start = static_cast<uint8_t *>( cobs_out_buf );
+    uint8_t *npb_start = cob_start + NPB_START_OFFSET;
+    size_t   npb_size  = cobs_out_size - NPB_START_OFFSET - COBS_TERM_SIZE;
 
     /*-------------------------------------------------------------------------
     Encode the NanoPB message
@@ -254,7 +254,8 @@ namespace mb::rpc::message
     /*-----------------------------------------------------------------------
     Frame the data using COBS encoding
     -----------------------------------------------------------------------*/
-    cobs_encode_result result = cobs_encode( cobs_out_buf, cobs_out_size, cob_start + CRC_START_OFFSET, stream.bytes_written + COBS_CRC_SIZE );
+    cobs_encode_result result =
+        cobs_encode( cobs_out_buf, cobs_out_size, cob_start + CRC_START_OFFSET, stream.bytes_written + COBS_CRC_SIZE );
     if( result.status != COBS_ENCODE_OK )
     {
       mbed_dbg_assert_continue_always();
@@ -280,9 +281,8 @@ namespace mb::rpc::message
     /*-------------------------------------------------------------------------
     Input Validation
     -------------------------------------------------------------------------*/
-    if( !s_msg_reg || !cobs_in_buf || ( cobs_in_size < MIN_TRANSCODE_SIZE ) )
+    if( !s_msg_reg || !cobs_in_buf )
     {
-      mbed_dbg_assert_continue_always();
       return false;
     }
 
@@ -364,8 +364,8 @@ namespace mb::rpc::message
       return false;
     }
 
-    /* Check for "impossible" buffer conditions */
-    if( msg_dsc.transcode_size > cobs_in_size )
+    /* Can't decode if the actual data is bigger than the message buffer */
+    if( cobs_in_size > msg_dsc.transcode_size )
     {
       uintptr_t address_of_buf = reinterpret_cast<uintptr_t>( cobs_in_buf );
       mbed_assert_continue_msg( false, "Buf 0x%0" PRIXPTR " too small for decoding msg %d: %zu > %zu", address_of_buf,
