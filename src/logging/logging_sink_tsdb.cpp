@@ -11,6 +11,7 @@
 /*-----------------------------------------------------------------------------
 Includes
 -----------------------------------------------------------------------------*/
+#include "mbedutils/drivers/logging/logging_macros.hpp"
 #include <cstddef>
 #include <mbedutils/assert.hpp>
 #include <mbedutils/interfaces/system_intf.hpp>
@@ -52,18 +53,37 @@ namespace mb::logging
   {
     static_assert( sizeof( fdb_time_t ) == sizeof( int64_t ), "fdb_cfg.h must define FDB_USING_TIMESTAMP_64BIT" );
 
+    static int64_t last_timestamp = 0;
+
     /*-------------------------------------------------------------------------
     Get the data feeding the timestamp
     -------------------------------------------------------------------------*/
-    size_t   boot_count   = mb::system::intf::get_boot_count();
-    uint64_t microseconds = mb::time::micros();
+    size_t  boot_count   = mb::system::intf::get_boot_count();
+    int64_t microseconds = mb::time::micros();
+
+    /*-------------------------------------------------------------------------
+    Ensure a minimum delay of at least 1 microsecond since the previous call.
+    The FlashDB TSL library has a very annoying property where it will not
+    accept timestamps that are the same as the previous one. This can occur
+    when several logs are written in the same microsecond. This loop will
+    ensure that the timestamp is always unique, at the cost of some CPU time.
+    -------------------------------------------------------------------------*/
+    size_t not_changed_count = 0;
+    while( microseconds <= last_timestamp )
+    {
+      microseconds = mb::time::micros();
+
+      // Something is seriously wrong if this fires
+      // mbed_assert( ++not_changed_count < 10000 );
+    }
+
+    last_timestamp = microseconds;
 
     /*-------------------------------------------------------------------------
     Combine the boot count and current time to generate a unique timestamp.
     Boot count takes up highest 16 bits, microseconds in lower 47 bits.
     -------------------------------------------------------------------------*/
     uint64_t timestamp = ( static_cast<uint64_t>( boot_count ) << 47 ) | ( microseconds & ( ( 1ULL << 47 ) - 1 ) );
-
     return static_cast<fdb_time_t>( timestamp );
   }
 

@@ -3,7 +3,7 @@ import threading
 import queue
 import time
 from loguru import logger
-from typing import Callable, Optional
+from typing import Optional
 
 from mbedutils.intf.serial_intf import ISerial
 
@@ -144,7 +144,7 @@ class ZMQPipe(metaclass=ISerial):
 
             # Receive data. Polling here also acts as a psuedo rate limiter.
             try:
-                if self.socket.poll(1) != 0:
+                if self.socket.poll(5) != 0:
                     if data := self.socket.recv(zmq.NOBLOCK):
                         # logger.warning(f"RX {len(data)} bytes")
                         with self.socket_lock:
