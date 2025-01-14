@@ -85,9 +85,15 @@ namespace mb::rpc::server
     Validate the configuration
     -------------------------------------------------------------------------*/
     /* clang-format off */
-    if( mIsOpen || !config.iostream || !config.registry
-     || !config.streamBuffer        || !config.streamBuffer->available()
-     || !config.encodeBuffer.size() || !config.decodeBuffer.size() )
+    if( mIsOpen
+     || !config.iostream
+     || !config.registry
+     || !config.streamBuffer
+     || !config.streamBuffer->available()
+     || !config.encodeBuffer.size()
+     || ( config.encodeBuffer.size() % sizeof( uint32_t ) != 0 )
+     || !config.decodeBuffer.size()
+     || ( config.decodeBuffer.size() % sizeof( uint32_t ) != 0 ) )
     { /* clang-format on */
       mbed_dbg_assert_continue_always();
       return false;

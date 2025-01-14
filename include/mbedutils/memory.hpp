@@ -21,4 +21,24 @@ Includes
 #include <mbedutils/drivers/memory/nvm/nor_flash_device.hpp>
 #include <mbedutils/drivers/memory/nvm/nor_flash.hpp>
 
-#endif  /* !MBEDUTILS_MEMORY_HPP */
+/*-----------------------------------------------------------------------------
+Macros
+-----------------------------------------------------------------------------*/
+
+/**
+ * @brief Aligns a value up to the nearest multiple of the given alignment.
+ *
+ * @param x     Value to align
+ * @param align Alignment value
+ */
+#define ALIGN_UP( x, align ) ( ( ( x ) + ( ( align ) - 1 ) ) & ~( ( align ) - 1 ) )
+
+/**
+ * @brief Aligns a value down to the nearest multiple of the given alignment.
+ *
+ * @param x     Value to align
+ * @param align Alignment value
+ */
+#define ALIGN_DOWN( x, align ) ( ( x ) & ~( ( align ) - 1 ) )
+
+#endif /* !MBEDUTILS_MEMORY_HPP */

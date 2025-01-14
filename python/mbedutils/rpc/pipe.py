@@ -1,5 +1,3 @@
-import binascii
-import copy
 import queue
 import struct
 import time
@@ -17,10 +15,11 @@ from queue import Queue
 
 from mbedutils.intf.serial_intf import ISerial
 from mbedutils.rpc.publisher import Publisher
-from mbedutils.rpc.message import BasePBMsg, AckNackPBMsg, CRCMismatchException
+from mbedutils.rpc.message import BasePBMsg, AckNackPBMsg
 from mbedutils.rpc.observer_impl import TransactionResponseObserver, PredicateObserver
 from mbedutils.rpc.socket import SerialSocket
 from mbedutils.sim.sim_io_pipe import ZMQPipe
+import serial
 
 
 class PipeType(Enum):
@@ -269,10 +268,15 @@ class COBSerialPipe(Publisher):
             time.sleep(0.01)
 
             # Fill the cache with the raw data from the bus
-            if new_data := self._serial.read_all():
-                self._rx_byte_buffer.extend(new_data)
-            elif not len(self._rx_byte_buffer):
-                continue
+            try:
+                if new_data := self._serial.read_all():
+                    self._rx_byte_buffer.extend(new_data)
+                elif not len(self._rx_byte_buffer):
+                    continue
+            except (serial.SerialException, TypeError, OSError) as e:
+                logger.error(f"Serial connection error: {e}")
+                self._kill_event.set()
+                break
 
             # Parse the data in the cache to extract all waiting COBS frames
             self._rx_decode_available_cobs_frames()

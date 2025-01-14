@@ -342,8 +342,8 @@ namespace mb::logging
       s_log_buffer.fill( 0 );
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat"
-      npf_snprintf( s_log_buffer.data(), s_log_buffer.max_size(), "%u | %s:%u | %s | ", time::millis(), file, line,
-                    str_level.data() );
+      npf_snprintf( s_log_buffer.data(), s_log_buffer.max_size(), "%llu | %s:%u | %s | ",
+                    static_cast<unsigned long long>( time::millis() ), file, line, str_level.data() );
 #pragma GCC diagnostic pop
 
       /*-----------------------------------------------------------------------
