@@ -83,10 +83,11 @@ namespace mb::assert
     -------------------------------------------------------------------------*/
     etl::array<char, MBEDUTILS_ASSERT_FMT_BUFFER_SIZE> fmt_buffer;
 
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wformat"
-      const int bytes_written = npf_snprintf( fmt_buffer.data(), fmt_buffer.max_size(), "%u | %s:%u | ", time::millis(), file, line );
-    #pragma GCC diagnostic pop
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat"
+    const int bytes_written =
+        npf_snprintf( fmt_buffer.data(), fmt_buffer.max_size(), "%llu | %s:%u | ASSERT | ", time::millis(), file, line );
+#pragma GCC diagnostic pop
 
     /*-------------------------------------------------------------------------
     Format the user message
