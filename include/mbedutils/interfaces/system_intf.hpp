@@ -29,6 +29,11 @@ namespace mb::system::intf
    */
   size_t get_boot_count();
 
+  /**
+   * @brief Perform a warm reset the entire system
+   */
+  void warm_reset();
+
 }    // namespace mb::system::intf
 
 #endif /* !MBEDUTILS_SYSTEM_INTF_HPP */
