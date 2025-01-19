@@ -276,14 +276,14 @@ namespace mb::rpc::message
   }
 
 
-  bool decode_from_wire( void *const cobs_in_buf, const size_t cobs_in_size )
+  size_t decode_from_wire( void *const cobs_in_buf, const size_t cobs_in_size )
   {
     /*-------------------------------------------------------------------------
     Input Validation
     -------------------------------------------------------------------------*/
     if( !s_msg_reg || !cobs_in_buf )
     {
-      return false;
+      return 0;
     }
 
     /*-------------------------------------------------------------------------
@@ -309,7 +309,7 @@ namespace mb::rpc::message
     if( cobs_result.status != COBS_DECODE_OK )
     {
       mbed_assert_continue_msg( false, "Failed to decode COBS frame" );
-      return false;
+      return 0;
     }
 
     /*-------------------------------------------------------------------------
@@ -329,7 +329,7 @@ namespace mb::rpc::message
     if( expected_crc != actual_crc )
     {
       mbed_assert_continue_msg( false, "CRC mismatch. Expected: %d, Actual: %d", expected_crc, actual_crc );
-      return false;
+      return 0;
     }
 
     /*-------------------------------------------------------------------------
@@ -341,7 +341,7 @@ namespace mb::rpc::message
     if( !pb_decode( &stream, mbed_rpc_BaseMessage_fields, &msg ) )
     {
       mbed_assert_continue_msg( false, "Failed to decode BaseMessage: %s", stream.errmsg );
-      return false;
+      return 0;
     }
 
     /*-------------------------------------------------------------------------
@@ -351,7 +351,7 @@ namespace mb::rpc::message
     if( msg_iter == s_msg_reg->end() )
     {
       mbed_assert_continue_msg( false, "Message %d not found", msg.header.msgId );
-      return false;
+      return 0;
     }
 
     auto msg_dsc = msg_iter->second;
@@ -361,7 +361,7 @@ namespace mb::rpc::message
     {
       mbed_assert_continue_msg( false, "Version mismatch for msg %d. Expected: %d, Actual: %d", msg.header.msgId,
                                 msg_dsc.version, msg.header.version );
-      return false;
+      return 0;
     }
 
     /* Can't decode if the actual data is bigger than the message buffer */
@@ -370,7 +370,7 @@ namespace mb::rpc::message
       uintptr_t address_of_buf = reinterpret_cast<uintptr_t>( cobs_in_buf );
       mbed_assert_continue_msg( false, "Buf 0x%0" PRIXPTR " too small for decoding msg %d: %zu > %zu", address_of_buf,
                                 msg.header.msgId, msg_dsc.transcode_size, cobs_in_size );
-      return false;
+      return 0;
     }
 
     /*-------------------------------------------------------------------------
@@ -388,10 +388,10 @@ namespace mb::rpc::message
     if( !pb_decode_ex( &stream, msg_iter->second.fields, cobs_in_buf, PB_DECODE_NOINIT ) )
     {
       mbed_assert_continue_msg( false, stream.errmsg );
-      return false;
+      return 0;
     }
 
-    return true;
+    return nanopb_data_size - stream.bytes_left;
   }
 
 

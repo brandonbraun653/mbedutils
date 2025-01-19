@@ -342,7 +342,8 @@ namespace mb::rpc::server
       /*-----------------------------------------------------------------------
       Decode the message
       -----------------------------------------------------------------------*/
-      if( !message::decode_from_wire( mCfg.decodeBuffer.data(), frame_size ) )
+      size_t decoded_msg_size = message::decode_from_wire( mCfg.decodeBuffer.data(), frame_size );
+      if( !decoded_msg_size )
       {
         mbed_assert_continue_msg( false, "Failed to decode message" );
         return false;
@@ -388,7 +389,10 @@ namespace mb::rpc::server
       size_t request_size = 0;
       service->getRequestData( request_data, request_size );
 
-      memcpy( request_data, mCfg.decodeBuffer.data(), request_size );
+      /* Ensure the decoded size can fit in the max request message size */
+      mbed_assert( decoded_msg_size <= request_size );
+
+      memcpy( request_data, mCfg.decodeBuffer.data(), decoded_msg_size );
     }    // End of critical section
 
     /*-------------------------------------------------------------------------

@@ -212,9 +212,9 @@ namespace mb::rpc::message
    *
    * @param cobs_in_buf   Input buffer containing the complete COBS frame
    * @param cobs_in_size  Size of the COBS frame, including null terminator
-   * @return bool         True if the message was decoded successfully
+   * @return size_t       Size of the decoded message
    */
-  bool decode_from_wire( void *const cobs_in_buf, const size_t cobs_in_size );
+  size_t decode_from_wire( void *const cobs_in_buf, const size_t cobs_in_size );
 
   /**
    * @brief Gets the largest possible COBS message size this module can handle.

@@ -11,7 +11,6 @@
 /*-----------------------------------------------------------------------------
 Includes
 -----------------------------------------------------------------------------*/
-#include "mbedutils/drivers/logging/logging_macros.hpp"
 #include <cstddef>
 #include <mbedutils/assert.hpp>
 #include <mbedutils/interfaces/system_intf.hpp>
@@ -88,6 +87,13 @@ namespace mb::logging
   }
 
 
+  /**
+   * @brief Internal iterator callback for processing individual logs
+   *
+   * @param tsl Log record returned by FDB
+   * @param arg Custom arguments passed by this file
+   * @return Status of the vistor assigned with args
+   */
   static bool callback_fdb_tsl_iter( fdb_tsl_t tsl, void *arg )
   {
     mbed_dbg_assert( tsl != nullptr );
