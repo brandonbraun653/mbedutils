@@ -342,8 +342,7 @@ namespace mb::rpc::server
       /*-----------------------------------------------------------------------
       Decode the message
       -----------------------------------------------------------------------*/
-      size_t decoded_msg_size = message::decode_from_wire( mCfg.decodeBuffer.data(), frame_size );
-      if( !decoded_msg_size )
+      if( !message::decode_from_wire( mCfg.decodeBuffer.data(), frame_size ) )
       {
         mbed_assert_continue_msg( false, "Failed to decode message" );
         return false;
@@ -389,10 +388,11 @@ namespace mb::rpc::server
       size_t request_size = 0;
       service->getRequestData( request_data, request_size );
 
-      /* Ensure the decoded size can fit in the max request message size */
-      mbed_assert( decoded_msg_size <= request_size );
-
-      memcpy( request_data, mCfg.decodeBuffer.data(), decoded_msg_size );
+      /*-----------------------------------------------------------------------
+      Copy the full request size. Must copy the full structure type out even
+      though less data may have been received due to NPB unpacking semantics.
+      -----------------------------------------------------------------------*/
+      memcpy( request_data, mCfg.decodeBuffer.data(), request_size );
     }    // End of critical section
 
     /*-------------------------------------------------------------------------
@@ -449,7 +449,7 @@ namespace mb::rpc::server
   /**
    * @brief Reads the next full COBS frame from the RX buffer
    *
-   * @return Zero if no frame was found, otherwise the size of the frame
+   * @return Frame size including null terminator if found, else 0
    */
   size_t Server::read_cobs_frame()
   {
@@ -478,10 +478,19 @@ namespace mb::rpc::server
     }
 
     /*-------------------------------------------------------------------------
-    Remove the frame data if a full COBS frame was found.
+    Remove data from the stream buffer
     -------------------------------------------------------------------------*/
     if( ( frame_size > 1 ) && ( mCfg.decodeBuffer[ frame_size - 1 ] == 0 ) )
     {
+      /*-----------------------------------------------------------------------
+      Clear the remainder of the buffer to zero. This helps construct clean NPB
+      structures when the decode process is invoked.
+      -----------------------------------------------------------------------*/
+      etl::fill( mCfg.decodeBuffer.begin() + frame_size, mCfg.decodeBuffer.end(), 0 );
+
+      /*-----------------------------------------------------------------------
+      Remove the full frame data
+      -----------------------------------------------------------------------*/
       for( size_t i = 0; i < frame_size; i++ )
       {
         mCfg.streamBuffer->pop();
@@ -496,18 +505,14 @@ namespace mb::rpc::server
         return frame_size;
       }
     }
-
-    /*-------------------------------------------------------------------------
-    If the buffer is full and no frame was found, then we have to flush it.
-    This effectively means it's not possible to find a full frame anymore.
-    -------------------------------------------------------------------------*/
     else if( frame_size == mCfg.decodeBuffer.max_size() )
     {
+      /*-----------------------------------------------------------------------
+      If the buffer is full and no frame was found, then we have to flush it.
+      This effectively means it's not possible to find a full frame anymore.
+      -----------------------------------------------------------------------*/
       mbed_assert_continue_msg( false, "RX buffer full with no COBS frame. Discarding %d bytes.", frame_size );
-      for( size_t i = 0; i < frame_size; i++ )
-      {
-        mCfg.streamBuffer->pop();
-      }
+      mCfg.streamBuffer->clear();
     }
 
     return 0;

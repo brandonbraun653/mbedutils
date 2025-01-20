@@ -210,9 +210,12 @@ namespace mb::rpc::message
    * Output Framing:
    * [NanoPB Data]
    *
+   * @note Return size != exact decoded size. This is impossible to determine without
+   * @note detailed information of each frame's fields.
+   *
    * @param cobs_in_buf   Input buffer containing the complete COBS frame
    * @param cobs_in_size  Size of the COBS frame, including null terminator
-   * @return size_t       Size of the decoded message
+   * @return size_t       Size of the NanoPB data used for decoding
    */
   size_t decode_from_wire( void *const cobs_in_buf, const size_t cobs_in_size );
 
