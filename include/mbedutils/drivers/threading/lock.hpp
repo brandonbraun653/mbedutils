@@ -77,7 +77,10 @@ namespace mb::thread
   class Lockable : public virtual LockableInterface
   {
   public:
-    Lockable() = default;
+    Lockable() : mLockableMutex( nullptr )
+    {
+    }
+
     ~Lockable()
     {
       if( mLockableMutex != nullptr )
