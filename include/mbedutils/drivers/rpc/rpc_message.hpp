@@ -215,9 +215,11 @@ namespace mb::rpc::message
    *
    * @param cobs_in_buf   Input buffer containing the complete COBS frame
    * @param cobs_in_size  Size of the COBS frame, including null terminator
+   * @param npb_out_buf   Output buffer to store the decoded NanoPB data
+   * @param npb_out_size  Maximum size of the output buffer
    * @return size_t       Size of the NanoPB data used for decoding
    */
-  size_t decode_from_wire( void *const cobs_in_buf, const size_t cobs_in_size );
+  size_t decode_from_wire( void *const cobs_in_buf, const size_t cobs_in_size, void *npb_out_buf, const size_t npb_out_size );
 
   /**
    * @brief Gets the largest possible COBS message size this module can handle.

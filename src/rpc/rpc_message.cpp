@@ -277,12 +277,12 @@ namespace mb::rpc::message
   }
 
 
-  size_t decode_from_wire( void *const cobs_in_buf, const size_t cobs_in_size )
+  size_t decode_from_wire( void *const cobs_in_buf, const size_t cobs_in_size, void *npb_out_buf, const size_t npb_out_size )
   {
     /*-------------------------------------------------------------------------
     Input Validation
     -------------------------------------------------------------------------*/
-    if( !s_msg_reg || !cobs_in_buf )
+    if( !s_msg_reg || !cobs_in_buf || !npb_out_buf || !cobs_in_size || !npb_out_size )
     {
       return 0;
     }
@@ -389,7 +389,7 @@ namespace mb::rpc::message
     [ Variable  ]
     -------------------------------------------------------------------------*/
     stream = pb_istream_from_buffer( reinterpret_cast<pb_byte_t *>( npb_start ), nanopb_data_size );
-    if( !pb_decode_ex( &stream, base_msg_iter->second.fields, cobs_in_buf, PB_DECODE_NOINIT ) )
+    if( !pb_decode_ex( &stream, base_msg_iter->second.fields, npb_out_buf, PB_DECODE_NOINIT ) )
     {
       mbed_assert_continue_msg( false, stream.errmsg );
       return 0;

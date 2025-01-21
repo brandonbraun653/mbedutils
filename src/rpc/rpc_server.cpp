@@ -12,6 +12,7 @@
 Includes
 -----------------------------------------------------------------------------*/
 #include <cobs.h>
+#include <mbedutils/assert.hpp>
 #include <mbedutils/rpc.hpp>
 #include <nanoprintf.h>
 
@@ -342,7 +343,9 @@ namespace mb::rpc::server
       /*-----------------------------------------------------------------------
       Decode the message
       -----------------------------------------------------------------------*/
-      if( !message::decode_from_wire( mCfg.decodeBuffer.data(), frame_size ) )
+      mbed_dbg_assert( mCfg.decodeBuffer.max_size() >= mCfg.encodeBuffer.max_size() );
+      if( !message::decode_from_wire( mCfg.decodeBuffer.data(), frame_size, mCfg.encodeBuffer.data(),
+                                      mCfg.encodeBuffer.max_size() ) )
       {
         mbed_assert_continue_msg( false, "Failed to decode message" );
         return false;
@@ -351,7 +354,7 @@ namespace mb::rpc::server
       /*-----------------------------------------------------------------------
       Find the service associated with the message
       -----------------------------------------------------------------------*/
-      req_header    = reinterpret_cast<mbed_rpc_Header *>( mCfg.decodeBuffer.data() );
+      req_header    = reinterpret_cast<mbed_rpc_Header *>( mCfg.encodeBuffer.data() );
       auto svc_iter = mCfg.registry->find( req_header->svcId );
 
       if( ( svc_iter == mCfg.registry->end() ) || !svc_iter->second )
@@ -392,7 +395,7 @@ namespace mb::rpc::server
       Copy the full request size. Must copy the full structure type out even
       though less data may have been received due to NPB unpacking semantics.
       -----------------------------------------------------------------------*/
-      memcpy( request_data, mCfg.decodeBuffer.data(), request_size );
+      memcpy( request_data, mCfg.encodeBuffer.data(), request_size );
     }    // End of critical section
 
     /*-------------------------------------------------------------------------
