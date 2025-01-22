@@ -200,7 +200,7 @@ namespace mb::db
     fdb_kvdb mDB; /**< FlashDB state management for NVM */
     alignas( 4 ) uint32_t _pad;
 
-    int  write_fdb_node( const KVNode &node, const void *data, const size_t size );
+    int  write_fdb_node( KVNode &node, const void *data, const size_t size );
     int  write_fdb_blob( const HashKey key, const void *data, const size_t size );
     bool sync_node( const KVNode &node );
   };

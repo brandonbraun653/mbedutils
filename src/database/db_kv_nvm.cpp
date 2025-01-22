@@ -121,7 +121,7 @@ namespace mb::db
     Configure the RAM cache components
     -------------------------------------------------------------------------*/
     RamKVDB::Config ram_cfg;
-    ram_cfg.ext_node_dsc     = config.ext_node_dsc;
+    ram_cfg.ext_node_dsc         = config.ext_node_dsc;
     ram_cfg.ext_transcode_buffer = config.ext_transcode_buffer;
 
     auto ram_cfg_error = RamKVDB::configure( ram_cfg );
@@ -699,8 +699,7 @@ namespace mb::db
     {
       if( ( node.flags & needs_write_bits ) == needs_write_bits )
       {
-        auto size = write_fdb_node( node, node.datacache, node.dataSize );
-        mbed_assert_continue_msg( size >= 0, "Flush key %d to NVM failure", node.hashKey );
+        write_fdb_node( node, node.datacache, node.dataSize );
       }
     }
   }
@@ -717,24 +716,39 @@ namespace mb::db
    * @param size  Size of the data to write
    * @return int  Number of bytes written if successful, negative error code otherwise
    */
-  int NvmKVDB::write_fdb_node( const KVNode &node, const void *data, const size_t size )
+  int NvmKVDB::write_fdb_node( KVNode &node, const void *data, const size_t size )
   {
+    /*-------------------------------------------------------------------------
+    Flush the data to NVM
+    -------------------------------------------------------------------------*/
+    int write_size = 0;
+
     if( node.pbFields )
     {
       pb_ostream_t stream = pb_ostream_from_buffer( mTranscodeBuffer.data(), mTranscodeBuffer.max_size() );
 
       if( !pb_encode( &stream, node.pbFields, data ) )
       {
-        mbed_assert_continue_msg( false, "KVNode %d encode failure: %s", node.hashKey, stream.errmsg );
+        mbed_assert_continue_msg( false, "KVNode key %d encode failure: %s", node.hashKey, stream.errmsg );
         return -1;
       }
 
-      return write_fdb_blob( node.hashKey, mTranscodeBuffer.data(), stream.bytes_written );
+      write_size = write_fdb_blob( node.hashKey, mTranscodeBuffer.data(), stream.bytes_written );
     }
     else
     {
-      return write_fdb_blob( node.hashKey, data, size );
+      write_size = write_fdb_blob( node.hashKey, data, size );
     }
+
+    /*-------------------------------------------------------------------------
+    Flush successful. Data no longer dirty.
+    -------------------------------------------------------------------------*/
+    if( write_size > 0 )
+    {
+      node.flags &= ~KV_FLAG_DIRTY;
+    }
+
+    return write_size;
   }
 
 
@@ -748,13 +762,13 @@ namespace mb::db
    */
   int NvmKVDB::write_fdb_blob( const HashKey key, const void *data, const size_t size )
   {
-    fdb_blob  blob;
+    fdb_blob  blob     = { 0 };
     HashRepr  key_repr = hash_to_fdb_key( key );
     fdb_err_t error    = fdb_kv_set_blob( &mDB, key_repr.data(), fdb_blob_make( &blob, data, size ) );
 
     if( error != FDB_NO_ERR )
     {
-      mbed_assert_continue_msg( false, "Failed to write key %d to NVM: %s", key, fdb_err_to_str( error ) );
+      mbed_assert_continue_msg( false, "Write key %d to NVM failed: %s", key, fdb_err_to_str( error ) );
       return -1;
     }
 

@@ -246,7 +246,7 @@ namespace mb::rpc::message
     -------------------------------------------------------------------------*/
     etl::crc16_xmodem crc_calculator;
     crc_calculator.reset();
-    std::copy( npb_start, npb_start + stream.bytes_written, crc_calculator.input() );
+    etl::copy( npb_start, npb_start + stream.bytes_written, crc_calculator.input() );
     uint16_t crc = crc_calculator.value();
 
     cob_start[ 2 ] = ( crc >> 8 ) & 0xFF;

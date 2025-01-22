@@ -457,8 +457,7 @@ namespace mb::rpc::server
   size_t Server::read_cobs_frame()
   {
     /*-------------------------------------------------------------------------
-    Empty the RX buffer of any null bytes that may have been left over from
-    a previous frame. New frames start on the first non-null byte.
+    Remove leading null bytes, they are not part of the frame.
     -------------------------------------------------------------------------*/
     while( !mCfg.streamBuffer->empty() && ( mCfg.streamBuffer->front() == 0 ) )
     {
@@ -468,28 +467,18 @@ namespace mb::rpc::server
     /*-------------------------------------------------------------------------
     Scan the RX buffer for a full frame
     -------------------------------------------------------------------------*/
-    size_t frame_size = 0;
-
-    for( auto iter = mCfg.streamBuffer->begin();
-         ( iter != mCfg.streamBuffer->end() ) && ( frame_size < mCfg.decodeBuffer.max_size() ); iter++ )
-    {
-      mCfg.decodeBuffer[ frame_size++ ] = *iter;
-      if( *iter == 0 )
-      {
-        break;
-      }
-    }
+    auto   end_iter   = etl::find( mCfg.streamBuffer->begin(), mCfg.streamBuffer->end(), 0 );
+    size_t frame_size = etl::distance( mCfg.streamBuffer->begin(), end_iter ) + 1;
 
     /*-------------------------------------------------------------------------
     Remove data from the stream buffer
     -------------------------------------------------------------------------*/
-    if( ( frame_size > 1 ) && ( mCfg.decodeBuffer[ frame_size - 1 ] == 0 ) )
+    if( ( frame_size > 1 ) && ( end_iter != mCfg.streamBuffer->end() ) && ( frame_size <= mCfg.decodeBuffer.max_size() ) )
     {
       /*-----------------------------------------------------------------------
-      Clear the remainder of the buffer to zero. This helps construct clean NPB
-      structures when the decode process is invoked.
+      Copy out the data to the decode buffer for processing
       -----------------------------------------------------------------------*/
-      etl::fill( mCfg.decodeBuffer.begin() + frame_size, mCfg.decodeBuffer.end(), 0 );
+      etl::copy( mCfg.streamBuffer->begin(), end_iter + 1, mCfg.decodeBuffer.begin() );
 
       /*-----------------------------------------------------------------------
       Remove the full frame data
@@ -514,7 +503,6 @@ namespace mb::rpc::server
       If the buffer is full and no frame was found, then we have to flush it.
       This effectively means it's not possible to find a full frame anymore.
       -----------------------------------------------------------------------*/
-      mbed_assert_continue_msg( false, "RX buffer full with no COBS frame. Discarding %d bytes.", frame_size );
       mCfg.streamBuffer->clear();
     }
 
