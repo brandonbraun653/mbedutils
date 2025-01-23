@@ -610,6 +610,14 @@ namespace mb::db
     }
 
     /*-------------------------------------------------------------------------
+    Don't re-write the data if it's already in the cache and matches
+    -------------------------------------------------------------------------*/
+    if( node->datacache && ( node->dataSize == size ) && ( memcmp( node->datacache, data, size ) == 0 ) )
+    {
+      return size;
+    }
+
+    /*-------------------------------------------------------------------------
     Commit the data to NVM first to ensure consistency
     -------------------------------------------------------------------------*/
     if( node->flags & KV_FLAG_PERSISTENT )
