@@ -135,9 +135,10 @@ namespace mb::db
     /*-------------------------------------------------------------------------
     Data State Flags
     -------------------------------------------------------------------------*/
-    KV_FLAG_LOCKED = 1 << 4, /**< Data is locked and cannot be modified */
-    KV_FLAG_DIRTY  = 1 << 5, /**< Data has been modified and needs to be written */
-    KV_FLAG_VALID  = 1 << 6, /**< Data has been validated and is in a high-trust state */
+    KV_FLAG_LOCKED      = 1 << 4, /**< Data is locked and cannot be modified */
+    KV_FLAG_DIRTY       = 1 << 5, /**< Data has been modified and needs to be written */
+    KV_FLAG_VALID       = 1 << 6, /**< Data has been validated and is in a high-trust state */
+    KV_FLAG_FORCE_WRITE = 1 << 7, /**< Data should be written regardless of whats in the cache */
 
     /*-------------------------------------------------------------------------
     Insertion Policies
@@ -379,6 +380,6 @@ namespace mb::db
    */
   bool node_deserialize( KVNode &node, const void *data, const size_t size );
 
-}  // namespace mb::db
+}    // namespace mb::db
 
-#endif  /* !MBEDUTILS_DATABASE_PARAMETERS_HPP */
+#endif /* !MBEDUTILS_DATABASE_PARAMETERS_HPP */

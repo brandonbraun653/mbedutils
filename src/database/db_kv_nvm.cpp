@@ -612,8 +612,12 @@ namespace mb::db
     /*-------------------------------------------------------------------------
     Don't re-write the data if it's already in the cache and matches
     -------------------------------------------------------------------------*/
-    if( node->datacache && ( node->dataSize == size ) && ( memcmp( node->datacache, data, size ) == 0 ) )
-    {
+    /* clang-format off */
+    if( ( ( node->flags & KV_FLAG_FORCE_WRITE ) == 0 )    // See if we have the option to skip writing
+     && ( node->datacache )                               // We do have memory backing right?
+     && ( node->dataSize <= size )                        // Ensure we don't cross memory boundaries
+     && ( memcmp( node->datacache, data, size ) == 0 ) )  // Data is the same?
+    { /* clang-format on */
       return size;
     }
 
